@@ -23,7 +23,7 @@ Thu thập và làm sạch bài báo tài chính tiếng Việt để tạo corp
 data/raw/articles_raw.jsonl
 data/raw/html/
 data/processed/articles_clean.jsonl
-data/db/finevent_vn.sqlite
+PostgreSQL database
 reports/data/data_quality_summary.md
 ```
 
@@ -33,7 +33,8 @@ reports/data/data_quality_summary.md
 - `BeautifulSoup` để parse HTML.
 - `trafilatura` để trích nội dung chính nếu phù hợp.
 - Playwright nếu trang cần render JavaScript.
-- SQLite để lưu metadata có cấu trúc.
+- PostgreSQL để lưu metadata có cấu trúc.
+- SQLAlchemy + Alembic để quản lý schema/migration.
 - JSONL để lưu raw/clean artifacts.
 
 ## Cách triển khai chi tiết
@@ -127,7 +128,7 @@ Tạo hint, không xem là gold:
 
 Ticker/company lấy từ dictionary `data/dictionaries/ticker_company_map.csv`.
 
-### Bước 8: Ghi SQLite
+### Bước 8: Ghi PostgreSQL
 
 Ghi bảng:
 
@@ -157,7 +158,7 @@ Vector và chunk chưa tạo ở milestone này.
 
 - Có tối thiểu 100 bài sạch.
 - Có `articles_clean.jsonl`.
-- Có SQLite bảng `articles` và `article_metadata`.
+- Có PostgreSQL bảng `articles` và `article_metadata`.
 - Có báo cáo `reports/data/data_quality_summary.md`.
 
 ## Lỗi thường gặp
@@ -168,4 +169,3 @@ Vector và chunk chưa tạo ở milestone này.
 | Bài quá ngắn | Loại hoặc gắn `parse_warning` |
 | Nhiều bài trùng | Dedup bằng hash và similarity |
 | Không có ticker | Để hint rỗng, không tự bịa |
-

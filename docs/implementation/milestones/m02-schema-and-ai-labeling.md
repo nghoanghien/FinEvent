@@ -26,7 +26,7 @@ docs/schema/event-schema.md
 data/labels/events_ai_generated.jsonl
 data/labels/events_gold.jsonl
 data/labels/events_rejected.jsonl
-data/db/finevent_vn.sqlite
+PostgreSQL database
 reports/data/labeling_summary.md
 ```
 
@@ -34,7 +34,7 @@ reports/data/labeling_summary.md
 
 - Teacher LLM mạnh để sinh nhãn.
 - Pydantic hoặc JSON Schema để validate.
-- SQLite bảng `events_gold`.
+- PostgreSQL bảng `events_gold`.
 - JSONL để lưu raw teacher output và validated gold.
 - Repair prompt để sửa lỗi format/schema.
 
@@ -111,7 +111,7 @@ Nếu lỗi format/schema, gọi repair prompt:
 Nếu output pass validation sau lần đầu hoặc sau repair:
 
 - ghi vào `events_gold.jsonl`.
-- ghi SQLite `events_gold`.
+- ghi PostgreSQL `events_gold`.
 
 Nếu fail sau số lần retry:
 

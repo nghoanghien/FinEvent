@@ -20,11 +20,11 @@ Dựng ứng dụng demo cơ bản để người xem nhập URL/text bài báo 
 
 ## Công nghệ
 
-- Streamlit.
-- LangGraph workflow từ M6.
-- SQLite.
-- ChromaDB.
-- pandas.
+- Next.js + TypeScript.
+- FastAPI backend.
+- LangGraph workflow từ M6 chạy ở backend.
+- PostgreSQL + pgvector.
+- Tailwind CSS hoặc shadcn/ui nếu muốn dựng UI nhanh.
 
 ## Cách triển khai chi tiết
 
@@ -128,7 +128,8 @@ Cho tải:
 
 ## Done Criteria
 
-- Chạy được `streamlit run app/main.py`.
+- Chạy được `pnpm dev` hoặc `npm run dev` trong thư mục `frontend/`.
+- Frontend gọi được FastAPI endpoint `/extract`.
 - User nhập bài và thấy kết quả.
 - Có ít nhất 2 case demo.
 - UI không crash khi workflow lỗi.
@@ -137,7 +138,6 @@ Cho tải:
 
 | Lỗi | Cách xử lý |
 | --- | --- |
-| App chứa logic quá nhiều | Core logic ở `src/`, app chỉ gọi workflow |
+| Frontend chứa logic quá nhiều | Core logic ở backend, frontend chỉ gọi FastAPI |
 | Output khó hiểu | Hiển thị theo step: retrieval -> pattern -> extraction -> verification |
 | Demo chậm | Cache retrieval/index/model response nếu phù hợp |
-

@@ -69,7 +69,7 @@ Chi tiết: [m03-rag-preparation.md](milestones/m03-rag-preparation.md) và [m04
 - Chunk bài báo theo structure-aware/hierarchical strategy.
 - Gọi Cloudflare embedding.
 - So sánh thêm BGE-M3, multilingual E5, GTE multilingual nếu đủ thời gian.
-- Lưu vector index trong ChromaDB.
+- Lưu vector index mặc định bằng pgvector.
 - Tạo FAISS baseline.
 - Tạo BM25 index.
 - Implement vector search, BM25, hybrid search, metadata-aware retrieval.
@@ -165,7 +165,7 @@ Chi tiết: [m09-demo-app.md](milestones/m09-demo-app.md)
 
 ### Việc cần làm
 
-- Dựng Streamlit app.
+- Dựng Next.js frontend.
 - Nhập URL/text.
 - Hiển thị article preview.
 - Hiển thị metadata hints.
@@ -176,7 +176,7 @@ Chi tiết: [m09-demo-app.md](milestones/m09-demo-app.md)
 
 ### Done khi
 
-- Chạy được app local.
+- Chạy được frontend local và gọi FastAPI backend.
 - Demo được 1 bài `HAS_EVENT` và 1 bài `NO_EVENT`.
 - Output có thể export JSON/CSV.
 
@@ -228,7 +228,7 @@ Nếu thời gian hạn chế:
 
 1. Làm data + schema thật chắc.
 2. Làm extraction prompt + validation.
-3. Làm RAG preparation: chunking, embedding, ChromaDB, BM25.
+3. Làm RAG preparation: chunking, embedding, pgvector, BM25.
 4. Làm retrieval/rerank.
 5. Làm evaluation.
 6. Làm demo app.

@@ -33,7 +33,7 @@ Kết quả:
 
 - clean corpus.
 - metadata.
-- SQLite records.
+- PostgreSQL records.
 
 ## Thành phần 2: Event schema
 
@@ -59,7 +59,7 @@ Khác với naive RAG, project dùng:
 - structure-aware chunking.
 - hierarchical representation.
 - multiple embedding models.
-- ChromaDB.
+- pgvector.
 - BM25.
 
 ## Thành phần 4: Retrieval and reranking

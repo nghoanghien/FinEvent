@@ -8,13 +8,12 @@ App không cần đầy đủ tính năng production. Mục tiêu là chứng mi
 
 ## Công nghệ
 
-- Streamlit.
-- Python backend gọi LangGraph workflow online.
-- SQLite local cho metadata, labels và run logs.
-- ChromaDB local cho vector store mặc định.
+- Next.js + TypeScript.
+- Frontend gọi FastAPI endpoint chạy LangGraph workflow online.
+- Tailwind CSS hoặc shadcn/ui để dựng UI nhanh và nhất quán.
+- PostgreSQL + pgvector cho metadata, labels, embeddings và run logs.
 - FAISS baseline nếu user chọn cấu hình ablation.
 - BM25 index local cho lexical retrieval.
-- Pandas để hiển thị bảng.
 
 ## User Flow
 
@@ -133,18 +132,21 @@ Nếu user nhập text:
 1. Tách title nếu có.
 2. Dùng toàn bộ text làm body.
 
-### Step 2: Run Retrieval
+### Step 2: Call FastAPI workflow
 
-Gọi LangGraph node retrieval:
+Next.js frontend gọi FastAPI để chạy workflow:
 
-```python
-state = workflow.invoke({
-    "input_article": article,
-    "run_config": run_config
-})
+```ts
+const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/extract`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ article, run_config }),
+});
+
+const result = await response.json();
 ```
 
-Hoặc nếu test module riêng:
+Nếu test module riêng không qua API:
 
 ```python
 retrieved_contexts = retrieval_engine.search(article, top_k=50)
@@ -218,17 +220,27 @@ App nên hiển thị runtime metrics:
 ## File đề xuất
 
 ```text
-app/
-  main.py
-  components.py
-  config.py
+frontend/
+  app/
+    page.tsx
+    runs/[runId]/page.tsx
+  components/
+    ArticleInput.tsx
+    RetrievalTrace.tsx
+    PatternTable.tsx
+    EventTable.tsx
+    VerificationPanel.tsx
+  lib/
+    api.ts
+    types.ts
+    schemas.ts
 ```
 
-`main.py` chỉ điều phối UI. Logic retrieval/extraction/validation nên nằm ở module riêng để có thể test.
+Frontend chỉ điều phối UI và gọi FastAPI. Logic retrieval/extraction/validation nằm ở backend Python để có thể test độc lập.
 
 ## Acceptance Criteria v1
 
-- Chạy được bằng `streamlit run app/main.py`.
+- Chạy được bằng `pnpm dev` hoặc `npm run dev` trong thư mục `frontend/`.
 - Nhập text bài báo và nhận bảng sự kiện.
 - Hiển thị retrieval, pattern, evidence và raw JSON.
 - Không crash khi model trả lỗi hoặc JSON invalid.

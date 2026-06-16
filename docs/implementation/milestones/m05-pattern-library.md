@@ -9,22 +9,22 @@ Tạo thư viện pattern/few-shot examples từ AI-generated gold labels để 
 ```text
 data/labels/events_gold.jsonl
 data/processed/articles_clean.jsonl
-data/vector_store/chroma/
+PostgreSQL pgvector pattern embeddings
 ```
 
 ## Output
 
 ```text
 data/patterns/patterns.jsonl
-data/vector_store/chroma/event_patterns/
+PostgreSQL table/index for event_patterns
 reports/evaluation/pattern_metrics.csv
 ```
 
 ## Công nghệ
 
 - JSONL.
-- SQLite nếu muốn query pattern có cấu trúc.
-- ChromaDB collection `event_patterns`.
+- PostgreSQL nếu muốn query pattern có cấu trúc.
+- pgvector index cho `event_patterns`.
 - Embedding model mặc định.
 - Pydantic/JSON Schema để đảm bảo pattern output hợp lệ.
 
@@ -68,7 +68,7 @@ Pattern chỉ được đưa vào store nếu:
 
 ### Bước 4: Embed pattern
 
-Lưu vào ChromaDB collection `event_patterns`.
+Lưu vào pgvector table/index `event_patterns`.
 
 Metadata:
 
@@ -123,4 +123,3 @@ Mặc định lấy 3 pattern, tối đa 5.
 | Pattern retrieval sai loại | Thêm metadata filter/boost |
 | Quá nhiều pattern làm 8B nhiễu | Giới hạn mặc định 3 |
 | Không có pattern cho class hiếm | Crawl/gán nhãn bổ sung theo class |
-

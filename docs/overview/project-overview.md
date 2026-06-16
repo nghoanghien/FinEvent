@@ -69,7 +69,7 @@ flowchart TD
     K --> L[Schema and evidence verification]
     L --> M[Structured event table]
     M --> N[Evaluation reports]
-    M --> O[Streamlit demo app]
+    M --> O[Next.js frontend demo]
 ```
 
 ## Module chính
@@ -90,18 +90,23 @@ flowchart TD
 
 | Nhóm | Công nghệ |
 | --- | --- |
-| Ngôn ngữ | Python 3.10+ |
+| Ngôn ngữ | Python 3.11+ |
+| Python environment | Miniconda + `environment.yml` |
+| Python package manager | `uv` chạy trong conda env, `pyproject.toml`, `requirements.lock` |
+| Project metadata | `pyproject.toml` cho package metadata và tool config |
 | Crawl | `requests`, `BeautifulSoup`, `trafilatura`; Playwright nếu trang cần render JS |
 | Lưu dữ liệu raw/processed | JSONL |
-| Structured DB | SQLite v1 tại `data/db/finevent_vn.sqlite`; PostgreSQL là hướng mở rộng |
+| Primary DB | PostgreSQL + pgvector |
+| DB migration | SQLAlchemy + Alembic |
 | Embedding | Cloudflare Workers AI embedding đã có sẵn; so sánh thêm BGE-M3, multilingual E5, GTE multilingual |
-| Vector search | ChromaDB mặc định; FAISS làm baseline |
-| Lexical search | BM25 |
-| Workflow runtime | LangGraph cho workflow online; Python scripts cho batch workflows |
+| Vector search | pgvector mặc định; FAISS làm baseline offline |
+| Lexical search | PostgreSQL full-text/trigram + BM25 experiment baseline |
+| Workflow runtime | LangGraph cho workflow online; Typer CLI cho batch workflows |
+| API backend | FastAPI |
 | LLM | Qwen/Llama/Mistral 7B-8B instruct chạy local/API |
 | Validation | Pydantic hoặc JSON Schema |
 | Evaluation | scikit-learn, pandas |
-| Demo | Streamlit |
+| Frontend | Next.js + TypeScript gọi FastAPI, không chứa core logic |
 
 ## Success Criteria
 

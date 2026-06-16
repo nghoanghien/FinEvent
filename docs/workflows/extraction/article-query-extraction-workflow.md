@@ -73,12 +73,12 @@ Nếu user paste text:
 | Workflow orchestration | LangGraph |
 | Article parsing | parser từ data workflow |
 | Query rewriting | rule + optional LLM |
-| Retrieval | BM25 + ChromaDB |
+| Retrieval | BM25 + pgvector |
 | Reranking | rule-aware + LLM reasoning rerank |
-| Pattern selection | ChromaDB collection `event_patterns` |
+| Pattern selection | pgvector pattern embeddings |
 | Extraction | student LLM 7B/8B |
 | Validation | Pydantic/JSON Schema |
-| Logging | JSONL + SQLite `extraction_runs` |
+| Logging | JSONL + PostgreSQL `extraction_runs` |
 
 ## LangGraph state
 
@@ -190,7 +190,7 @@ Kết quả các sub-query được hợp nhất trước khi rerank.
 Chạy song song:
 
 - BM25 trên title + body + event keywords.
-- Dense retrieval trên ChromaDB.
+- Dense retrieval trên pgvector.
 - Metadata filter theo ticker/source/time nếu có.
 
 Điểm gợi ý:

@@ -60,7 +60,7 @@ Pattern record:
 - Teacher LLM mạnh: Gemini/GPT/Claude hoặc model lớn khác.
 - JSON Schema/Pydantic để validate output.
 - AI repair prompt để sửa output lỗi format/schema.
-- ChromaDB collection `event_patterns` để truy hồi pattern tương tự.
+- PostgreSQL + pgvector table/index cho pattern embeddings.
 - FAISS baseline nếu cần so sánh vector search tối giản.
 
 ## Cách hoạt động
@@ -125,7 +125,7 @@ Pattern được chấp nhận khi `auto_validation_status=passed`. Project khô
 Khi xử lý bài mới:
 
 1. Tạo query từ bài mới, event keywords và event type hints.
-2. Tìm pattern tương tự trong ChromaDB theo vector và metadata.
+2. Tìm pattern tương tự bằng pgvector theo vector và metadata.
 3. Rerank pattern theo event type/subtype, ticker/company và argument overlap.
 4. Chọn 3 pattern mặc định, tối đa 5 pattern nếu bài phức tạp.
 5. Đưa pattern vào prompt extraction.
@@ -178,8 +178,7 @@ data/
     patterns_ai_generated.jsonl
     patterns_rejected.jsonl
   vector_store/
-    chroma/
-      event_patterns/
+    pgvector_tables
     faiss/
       pattern_embeddings.faiss
 ```

@@ -8,7 +8,7 @@ Chuẩn bị corpus cho retrieval: chunking có cấu trúc, embedding, vector i
 
 ```text
 data/processed/articles_clean.jsonl
-data/db/finevent_vn.sqlite
+PostgreSQL database
 configs/default.yaml
 ```
 
@@ -16,7 +16,7 @@ configs/default.yaml
 
 ```text
 data/processed/chunks.jsonl
-data/vector_store/chroma/
+PostgreSQL pgvector tables/indexes
 data/vector_store/faiss/
 data/retrieval/bm25_index.pkl
 reports/data/rag_preparation_summary.md
@@ -27,10 +27,10 @@ reports/data/rag_preparation_summary.md
 - Custom structure-aware chunker.
 - Cloudflare embedding hiện có.
 - BGE-M3, multilingual E5, GTE multilingual cho thí nghiệm.
-- ChromaDB mặc định.
+- PostgreSQL + pgvector mặc định.
 - FAISS baseline.
 - BM25 bằng `rank-bm25` hoặc tương đương.
-- SQLite bảng `chunks`.
+- PostgreSQL bảng `chunks` và embedding tables.
 
 ## Cách triển khai chi tiết
 
@@ -76,9 +76,9 @@ Mỗi embedding record cần log:
 - created at.
 - source text ID.
 
-### Bước 5: Build ChromaDB collections
+### Bước 5: Build pgvector indexes
 
-Tạo collection:
+Tạo bảng/index embedding:
 
 - `financial_news_documents`.
 - `financial_news_chunks`.
@@ -92,6 +92,8 @@ Metadata filter cần có:
 - tickers_hint.
 - event_keywords.
 - chunk_level.
+
+Không đồng bộ sang vector database riêng trong v1. PostgreSQL + pgvector là nơi lưu và query vector chính.
 
 ### Bước 6: Build FAISS baseline
 
@@ -120,7 +122,7 @@ Report cần có:
 
 - Test chunk không mất `article_id`.
 - Test chunk có metadata bắt buộc.
-- Test ChromaDB query trả kết quả.
+- Test pgvector query trả kết quả.
 - Test BM25 query bằng keyword sự kiện trả kết quả hợp lý.
 - Test cache không gọi embedding lại với cùng hash.
 
@@ -136,7 +138,7 @@ Report cần có:
 ## Done Criteria
 
 - Có `chunks.jsonl`.
-- ChromaDB query được top K.
+- pgvector query được top K.
 - BM25 query được top K.
 - FAISS baseline build được nếu config bật.
 - Có summary report.
@@ -149,4 +151,3 @@ Report cần có:
 | Embedding quá tốn chi phí | Cache theo content hash |
 | Metadata thiếu | Lấy từ article metadata, nếu thiếu ghi warning |
 | BM25 kém với tiếng Việt | Thử tokenizer hoặc keyword normalization |
-

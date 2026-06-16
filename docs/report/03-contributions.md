@@ -197,7 +197,7 @@ Nếu fine-tune toàn bộ reasoning end-to-end ngay từ đầu, rất khó bi�
 - cleaning và metadata normalization.
 - structure-aware chunking theo title, sapo, paragraph, bullet.
 - hierarchical representation: document, section, paragraph.
-- embedding index bằng ChromaDB.
+- embedding index bằng pgvector.
 - FAISS baseline cho ablation.
 - BM25 index cho lexical retrieval.
 

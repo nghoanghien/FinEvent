@@ -20,6 +20,9 @@ configs/
   default.yaml
   logging.yaml
 .env.example
+environment.yml
+pyproject.toml
+requirements.lock
 src/
   finevent/
     __init__.py
@@ -35,17 +38,33 @@ reports/
 
 ## Công nghệ
 
-- Python 3.10+.
+- Python 3.11+.
+- Miniconda + `environment.yml` để quản lý Python environment và dependency ML/NLP.
+- `uv` để compile/sync pip dependencies bên trong conda env đã activate.
+- `pyproject.toml` để lưu package metadata, dependency groups, Ruff/Pyright/pytest config.
+- `requirements.lock` để khóa dependency Python đã resolve.
 - YAML config bằng `pyyaml` hoặc `ruamel.yaml`.
 - `.env` bằng `python-dotenv`.
 - Logging dạng JSONL bằng `logging` chuẩn hoặc `structlog`.
 - Test bằng `pytest`.
+- Docker Compose cho PostgreSQL + pgvector.
 
 ## Cách triển khai chi tiết
 
 ### Bước 1: Tạo cấu trúc thư mục code
 
-Tạo package chính `src/finevent/` để chứa core logic. Không đặt logic vào notebook hoặc app Streamlit.
+Tạo môi trường bằng Miniconda:
+
+```bash
+conda env create -f environment.yml
+conda activate finevent-vn
+uv pip compile pyproject.toml -o requirements.lock
+uv pip sync requirements.lock
+```
+
+Trong project này, Miniconda là tool tạo môi trường. `uv` chỉ dùng nhóm lệnh `uv pip ...` sau khi đã activate conda env, không dùng `uv sync` làm mặc định để tránh tạo thêm `.venv` riêng.
+
+Tạo package chính `src/finevent/` để chứa core logic. Không đặt logic vào notebook hoặc frontend Next.js.
 
 Các module nền:
 
@@ -64,7 +83,8 @@ project:
   timezone: Asia/Bangkok
 
 storage:
-  sqlite_path: data/db/finevent_vn.sqlite
+  postgres_dsn: postgresql+psycopg://finevent:password@localhost:5432/finevent
+  vector_backend: pgvector
   raw_dir: data/raw
   processed_dir: data/processed
   labels_dir: data/labels
@@ -93,6 +113,7 @@ CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_API_TOKEN=
 TEACHER_LLM_API_KEY=
 STUDENT_LLM_ENDPOINT=
+POSTGRES_DSN=
 ```
 
 ### Bước 4: Tạo run ID và logging convention
@@ -123,6 +144,7 @@ Script `python -m finevent.hello_pipeline` chỉ cần:
 - Test load config thành công.
 - Test `.env.example` không chứa secret thật.
 - Test tạo được run log trong `runs/`.
+- Test `uv pip sync requirements.lock` chạy trong conda env đã activate.
 
 ## Metrics / Done Criteria
 
@@ -138,5 +160,5 @@ Script `python -m finevent.hello_pipeline` chỉ cần:
 | Hard-code path Windows | Dùng `pathlib.Path` |
 | Hard-code API key | Dùng `.env` |
 | Mỗi script log một kiểu | Dùng chung `logging_utils.py` |
-| App Streamlit chứa hết logic | Core logic phải ở `src/finevent/` |
-
+| `uv` tạo `.venv` riêng ngoài conda env | Dùng `uv pip ...` sau khi `conda activate finevent-vn` |
+| Frontend chứa hết logic | Core workflow phải ở backend `src/finevent/`, frontend chỉ gọi API |

@@ -38,8 +38,8 @@ Input có thể là:
 data/raw/articles_raw.jsonl
 data/processed/articles_clean.jsonl
 data/processed/chunks.jsonl
-data/db/finevent_vn.sqlite
-data/vector_store/chroma/
+PostgreSQL database
+PostgreSQL pgvector tables/indexes
 data/vector_store/faiss/
 data/retrieval/bm25_index.pkl
 reports/data/data_quality_summary.md
@@ -55,8 +55,8 @@ reports/data/data_quality_summary.md
 | Metadata | dictionary ticker-company, rule-based extractor, optional LLM |
 | Chunking | custom Python chunker |
 | Embedding | Cloudflare endpoint, BGE-M3, E5, GTE |
-| Vector store | ChromaDB mặc định, FAISS baseline |
-| Structured DB | SQLite |
+| Vector store | PostgreSQL + pgvector mặc định, FAISS baseline offline |
+| Structured DB | PostgreSQL |
 | BM25 | `rank-bm25` hoặc implementation tương đương |
 
 ## Workflow chi tiết
@@ -232,10 +232,10 @@ Không gọi embedding lại nếu text chưa đổi.
 
 Tạo:
 
-- ChromaDB collection cho vector search.
+- pgvector tables/indexes cho vector search.
 - FAISS index baseline.
 - BM25 index cho lexical search.
-- SQLite rows cho metadata/chunk/event trace.
+- PostgreSQL rows cho metadata/chunk/event trace.
 
 ### Bước 11: Quality report
 
@@ -249,7 +249,7 @@ Tạo báo cáo:
 | Average chunks/article | 2-8 |
 | Metadata coverage | >= 80% có source/date/title |
 | Embedding success rate | >= 95% |
-| Chroma indexed chunks | bằng số chunk embed thành công |
+| pgvector indexed chunks | bằng số chunk embed thành công |
 
 ## Acceptance Criteria
 
@@ -257,8 +257,8 @@ Workflow hoàn thành khi:
 
 - Có `articles_clean.jsonl`.
 - Có `chunks.jsonl`.
-- SQLite có bảng `articles`, `article_metadata`, `chunks`.
-- ChromaDB query được top K theo vector và metadata.
+- PostgreSQL có bảng `articles`, `article_metadata`, `chunks`.
+- pgvector query được top K theo vector và metadata.
 - BM25 query được top K theo keyword.
 - Có data quality report.
 
@@ -272,4 +272,3 @@ Workflow hoàn thành khi:
 | Chunk quá dài | Tách tiếp theo paragraph/sentence |
 | Embedding API lỗi | Retry, nếu fail lưu vào queue chạy lại |
 | Metadata sai | Xem là hint, không dùng làm gold |
-

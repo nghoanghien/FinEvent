@@ -8,7 +8,7 @@ Xây và đánh giá nhiều chiến lược retrieval/reranking để chọn co
 
 ```text
 data/processed/chunks.jsonl
-data/vector_store/chroma/
+PostgreSQL pgvector indexes
 data/retrieval/bm25_index.pkl
 data/labels/events_gold.jsonl
 ```
@@ -23,7 +23,7 @@ reports/evaluation/retrieval_error_analysis.md
 
 ## Công nghệ
 
-- ChromaDB dense retrieval.
+- pgvector dense retrieval.
 - BM25 lexical retrieval.
 - Hybrid scoring.
 - Metadata filter/boost.
@@ -144,4 +144,3 @@ Metric:
 | BM25 bỏ sót câu diễn đạt khác | Kết hợp dense retrieval |
 | LLM rerank quá đắt | Chỉ rerank top 10-20 |
 | Metadata filter loại nhầm bài | Dùng boost mềm, không filter cứng quá sớm |
-

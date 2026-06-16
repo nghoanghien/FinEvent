@@ -80,8 +80,8 @@ File JSONL sau làm sạch:
 - `trafilatura` hoặc rule riêng để trích text chính.
 - `pandas` để kiểm tra chất lượng dữ liệu.
 - JSONL để lưu dữ liệu tuyến tính, dễ version bằng git/lưu artifact.
-- SQLite để lưu metadata có cấu trúc, labels và run trace.
-- ChromaDB/FAISS được build ở workflow RAG preparation, không lưu trực tiếp trong file này.
+- PostgreSQL để lưu metadata có cấu trúc, labels và run trace.
+- pgvector/FAISS được build ở workflow RAG preparation, không lưu trực tiếp trong file này.
 
 ## Cách hoạt động
 
@@ -114,7 +114,7 @@ File JSONL sau làm sạch:
 
 7. **Write structured storage**
    - Ghi bài sạch vào `articles_clean.jsonl`.
-   - Ghi metadata vào SQLite bảng `articles` và `article_metadata`.
+   - Ghi metadata vào PostgreSQL bảng `articles` và `article_metadata`.
    - Không ghi vector ở bước này.
 
 8. **Sampling for AI labeling**
@@ -178,7 +178,7 @@ data/
     events_gold.jsonl
     events_rejected.jsonl
   db/
-    finevent_vn.sqlite
+    postgres_managed_by_docker
   dictionaries/
     ticker_company_map.csv
 ```
@@ -190,6 +190,6 @@ data/
   processed/
     chunks.jsonl
   vector_store/
-    chroma/
+    pgvector/
     faiss/
 ```

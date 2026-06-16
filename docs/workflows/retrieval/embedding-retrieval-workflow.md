@@ -67,10 +67,10 @@ Danh sách context ứng viên:
 ## Công nghệ
 
 - Cloudflare Workers AI embedding endpoint đã được setup.
-- ChromaDB là vector store mặc định vì hỗ trợ metadata filtering.
+- PostgreSQL + pgvector là vector backend mặc định lâu dài.
 - FAISS dùng làm vector search baseline trong ablation.
 - BM25 cho lexical search.
-- SQLite lưu metadata bài báo, chunk và run logs.
+- PostgreSQL lưu metadata bài báo, chunk, embeddings và run logs.
 - Python scripts cho batch indexing.
 - LangGraph dùng khi retrieval là một node trong online extraction workflow.
 - Optional: reranker nhỏ, cross-encoder reranker hoặc LLM reasoning rerank.

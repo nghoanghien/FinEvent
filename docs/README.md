@@ -67,7 +67,7 @@ docs/
 | --- | --- |
 | [project-overview.md](overview/project-overview.md) | Tổng quan đề tài, mục tiêu, phạm vi, kiến trúc hệ thống |
 | [rag-nlp-positioning.md](overview/rag-nlp-positioning.md) | Định vị RAG trong đề tài NLP, tránh bị xem là naive RAG |
-| [technology-stack.md](overview/technology-stack.md) | Công nghệ, DB, vector store, workflow runtime, model serving |
+| [technology-stack.md](overview/technology-stack.md) | Long-term tech stack, DB, vector search, workflow runtime, backend, model serving |
 
 ### Schema
 
@@ -82,7 +82,7 @@ docs/
 | [data-workflow.md](workflows/data/data-workflow.md) | Thu thập, làm sạch, gán nhãn và version dữ liệu |
 | [rag-preparation-workflow.md](workflows/data/rag-preparation-workflow.md) | Workflow offline chuẩn bị corpus, chunking, embedding, index |
 | [embedding-retrieval-workflow.md](workflows/retrieval/embedding-retrieval-workflow.md) | Embedding, BM25, vector search, metadata-aware retrieval, reranking |
-| [pattern-library-workflow.md](workflows/patterns/pattern-library-workflow.md) | Tạo thư viện pattern/gold examples bằng model mạnh và auto validation |
+| [pattern-library-workflow.md](workflows/patterns/pattern-library-workflow.md) | Tạo thư viện pattern/gold examples bằng teacher LLM và auto validation |
 | [article-query-extraction-workflow.md](workflows/extraction/article-query-extraction-workflow.md) | Workflow online từ URL/text đến bảng sự kiện |
 | [llm-extraction-workflow.md](workflows/extraction/llm-extraction-workflow.md) | Workflow dùng LLM 8B để sinh bảng sự kiện có cấu trúc |
 | [verification-hallucination-workflow.md](workflows/extraction/verification-hallucination-workflow.md) | Verification, citation, groundedness và hallucination reduction |
@@ -135,8 +135,7 @@ docs/
 | Raw articles | `data/raw/articles.jsonl` | Bài báo crawl nguyên bản |
 | Clean articles | `data/processed/articles_clean.jsonl` | Bài báo đã chuẩn hóa |
 | AI-generated gold labels | `data/labels/events_gold.jsonl` | Nhãn do teacher LLM sinh và được chấp nhận làm ground truth vận hành sau auto validation |
-| Structured DB | `data/db/finevent_vn.sqlite` | Metadata, chunks, labels, run logs |
-| Vector store | `data/vector_store/chroma/` | ChromaDB collections cho chunks và patterns |
+| Primary DB | PostgreSQL + pgvector | Metadata, chunks, labels, embeddings, run logs |
 | FAISS baseline | `data/vector_store/faiss/` | Baseline vector search cho ablation |
 | Pattern library | `data/patterns/patterns.jsonl` | Few-shot examples chất lượng cao |
 | Extraction logs | `runs/extraction/` | Log từng bước workflow |
