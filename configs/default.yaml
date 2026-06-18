@@ -1,0 +1,25 @@
+project:
+  name: finevent-vn
+  timezone: Asia/Bangkok
+  config_version: m00
+
+storage:
+  postgres_dsn: postgresql+psycopg://finevent:password@localhost:5432/finevent
+  vector_backend: pgvector
+  raw_dir: data/raw
+  processed_dir: data/processed
+  labels_dir: data/labels
+  vector_store_dir: data/vector_store
+
+models:
+  embedding_default: cloudflare
+  teacher_model: teacher_llm
+  student_model: qwen_or_llama_8b
+
+retrieval:
+  top_k_stage1: 50
+  top_k_stage2: 20
+  top_k_final: 5
+
+logging:
+  run_dir: runs

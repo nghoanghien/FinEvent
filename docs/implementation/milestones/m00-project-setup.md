@@ -64,6 +64,14 @@ uv pip sync requirements.lock
 
 Trong project này, Miniconda là tool tạo môi trường. `uv` chỉ dùng nhóm lệnh `uv pip ...` sau khi đã activate conda env, không dùng `uv sync` làm mặc định để tránh tạo thêm `.venv` riêng.
 
+Khi cần chạy test/dev tools, cài nhóm dependency dev từ `pyproject.toml`:
+
+```bash
+uv pip compile pyproject.toml --extra dev --extra config -o requirements-dev.lock
+uv pip sync requirements-dev.lock
+python -m pytest
+```
+
 Tạo package chính `src/finevent/` để chứa core logic. Không đặt logic vào notebook hoặc frontend Next.js.
 
 Các module nền:
@@ -140,7 +148,7 @@ Script `python -m finevent.hello_pipeline` chỉ cần:
 
 ## Kiểm thử
 
-- `pytest tests/test_config.py`.
+- `python -m pytest tests/test_config.py`.
 - Test load config thành công.
 - Test `.env.example` không chứa secret thật.
 - Test tạo được run log trong `runs/`.
