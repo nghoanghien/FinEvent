@@ -27,6 +27,86 @@ PostgreSQL database
 reports/data/data_quality_summary.md
 ```
 
+## Implementation hiện tại
+
+Milestone 01 đã có pipeline offline-first để có thể test trước khi bật crawler mạng:
+
+```bash
+python -m finevent.ingestion \
+  --input-html-dir data/raw/html \
+  --raw-output-path data/raw/articles_raw.jsonl \
+  --clean-output-path data/processed/articles_clean.jsonl \
+  --report-path reports/data/data_quality_summary.md
+```
+
+Nếu muốn test nhanh bằng fixture:
+
+```bash
+python -m finevent.ingestion \
+  --input-html-dir tests/fixtures/html \
+  --raw-output-path data/raw/articles_raw.jsonl \
+  --clean-output-path data/processed/articles_clean.jsonl \
+  --report-path reports/data/data_quality_summary.md \
+  --min-text-chars 20
+```
+
+Nếu đã chuẩn bị `data/raw/url_candidates.jsonl` và đã cài extra ingestion, có thể tải HTML trước rồi parse:
+
+```bash
+python -m finevent.ingestion \
+  --download \
+  --url-candidates-path data/raw/url_candidates.jsonl \
+  --input-html-dir data/raw/html \
+  --raw-output-path data/raw/articles_raw.jsonl \
+  --clean-output-path data/processed/articles_clean.jsonl \
+  --report-path reports/data/data_quality_summary.md
+```
+
+Các artifact dữ liệu sinh ra trong `data/raw/*.jsonl`, `data/processed/*.jsonl` và `reports/data/*.md` được ignore khỏi git. Dictionary trong `data/dictionaries/` và schema SQL trong `infra/postgres/` được track.
+
+Pipeline hiện có fallback parser bằng Python stdlib nên vẫn chạy được khi chưa cài dependency ingestion. Khi bắt đầu crawl/parse dữ liệu thật, cài thêm nhóm ingestion:
+
+```bash
+uv pip compile pyproject.toml --extra config --extra ingestion -o requirements-ingestion.lock
+uv pip sync requirements-ingestion.lock
+```
+
+Dictionary metadata không được làm tạm. Milestone này dùng hai file quản trị trong `data/dictionaries/`:
+
+- `ticker_company_map.csv`: seed ticker/company/alias/sector cho các doanh nghiệp Việt Nam thường xuất hiện trong báo tài chính.
+- `event_keyword_taxonomy.csv`: keyword trigger được map về `event_type` và `event_subtype` theo event schema.
+
+Với ticker dictionary, CSV chỉ là seed/audit artifact. Bản vận hành lâu dài nằm trong PostgreSQL:
+
+- `ticker_companies`: một dòng cho mỗi ticker.
+- `ticker_company_aliases`: nhiều alias cho mỗi ticker, phục vụ match không dấu/có dấu.
+- `ticker_dictionary_sync_runs`: log các lần sync/update dictionary.
+
+Schema nằm ở `infra/postgres/002_ticker_dictionary.sql`.
+
+Sau mỗi lần cập nhật dictionary, chạy audit:
+
+```bash
+python -m finevent.ingestion.audit_dictionaries --fail-on-error
+```
+
+Sau khi apply SQL schema, sync CSV seed vào PostgreSQL:
+
+```bash
+python -m finevent.ingestion.sync_ticker_dictionary \
+  --csv-path data/dictionaries/ticker_company_map.csv
+```
+
+Khi backend API hoạt động, cập nhật ticker qua API thay vì sửa tay trong DB:
+
+```text
+GET  /dictionary/tickers?query=HPG
+PUT  /dictionary/tickers/{ticker}
+POST /dictionary/tickers/bulk-upsert
+```
+
+Lưu ý: ticker dictionary hiện là seed list có kiểm soát để phục vụ M1/M2, không được xem là master chính thức toàn thị trường. Trước khi chốt dataset nộp báo cáo, cần refresh/đối chiếu với nguồn chính thức HOSE/HSX, HNX, UPCoM và trang quan hệ nhà đầu tư của doanh nghiệp nếu có đổi tên/chuyển sàn.
+
 ## Công nghệ
 
 - `requests` cho trang tĩnh.
@@ -122,7 +202,10 @@ Tạo hint, không xem là gold:
 
 - `tickers_hint`.
 - `company_names_hint`.
+- `sector_hints`.
 - `event_keywords`.
+- `event_type_hints`.
+- `event_subtype_hints`.
 - `source`.
 - `published_at`.
 

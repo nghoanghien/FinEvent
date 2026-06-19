@@ -20,9 +20,25 @@ config = [
   "python-dotenv>=1.0",
   "pyyaml>=6.0",
 ]
+ingestion = [
+  "beautifulsoup4>=4.12",
+  "pandas>=2.2",
+  "requests>=2.32",
+  "sqlalchemy>=2.0",
+  "trafilatura>=1.12",
+]
+api = [
+  "fastapi>=0.115",
+  "pydantic>=2.0",
+  "sqlalchemy>=2.0",
+  "uvicorn>=0.30",
+]
 
 [project.scripts]
 finevent-hello = "finevent.hello_pipeline:main"
+finevent-ingest = "finevent.ingestion.cli:main"
+finevent-audit-dictionaries = "finevent.ingestion.audit_dictionaries:main"
+finevent-sync-ticker-dictionary = "finevent.ingestion.sync_ticker_dictionary:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

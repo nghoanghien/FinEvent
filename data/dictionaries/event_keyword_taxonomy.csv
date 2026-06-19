@@ -1,0 +1,138 @@
+event_type,event_subtype,keyword,polarity_hint,priority,notes
+MA,ACQUISITION,mua lai,neutral,3,acquisition signal
+MA,ACQUISITION,thau tom,neutral,3,acquisition signal
+MA,ACQUISITION,nhan chuyen nhuong,neutral,2,acquisition/asset transfer ambiguous
+MA,MERGER,sap nhap,neutral,3,merger signal
+MA,MERGER,hop nhat,neutral,3,merger signal
+MA,DIVESTMENT,thoai von,neutral,3,divestment signal
+MA,DIVESTMENT,rut von,neutral,3,divestment signal
+MA,STAKE_PURCHASE,mua co phan,neutral,2,stake purchase signal
+MA,STAKE_PURCHASE,nang ty le so huu,neutral,2,stake purchase signal
+MA,STAKE_SALE,ban co phan,neutral,2,stake sale signal
+MA,STAKE_SALE,giam ty le so huu,neutral,2,stake sale signal
+MA,OWNERSHIP_RESTRUCTURING,tai co cau so huu,neutral,2,ownership restructuring
+CONTRACT,NEW_CONTRACT,ky hop dong,positive,3,new contract
+CONTRACT,NEW_CONTRACT,hop dong moi,positive,3,new contract
+CONTRACT,NEW_CONTRACT,hop dong epc,positive,3,engineering procurement construction
+CONTRACT,LARGE_ORDER,don hang lon,positive,3,large order
+CONTRACT,LARGE_ORDER,nhan don hang,positive,2,order intake
+CONTRACT,BIDDING_WIN,trung thau,positive,3,bidding win
+CONTRACT,BIDDING_WIN,goi thau,positive,2,bidding package
+CONTRACT,BIDDING_WIN,duoc chon lam nha thau,positive,3,bidding win
+CONTRACT,CONTRACT_EXTENSION,gia han hop dong,positive,2,contract extension
+CONTRACT,CONTRACT_TERMINATION,cham dut hop dong,negative,3,contract termination
+CONTRACT,CONTRACT_TERMINATION,huy hop dong,negative,3,contract cancellation
+CONTRACT,EXPORT_ORDER,don hang xuat khau,positive,3,export order
+CONTRACT,EXPORT_ORDER,xuat khau sang,positive,2,export market
+CAPITAL,EQUITY_ISSUANCE,phat hanh co phieu,neutral,3,equity issuance
+CAPITAL,PRIVATE_PLACEMENT,phat hanh rieng le,neutral,3,private placement
+CAPITAL,RIGHTS_OFFERING,chao ban cho co dong hien huu,neutral,3,rights offering
+CAPITAL,RIGHTS_OFFERING,quyen mua,neutral,2,rights offering
+CAPITAL,BONUS_SHARE,co phieu thuong,neutral,2,bonus shares
+CAPITAL,BONUS_SHARE,tra co tuc bang co phieu,neutral,2,stock dividend
+CAPITAL,SHARE_BUYBACK,mua lai co phieu,neutral,3,share buyback
+CAPITAL,SHARE_BUYBACK,co phieu quy,neutral,2,treasury shares
+CAPITAL,CAPITAL_INCREASE,tang von dieu le,neutral,3,capital increase
+CAPITAL,CAPITAL_REDUCTION,giam von dieu le,neutral,3,capital reduction
+CAPITAL,BOND_ISSUANCE,phat hanh trai phieu,neutral,3,bond issuance
+LEADERSHIP,CEO_APPOINTMENT,bo nhiem tong giam doc,neutral,3,CEO appointment
+LEADERSHIP,CEO_APPOINTMENT,bo nhiem ceo,neutral,3,CEO appointment
+LEADERSHIP,CEO_RESIGNATION,tu nhiem tong giam doc,negative,3,CEO resignation
+LEADERSHIP,CEO_RESIGNATION,mien nhiem tong giam doc,negative,3,CEO removal
+LEADERSHIP,CHAIRMAN_CHANGE,chu tich hdqt,neutral,3,chairman change
+LEADERSHIP,BOARD_CHANGE,thanh vien hdqt,neutral,2,board change
+LEADERSHIP,CFO_CHANGE,ke toan truong,neutral,2,CFO/accounting change
+LEADERSHIP,SENIOR_MANAGEMENT_CHANGE,pho tong giam doc,neutral,2,senior management change
+EXPANSION,NEW_FACTORY,khoi cong nha may,positive,3,new factory
+EXPANSION,NEW_PROJECT,khoi cong,positive,2,project/factory start
+EXPANSION,NEW_FACTORY,nha may moi,positive,3,new factory
+EXPANSION,CAPACITY_EXPANSION,nang cong suat,positive,3,capacity expansion
+EXPANSION,CAPACITY_EXPANSION,mo rong day chuyen,positive,3,capacity expansion
+EXPANSION,NEW_BRANCH,mo chi nhanh,positive,2,new branch
+EXPANSION,NEW_BRANCH,khai truong cua hang,positive,2,new store
+EXPANSION,NEW_MARKET,mo rong thi truong,positive,3,new market
+EXPANSION,CAPACITY_EXPANSION,mo rong,positive,1,generic expansion signal
+EXPANSION,NEW_MARKET,thi truong moi,positive,2,new market
+EXPANSION,NEW_PROJECT,du an moi,positive,3,new project
+EXPANSION,NEW_PROJECT,trien khai du an,positive,2,project launch
+EXPANSION,PRODUCTION_RESTART,hoat dong tro lai,positive,2,production restart
+LEGAL_RISK,INVESTIGATION,bi dieu tra,negative,3,investigation
+LEGAL_RISK,INVESTIGATION,thanh tra,negative,2,inspection
+LEGAL_RISK,LAWSUIT,khoi kien,negative,3,lawsuit
+LEGAL_RISK,LAWSUIT,bi kien,negative,3,lawsuit
+LEGAL_RISK,ADMINISTRATIVE_FINE,bi phat,negative,3,fine
+LEGAL_RISK,ADMINISTRATIVE_FINE,xu phat,negative,3,administrative fine
+LEGAL_RISK,REGULATORY_WARNING,canh bao,negative,2,regulatory warning
+LEGAL_RISK,REGULATORY_WARNING,yeu cau giai trinh,negative,2,explanation request
+LEGAL_RISK,CRIMINAL_CASE,khoi to,negative,3,criminal case
+LEGAL_RISK,CRIMINAL_CASE,bat tam giam,negative,3,criminal case
+LEGAL_RISK,CUSTOMER_SUPPLIER_DISPUTE,tranh chap,negative,2,dispute
+PARTNERSHIP,STRATEGIC_PARTNERSHIP,hop tac chien luoc,positive,3,strategic partnership
+PARTNERSHIP,JOINT_VENTURE,lien doanh,positive,3,joint venture
+PARTNERSHIP,JOINT_VENTURE,gop von thanh lap,positive,2,joint venture
+PARTNERSHIP,MOU_SIGNING,bien ban ghi nho,positive,2,MOU
+PARTNERSHIP,MOU_SIGNING,mou,positive,2,MOU
+PARTNERSHIP,DISTRIBUTION_PARTNERSHIP,phan phoi doc quyen,positive,2,distribution
+PARTNERSHIP,DISTRIBUTION_PARTNERSHIP,dai ly,positive,1,distribution
+PARTNERSHIP,TECHNOLOGY_PARTNERSHIP,chuyen giao cong nghe,positive,2,technology partnership
+LICENSE_APPROVAL,PROJECT_APPROVAL,phe duyet du an,positive,3,project approval
+LICENSE_APPROVAL,PROJECT_APPROVAL,chap thuan chu truong,positive,3,project approval
+LICENSE_APPROVAL,INVESTMENT_APPROVAL,chap thuan dau tu,positive,3,investment approval
+LICENSE_APPROVAL,LICENSE_GRANTED,duoc cap phep,positive,3,license granted
+LICENSE_APPROVAL,LICENSE_GRANTED,giay phep,positive,2,license
+LICENSE_APPROVAL,LICENSE_RENEWAL,gia han giay phep,positive,2,license renewal
+LICENSE_APPROVAL,REGULATORY_CLEARANCE,duoc thong qua,positive,2,regulatory clearance
+BUSINESS_RESULT,REVENUE_GROWTH,doanh thu tang,positive,3,revenue growth
+BUSINESS_RESULT,PROFIT_GROWTH,loi nhuan tang,positive,3,profit growth
+BUSINESS_RESULT,PROFIT_GROWTH,lai tang,positive,2,profit growth
+BUSINESS_RESULT,PROFIT_DECLINE,loi nhuan giam,negative,3,profit decline
+BUSINESS_RESULT,PROFIT_DECLINE,lai giam,negative,2,profit decline
+BUSINESS_RESULT,LOSS_REPORT,bao lo,negative,3,loss report
+BUSINESS_RESULT,LOSS_REPORT,lo rong,negative,3,net loss
+BUSINESS_RESULT,GUIDANCE_UPDATE,dieu chinh ke hoach,neutral,3,guidance update
+BUSINESS_RESULT,GUIDANCE_UPDATE,dat muc tieu,neutral,2,target/guidance
+BUSINESS_RESULT,BACKLOG_UPDATE,backlog,positive,2,backlog update
+ASSET_TRANSACTION,ASSET_PURCHASE,mua tai san,neutral,3,asset purchase
+ASSET_TRANSACTION,ASSET_SALE,ban tai san,neutral,3,asset sale
+ASSET_TRANSACTION,ASSET_SALE,thanh ly tai san,neutral,2,asset liquidation
+ASSET_TRANSACTION,PROJECT_TRANSFER,chuyen nhuong du an,neutral,3,project transfer
+ASSET_TRANSACTION,LAND_USE_RIGHT_TRANSFER,quyen su dung dat,neutral,2,land use right
+ASSET_TRANSACTION,SUBSIDIARY_TRANSFER,chuyen nhuong cong ty con,neutral,3,subsidiary transfer
+DEBT_CREDIT,NEW_LOAN,khoan vay,neutral,2,new loan
+DEBT_CREDIT,NEW_LOAN,vay von,neutral,2,new loan
+DEBT_CREDIT,CREDIT_FACILITY,han muc tin dung,positive,3,credit facility
+DEBT_CREDIT,DEBT_RESTRUCTURING,tai co cau no,neutral,3,debt restructuring
+DEBT_CREDIT,DEBT_RESTRUCTURING,gia han no,neutral,3,debt extension
+DEBT_CREDIT,DEBT_DEFAULT_RISK,cham tra,negative,3,late payment
+DEBT_CREDIT,DEBT_DEFAULT_RISK,mat kha nang thanh toan,negative,3,default risk
+DEBT_CREDIT,BOND_REPAYMENT,mua lai trai phieu,neutral,2,bond repayment/buyback
+DEBT_CREDIT,BOND_REPAYMENT,tra no trai phieu,neutral,3,bond repayment
+DEBT_CREDIT,CREDIT_RATING_CHANGE,xep hang tin nhiem,neutral,2,credit rating
+DIVIDEND_SHAREHOLDER,CASH_DIVIDEND,co tuc tien mat,positive,3,cash dividend
+DIVIDEND_SHAREHOLDER,STOCK_DIVIDEND,co tuc bang co phieu,positive,2,stock dividend
+DIVIDEND_SHAREHOLDER,ESOP,esop,neutral,2,employee stock ownership plan
+DIVIDEND_SHAREHOLDER,MAJOR_SHAREHOLDER_TRANSACTION,co dong lon,neutral,2,major shareholder
+DIVIDEND_SHAREHOLDER,MAJOR_SHAREHOLDER_TRANSACTION,nguoi noi bo,neutral,2,insider transaction
+DIVIDEND_SHAREHOLDER,FOREIGN_ROOM_CHANGE,room ngoai,neutral,2,foreign room
+PRODUCT_SERVICE,NEW_PRODUCT_LAUNCH,ra mat san pham,positive,3,new product
+PRODUCT_SERVICE,NEW_SERVICE_LAUNCH,ra mat dich vu,positive,3,new service
+PRODUCT_SERVICE,PRODUCT_DISCONTINUATION,ngung san pham,negative,2,discontinuation
+PRODUCT_SERVICE,PRODUCT_RECALL,thu hoi san pham,negative,3,product recall
+PRODUCT_SERVICE,PRICE_CHANGE,tang gia,neutral,2,price increase
+PRODUCT_SERVICE,PRICE_CHANGE,giam gia,neutral,2,price decrease
+MARKET_LISTING,IPO,ipo,positive,3,IPO
+MARKET_LISTING,LISTING,niem yet,positive,3,listing
+MARKET_LISTING,DELISTING,huy niem yet,negative,3,delisting
+MARKET_LISTING,EXCHANGE_TRANSFER,chuyen san,neutral,2,exchange transfer
+MARKET_LISTING,TRADING_WARNING,dien canh bao,negative,3,trading warning
+MARKET_LISTING,TRADING_WARNING,dien kiem soat,negative,3,trading control
+MARKET_LISTING,TRADING_SUSPENSION,dinh chi giao dich,negative,3,trading suspension
+MARKET_LISTING,TRADING_SUSPENSION,tam ngung giao dich,negative,3,trading halt
+ESG_OPERATIONAL_RISK,ENVIRONMENTAL_INCIDENT,su co moi truong,negative,3,environmental incident
+ESG_OPERATIONAL_RISK,ENVIRONMENTAL_INCIDENT,o nhiem,negative,3,pollution
+ESG_OPERATIONAL_RISK,WORKPLACE_ACCIDENT,tai nan lao dong,negative,3,workplace accident
+ESG_OPERATIONAL_RISK,PRODUCTION_DISRUPTION,dung san xuat,negative,3,production disruption
+ESG_OPERATIONAL_RISK,PRODUCTION_DISRUPTION,tam dung hoat dong,negative,3,operational halt
+ESG_OPERATIONAL_RISK,CYBERSECURITY_INCIDENT,su co an ninh mang,negative,3,cybersecurity incident
+ESG_OPERATIONAL_RISK,CYBERSECURITY_INCIDENT,lo du lieu,negative,3,data leak
+ESG_OPERATIONAL_RISK,SUPPLY_CHAIN_DISRUPTION,dut gay chuoi cung ung,negative,3,supply chain disruption

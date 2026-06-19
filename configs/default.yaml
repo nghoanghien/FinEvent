@@ -23,3 +23,7 @@ retrieval:
 
 logging:
   run_dir: runs
+
+dictionaries:
+  ticker_company_map_path: data/dictionaries/ticker_company_map.csv
+  event_keyword_taxonomy_path: data/dictionaries/event_keyword_taxonomy.csv

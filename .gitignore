@@ -7,12 +7,25 @@ __pycache__/
 .mypy_cache/
 .pyright/
 
-data/*
+data/**
+!data/
 !data/.gitkeep
-runs/*
+!data/dictionaries/
+!data/dictionaries/**
+!data/raw/
+!data/raw/.gitkeep
+!data/raw/html/
+!data/raw/html/.gitkeep
+!data/processed/
+!data/processed/.gitkeep
+runs/**
+!runs/
 !runs/.gitkeep
-reports/*
+reports/**
+!reports/
 !reports/.gitkeep
+!reports/data/
+!reports/data/.gitkeep
 
 *.log
 *.tmp

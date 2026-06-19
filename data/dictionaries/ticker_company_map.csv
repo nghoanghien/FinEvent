@@ -1,0 +1,108 @@
+ticker,company_name,aliases,sector,source_note
+VCB,Vietcombank,Vietcombank|Ngan hang Ngoai thuong Viet Nam|Joint Stock Commercial Bank for Foreign Trade of Vietnam,banking,seed_verify_exchange_before_submission
+BID,BIDV,BIDV|Ngan hang Dau tu va Phat trien Viet Nam|Bank for Investment and Development of Vietnam,banking,seed_verify_exchange_before_submission
+CTG,VietinBank,VietinBank|Ngan hang Cong Thuong Viet Nam|Vietnam Joint Stock Commercial Bank for Industry and Trade,banking,seed_verify_exchange_before_submission
+TCB,Techcombank,Techcombank|Ngan hang Ky Thuong Viet Nam|Vietnam Technological and Commercial Joint Stock Bank,banking,seed_verify_exchange_before_submission
+VPB,VPBank,VPBank|Ngan hang Viet Nam Thinh Vuong|Vietnam Prosperity Joint Stock Commercial Bank,banking,seed_verify_exchange_before_submission
+MBB,MB Bank,MB|MBBank|Ngan hang Quan doi|Military Commercial Joint Stock Bank,banking,seed_verify_exchange_before_submission
+ACB,Asia Commercial Bank,ACB|Ngan hang A Chau|Asia Commercial Bank,banking,seed_verify_exchange_before_submission
+STB,Sacombank,Sacombank|Ngan hang Sai Gon Thuong Tin,banking,seed_verify_exchange_before_submission
+HDB,HDBank,HDBank|Ngan hang Phat trien Thanh pho Ho Chi Minh,banking,seed_verify_exchange_before_submission
+VIB,Vietnam International Bank,VIB|Ngan hang Quoc te Viet Nam,banking,seed_verify_exchange_before_submission
+LPB,LPBank,LPBank|LienVietPostBank|Ngan hang Loc Phat Viet Nam,banking,seed_verify_exchange_before_submission
+SHB,Saigon Hanoi Bank,SHB|Ngan hang Sai Gon Ha Noi,banking,seed_verify_exchange_before_submission
+SSB,SeABank,SeABank|Ngan hang Dong Nam A,banking,seed_verify_exchange_before_submission
+MSB,Maritime Bank,MSB|Ngan hang Hang Hai Viet Nam,banking,seed_verify_exchange_before_submission
+OCB,Orient Commercial Bank,OCB|Ngan hang Phuong Dong,banking,seed_verify_exchange_before_submission
+EIB,Eximbank,Eximbank|Ngan hang Xuat Nhap Khau Viet Nam,banking,seed_verify_exchange_before_submission
+TPB,TPBank,TPBank|Ngan hang Tien Phong,banking,seed_verify_exchange_before_submission
+VIC,Vingroup,Vingroup|Tap doan Vingroup,real_estate_holding,seed_verify_exchange_before_submission
+VHM,Vinhomes,Vinhomes|Cong ty co phan Vinhomes,real_estate,seed_verify_exchange_before_submission
+VRE,Vincom Retail,Vincom Retail,retail_real_estate,seed_verify_exchange_before_submission
+KDH,Khang Dien,Khang Dien|Nha Khang Dien,real_estate,seed_verify_exchange_before_submission
+NLG,Nam Long,Nam Long|Nam Long Group,real_estate,seed_verify_exchange_before_submission
+PDR,Phat Dat Real Estate,Phat Dat|Bat dong san Phat Dat,real_estate,seed_verify_exchange_before_submission
+DXG,Dat Xanh Group,Dat Xanh|Tap doan Dat Xanh,real_estate,seed_verify_exchange_before_submission
+DIG,DIC Corp,DIC Corp|Tong cong ty Co phan Dau tu Phat trien Xay dung,real_estate,seed_verify_exchange_before_submission
+NVL,Novaland,Novaland|No Va Land,real_estate,seed_verify_exchange_before_submission
+CEO,CEO Group,CEO Group|Tap doan CEO,real_estate,seed_verify_exchange_before_submission
+KBC,Kinh Bac City,Kinh Bac|Tong cong ty Phat trien Do thi Kinh Bac,industrial_park,seed_verify_exchange_before_submission
+BCM,Becamex IDC,Becamex|Becamex IDC,industrial_park,seed_verify_exchange_before_submission
+SZC,Sonadezi Chau Duc,Sonadezi Chau Duc|Khu cong nghiep Chau Duc,industrial_park,seed_verify_exchange_before_submission
+HPG,Hoa Phat Group,Hoa Phat|Tap doan Hoa Phat|Cong ty co phan Tap doan Hoa Phat,materials_steel,seed_verify_exchange_before_submission
+HSG,Hoa Sen Group,Hoa Sen|Tap doan Hoa Sen,materials_steel,seed_verify_exchange_before_submission
+NKG,Nam Kim Steel,Nam Kim|Thep Nam Kim,materials_steel,seed_verify_exchange_before_submission
+GVR,Vietnam Rubber Group,VRG|Tap doan Cong nghiep Cao su Viet Nam,rubber_materials,seed_verify_exchange_before_submission
+DGC,Duc Giang Chemicals,Duc Giang|Hoa chat Duc Giang,chemicals,seed_verify_exchange_before_submission
+DPM,PetroVietnam Fertilizer and Chemicals,Dam Phu My|PVFCCo|Phan bon Phu My,chemicals_fertilizer,seed_verify_exchange_before_submission
+DCM,PetroVietnam Ca Mau Fertilizer,Dam Ca Mau|PVCFC|Phan bon Ca Mau,chemicals_fertilizer,seed_verify_exchange_before_submission
+PHR,Phuoc Hoa Rubber,Cao su Phuoc Hoa|Phuoc Hoa Rubber,rubber_materials,seed_verify_exchange_before_submission
+BMP,Binh Minh Plastics,Nhua Binh Minh|Binh Minh Plastics,materials_plastics,seed_verify_exchange_before_submission
+AAA,An Phat Bioplastics,An Phat Bioplastics|Nhua An Phat,materials_plastics,seed_verify_exchange_before_submission
+VGC,Viglacera,Viglacera,construction_materials,seed_verify_exchange_before_submission
+PTB,Phu Tai,Phu Tai|Cong ty co phan Phu Tai,construction_materials,seed_verify_exchange_before_submission
+GAS,PV GAS,PV GAS|Tong cong ty Khi Viet Nam,energy_utilities,seed_verify_exchange_before_submission
+POW,PV Power,PV Power|Tong cong ty Dien luc Dau khi Viet Nam,energy_utilities,seed_verify_exchange_before_submission
+PLX,Petrolimex,Petrolimex|Tap doan Xang dau Viet Nam,energy_distribution,seed_verify_exchange_before_submission
+PVD,PV Drilling,PV Drilling|Tong cong ty Co phan Khoan va Dich vu Khoan Dau khi,energy_services,seed_verify_exchange_before_submission
+PVS,PTSC,PTSC|Tong cong ty Co phan Dich vu Ky thuat Dau khi Viet Nam,energy_services,seed_verify_exchange_before_submission
+BSR,Binh Son Refining and Petrochemical,BSR|Loc hoa dau Binh Son,energy_refining,seed_verify_exchange_before_submission
+OIL,PV Oil,PV Oil|Tong cong ty Dau Viet Nam,energy_distribution,seed_verify_exchange_before_submission
+NT2,PV Power Nhon Trach 2,Nhon Trach 2|Dien luc Dau khi Nhon Trach 2,energy_utilities,seed_verify_exchange_before_submission
+REE,REE Corporation,REE|Co dien lanh REE,utilities_industrial,seed_verify_exchange_before_submission
+GEX,Gelex,Gelex|Tap doan Gelex,industrial_holding,seed_verify_exchange_before_submission
+PC1,PC1 Group,PC1|Xay lap Dien 1,construction_energy,seed_verify_exchange_before_submission
+MSN,Masan Group,Masan|Tap doan Masan,consumer_holding,seed_verify_exchange_before_submission
+MWG,Mobile World,The Gioi Di Dong|MWG|Mobile World Group,retail,seed_verify_exchange_before_submission
+FRT,FPT Retail,FPT Retail|Ban le Ky thuat so FPT,retail,seed_verify_exchange_before_submission
+PNJ,Phu Nhuan Jewelry,PNJ|PNJ Jewelry|Vang bac Da quy Phu Nhuan,retail_jewelry,seed_verify_exchange_before_submission
+VNM,Vinamilk,Vinamilk|Sua Viet Nam,consumer_food,seed_verify_exchange_before_submission
+SAB,Sabeco,Sabeco|Bia Sai Gon,consumer_beverage,seed_verify_exchange_before_submission
+BHN,Habeco,Habeco|Bia Ha Noi,consumer_beverage,seed_verify_exchange_before_submission
+QNS,Quang Ngai Sugar,Duong Quang Ngai|QNS,consumer_food,seed_verify_exchange_before_submission
+MCH,Masan Consumer,Masan Consumer|Hang tieu dung Masan,consumer_food,seed_verify_exchange_before_submission
+VHC,Vinh Hoan,Vinh Hoan|Thuy san Vinh Hoan,seafood,seed_verify_exchange_before_submission
+ANV,Navico,Navico|Nam Viet,seafood,seed_verify_exchange_before_submission
+FMC,Sao Ta Foods,Sao Ta|Thuc pham Sao Ta,seafood,seed_verify_exchange_before_submission
+DBC,Dabaco,Dabaco|Tap doan Dabaco,agriculture_food,seed_verify_exchange_before_submission
+HAG,Hoang Anh Gia Lai,HAGL|Hoang Anh Gia Lai,agriculture_holding,seed_verify_exchange_before_submission
+HNG,HAGL Agrico,HAGL Agrico|Nong nghiep Quoc te Hoang Anh Gia Lai,agriculture,seed_verify_exchange_before_submission
+PAN,The PAN Group,PAN Group|Tap doan PAN,agriculture_food,seed_verify_exchange_before_submission
+SBT,TTC AgriS,TTC AgriS|Thanh Thanh Cong Bien Hoa|Duong Bien Hoa,consumer_agriculture,seed_verify_exchange_before_submission
+FPT,FPT Corporation,FPT|Tap doan FPT,technology,seed_verify_exchange_before_submission
+CMG,CMC Corporation,CMC|Tap doan Cong nghe CMC,technology,seed_verify_exchange_before_submission
+CTR,Viettel Construction,Viettel Construction|Cong trinh Viettel,telecom_infrastructure,seed_verify_exchange_before_submission
+VGI,Viettel Global,Viettel Global,telecom,seed_verify_exchange_before_submission
+VNZ,VNG Corporation,VNG|VNG Corporation|VinaGame,technology,seed_verify_exchange_before_submission
+SSI,SSI Securities,SSI|Chung khoan SSI,securities,seed_verify_exchange_before_submission
+VND,VNDirect,VNDirect|Chung khoan VNDirect,securities,seed_verify_exchange_before_submission
+VCI,Vietcap,Vietcap|Ban Viet Securities|Chung khoan Ban Viet,securities,seed_verify_exchange_before_submission
+HCM,HSC,HSC|Chung khoan TP Ho Chi Minh,securities,seed_verify_exchange_before_submission
+MBS,MBS Securities,MBS|Chung khoan MB,securities,seed_verify_exchange_before_submission
+SHS,SHS Securities,SHS|Chung khoan Sai Gon Ha Noi,securities,seed_verify_exchange_before_submission
+FTS,FPTS,FPTS|Chung khoan FPT,securities,seed_verify_exchange_before_submission
+BSI,BIDV Securities,BSC|Chung khoan BIDV,securities,seed_verify_exchange_before_submission
+VIX,VIX Securities,VIX|Chung khoan VIX,securities,seed_verify_exchange_before_submission
+ORS,Tien Phong Securities,ORS|TPS|Chung khoan Tien Phong,securities,seed_verify_exchange_before_submission
+GMD,Gemadept,Gemadept,logistics_port,seed_verify_exchange_before_submission
+HAH,Hai An Transport,Hai An|Van tai Hai An,logistics_shipping,seed_verify_exchange_before_submission
+VSC,Viconship,Viconship|Container Viet Nam,logistics_port,seed_verify_exchange_before_submission
+VOS,VOSCO,VOSCO|Van tai Bien Viet Nam,logistics_shipping,seed_verify_exchange_before_submission
+VTP,Viettel Post,Viettel Post|Buu chinh Viettel,logistics_delivery,seed_verify_exchange_before_submission
+ACV,Airports Corporation of Vietnam,ACV|Tong cong ty Cang hang khong Viet Nam,aviation_infrastructure,seed_verify_exchange_before_submission
+HVN,Vietnam Airlines,Vietnam Airlines|Hang khong Viet Nam,aviation,seed_verify_exchange_before_submission
+VJC,Vietjet Air,Vietjet|Hang khong Vietjet,aviation,seed_verify_exchange_before_submission
+SCS,Saigon Cargo Service,SCS|Dich vu Hang hoa Sai Gon,aviation_logistics,seed_verify_exchange_before_submission
+CTD,Coteccons,Coteccons,construction,seed_verify_exchange_before_submission
+HBC,Hoa Binh Construction,Hoa Binh Construction|Xay dung Hoa Binh,construction,seed_verify_exchange_before_submission
+HHV,Deo Ca Traffic Infrastructure,Deo Ca|HHV,transport_infrastructure,seed_verify_exchange_before_submission
+LCG,Lizen,Lizen|Licogi 16,construction_infrastructure,seed_verify_exchange_before_submission
+CII,Ho Chi Minh City Infrastructure Investment,CII|Dau tu Ha tang Ky thuat TP HCM,infrastructure,seed_verify_exchange_before_submission
+DHG,DHG Pharma,DHG|Duoc Hau Giang,healthcare_pharma,seed_verify_exchange_before_submission
+IMP,Imexpharm,Imexpharm,healthcare_pharma,seed_verify_exchange_before_submission
+DBD,Binh Dinh Pharmaceutical,Bidiphar|Duoc Binh Dinh,healthcare_pharma,seed_verify_exchange_before_submission
+TRA,Traphaco,Traphaco,healthcare_pharma,seed_verify_exchange_before_submission
+BVH,Bao Viet Holdings,Bao Viet|Tap doan Bao Viet,insurance,seed_verify_exchange_before_submission
+BMI,Bao Minh Insurance,Bao Minh|Bao hiem Bao Minh,insurance,seed_verify_exchange_before_submission
+PVI,PVI Holdings,PVI|Bao hiem PVI,insurance,seed_verify_exchange_before_submission
+MIG,Military Insurance,MIC|Bao hiem Quan doi,insurance,seed_verify_exchange_before_submission

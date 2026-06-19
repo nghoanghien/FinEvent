@@ -67,6 +67,10 @@ File JSONL sau làm sạch:
   "text": "HPG khởi công dự án...",
   "tickers_hint": ["HPG"],
   "company_names_hint": ["Hòa Phát"],
+  "sector_hints": ["materials_steel"],
+  "event_keywords": ["khoi cong", "nha may moi"],
+  "event_type_hints": ["EXPANSION"],
+  "event_subtype_hints": ["NEW_FACTORY", "NEW_PROJECT"],
   "language": "vi",
   "content_hash": "sha256:...",
   "version": "v1"
@@ -181,6 +185,19 @@ data/
     postgres_managed_by_docker
   dictionaries/
     ticker_company_map.csv
+    event_keyword_taxonomy.csv
+```
+
+Ticker dictionary có hai lớp lưu trữ:
+
+- CSV seed trong `data/dictionaries/ticker_company_map.csv` để review, audit và version.
+- PostgreSQL operational store gồm `ticker_companies`, `ticker_company_aliases`, `ticker_dictionary_sync_runs` để API/backend sử dụng lâu dài.
+
+Cập nhật ticker lâu dài nên đi qua API:
+
+```text
+PUT /dictionary/tickers/{ticker}
+POST /dictionary/tickers/bulk-upsert
 ```
 
 Vector index và chunk artifact được tạo trong [rag-preparation-workflow.md](rag-preparation-workflow.md):
