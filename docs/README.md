@@ -13,6 +13,9 @@ docs/
     project-overview.md
     rag-nlp-positioning.md
     technology-stack.md
+  adr/
+    README.md
+    0001-database-layer-strategy.md
   schema/
     event-schema.md
   workflows/
@@ -53,11 +56,12 @@ docs/
 1. Đọc [Project Overview](overview/project-overview.md) để nắm bài toán, kiến trúc và phạm vi.
 2. Đọc [RAG and NLP Positioning](overview/rag-nlp-positioning.md) để hiểu cách trình bày RAG trong nhóm NLP.
 3. Đọc [Technology Stack](overview/technology-stack.md) để chốt DB, vector store, workflow framework và model runtime.
-4. Đọc [Event Schema](schema/event-schema.md) trước khi code extraction, vì mọi module đều phải dùng chung schema này.
-5. Đọc các workflow theo đúng luồng: data -> RAG preparation -> retrieval -> pattern -> extraction -> verification -> evaluation -> demo.
-6. Đọc [Experiment Plan](experiments/experiment-plan.md) để biết cần chạy thí nghiệm nào cho SE365.
-7. Đọc [Project Roadmap](implementation/project-roadmap.md), [Milestone Implementation Details](implementation/milestone-implementation-details.md) và từng file trong [implementation/milestones/](implementation/milestones/) để quản lý tiến độ code.
-8. Đọc [Academic Report Guide](report/README.md), đặc biệt [Contributions](report/03-contributions.md), để viết báo cáo nộp môn.
+4. Đọc [Architecture Decision Records](adr/README.md) khi cần hiểu các quyết định kiến trúc dài hạn.
+5. Đọc [Event Schema](schema/event-schema.md) trước khi code extraction, vì mọi module đều phải dùng chung schema này.
+6. Đọc các workflow theo đúng luồng: data -> RAG preparation -> retrieval -> pattern -> extraction -> verification -> evaluation -> demo.
+7. Đọc [Experiment Plan](experiments/experiment-plan.md) để biết cần chạy thí nghiệm nào cho SE365.
+8. Đọc [Project Roadmap](implementation/project-roadmap.md), [Milestone Implementation Details](implementation/milestone-implementation-details.md) và từng file trong [implementation/milestones/](implementation/milestones/) để quản lý tiến độ code.
+9. Đọc [Academic Report Guide](report/README.md), đặc biệt [Contributions](report/03-contributions.md), để viết báo cáo nộp môn.
 
 ## Tài liệu theo nhóm
 
@@ -68,6 +72,13 @@ docs/
 | [project-overview.md](overview/project-overview.md) | Tổng quan đề tài, mục tiêu, phạm vi, kiến trúc hệ thống |
 | [rag-nlp-positioning.md](overview/rag-nlp-positioning.md) | Định vị RAG trong đề tài NLP, tránh bị xem là naive RAG |
 | [technology-stack.md](overview/technology-stack.md) | Long-term tech stack, DB, vector search, workflow runtime, backend, model serving |
+
+### Architecture Decision Records
+
+| File | Vai trò |
+| --- | --- |
+| [README.md](adr/README.md) | Index các quyết định kiến trúc |
+| [0001-database-layer-strategy.md](adr/0001-database-layer-strategy.md) | Chiến lược database layer: Raw SQL, SQLAlchemy Core, Alembic và ORM có chọn lọc |
 
 ### Schema
 
