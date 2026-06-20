@@ -33,6 +33,10 @@ api = [
   "sqlalchemy>=2.0",
   "uvicorn>=0.30",
 ]
+rag = [
+  "requests>=2.32",
+  "sqlalchemy>=2.0",
+]
 
 [project.scripts]
 finevent-hello = "finevent.hello_pipeline:main"
@@ -40,6 +44,7 @@ finevent-ingest = "finevent.ingestion.cli:main"
 finevent-audit-dictionaries = "finevent.ingestion.audit_dictionaries:main"
 finevent-sync-ticker-dictionary = "finevent.ingestion.sync_ticker_dictionary:main"
 finevent-label = "finevent.labeling.cli:main"
+finevent-rag = "finevent.rag.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

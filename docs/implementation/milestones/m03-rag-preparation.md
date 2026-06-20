@@ -1,14 +1,31 @@
-# M3: RAG Preparation
+# M03: RAG Preparation
 
 ## Mục tiêu
 
-Chuẩn bị corpus cho retrieval: chunking có cấu trúc, embedding, vector index, BM25 index và metadata. Đây là milestone biến dữ liệu bài báo thành nền tảng RAG có thể đánh giá.
+Milestone này chuẩn bị corpus cho retrieval và evidence grounding. Đây là bước offline/batch, chạy sau M01 ingestion và sau khi đã có `articles_clean.jsonl`.
+
+M03 tạo:
+
+- `chunks.jsonl`: chunk có cấu trúc, đủ metadata.
+- BM25 index: baseline lexical retrieval.
+- Embedding artifacts: local hash embedding để smoke test/offline baseline, Cloudflare client để chạy thật.
+- Vector store metadata: staging cho pgvector và FAISS baseline.
+- PostgreSQL/pgvector schema và command sync.
+- Report chất lượng RAG preparation.
+
+## Vai trò trong project
+
+M03 là nền giữa dữ liệu báo chí và các workflow RAG/extraction sau này:
+
+- M04 retrieval/reranking dùng chunks + BM25 + embeddings để lấy context.
+- M05 pattern library dùng chunk/evidence để tìm mẫu tương tự.
+- M06 online extraction dùng paragraph chunk làm evidence span.
+- M08 evaluation dùng BM25/dense/hybrid artifacts để đo Recall@k, MRR, nDCG.
 
 ## Input
 
 ```text
 data/processed/articles_clean.jsonl
-PostgreSQL database
 configs/default.yaml
 ```
 
@@ -16,138 +33,242 @@ configs/default.yaml
 
 ```text
 data/processed/chunks.jsonl
-PostgreSQL pgvector tables/indexes
-data/vector_store/faiss/
 data/retrieval/bm25_index.pkl
+data/retrieval/chunk_embeddings.jsonl
+data/retrieval/embedding_cache.jsonl
+data/vector_store/manifest.json
+data/vector_store/local/metadata.jsonl
+data/vector_store/faiss/metadata.jsonl
+data/vector_store/faiss/index.faiss        # chỉ có nếu đã cài faiss-cpu + numpy
 reports/data/rag_preparation_summary.md
+infra/postgres/004_retrieval.sql
 ```
+
+Các output trong `data/processed`, `data/retrieval`, `data/vector_store`, `reports/data` là artifact chạy batch nên không cần commit.
 
 ## Công nghệ
 
-- Custom structure-aware chunker.
-- Cloudflare embedding hiện có.
-- BGE-M3, multilingual E5, GTE multilingual cho thí nghiệm.
-- PostgreSQL + pgvector mặc định.
-- FAISS baseline.
-- BM25 bằng `rank-bm25` hoặc tương đương.
-- PostgreSQL bảng `chunks` và embedding tables.
+| Thành phần | Công nghệ | Dùng để làm gì |
+| --- | --- | --- |
+| Chunking | `finevent.rag.chunking` | Tạo 3 cấp document/section/paragraph, giữ metadata ở mọi chunk |
+| Lexical retrieval | BM25 tự viết bằng Python stdlib | Baseline keyword search, không phụ thuộc package ngoài |
+| Tokenization | `finevent.rag.tokenization` | Normalize tiếng Việt không dấu, tách token phục vụ BM25/hash embedding |
+| Offline embedding | `HashEmbeddingClient` | Embedding deterministic để test, demo offline, ablation baseline |
+| Production embedding | `CloudflareEmbeddingClient` | Gọi Cloudflare Workers AI khi có account/token |
+| Embedding cache | JSONL cache theo `embedding_model + chunk_hash` | Tránh gọi lại embedding nếu text không đổi |
+| Vector metadata | JSONL + manifest | Mapping chunk/metadata/embedding cho FAISS/pgvector |
+| FAISS baseline | Optional `faiss-cpu` + `numpy` | Nếu cài sẵn thì build `index.faiss`, nếu không thì ghi skipped manifest |
+| Database | PostgreSQL + pgvector | Lưu documents/chunks/embeddings cho retrieval lâu dài |
+| CLI | `python -m finevent.rag` | Chạy prepare, query BM25, sync PostgreSQL |
 
-## Cách triển khai chi tiết
+## Thiết kế chunk
 
-### Bước 1: Load clean articles
+Mỗi bài tạo 3 cấp:
 
-Đọc `articles_clean.jsonl`, bỏ qua bài:
+| Cấp | Mục đích | Nội dung |
+| --- | --- | --- |
+| `document` | Tìm bài tương tự ở mức toàn cục | title + body rút gọn |
+| `section` | Tìm vùng ngữ cảnh | nhóm paragraph theo target/max words và overlap |
+| `paragraph` | Lấy evidence cụ thể | từng paragraph hoặc paragraph dài được tách theo câu |
 
-- text rỗng.
-- parse warning nghiêm trọng.
-- không phải tiếng Việt.
+Mỗi chunk có các field chính:
 
-### Bước 2: Structure-aware chunking
+```json
+{
+  "chunk_id": "cafef_833adef5f3d9_paragraph_0000",
+  "article_id": "cafef_833adef5f3d9",
+  "chunk_level": "paragraph",
+  "chunk_index": 0,
+  "text": "...",
+  "title": "...",
+  "source": "cafef",
+  "url": "...",
+  "published_at": "2026-01-15T08:00:00+07:00",
+  "content_hash": "sha256:...",
+  "chunk_hash": "sha256:...",
+  "text_word_count": 18,
+  "tickers_hint": ["HPG"],
+  "company_names_hint": ["Hoa Phat Group"],
+  "event_keywords": ["khoi cong", "mo rong"],
+  "event_type_hints": ["EXPANSION"],
+  "event_subtype_hints": ["NEW_FACTORY"],
+  "metadata": {
+    "representation": "evidence_paragraph",
+    "paragraph_index": 0
+  }
+}
+```
 
-Không chunk cố định theo token một cách tùy tiện.
+Nguyên tắc:
 
-Quy tắc:
+- Không cắt cố định theo token một cách tùy tiện.
+- Ưu tiên ranh giới paragraph.
+- Paragraph dài mới tách tiếp theo sentence.
+- Section có overlap theo paragraph để giảm mất ngữ cảnh.
+- Mọi chunk giữ lại ticker hints, company hints, event keyword hints, source/date/title.
 
-- giữ title/sapo trong metadata.
-- ưu tiên ranh giới paragraph.
-- không tách câu chứa số tiền, ngày tháng, tên dự án.
-- chunk mục tiêu 300-600 từ tiếng Việt.
-- overlap 50-100 từ nếu đoạn dài.
+## Workflow triển khai
 
-### Bước 3: Hierarchical representation
+### Bước 1: Build RAG artifacts
 
-Tạo ba cấp:
+Chạy local/offline bằng hash embedding:
 
-- document-level: toàn bài rút gọn.
-- section-level: nhóm đoạn theo heading hoặc logic nội dung.
-- paragraph-level: evidence cụ thể.
+```powershell
+C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.rag prepare `
+  --articles-path data\processed\articles_clean.jsonl `
+  --chunks-output-path data\processed\chunks.jsonl `
+  --retrieval-dir data\retrieval `
+  --vector-store-dir data\vector_store `
+  --report-path reports\data\rag_preparation_summary.md `
+  --embedding-provider hash `
+  --embedding-dimension 128
+```
 
-Retrieval sau này có thể tìm bài ở cấp document rồi tìm evidence ở cấp paragraph.
+Chạy bằng Cloudflare embedding khi đã có token:
 
-### Bước 4: Generate embeddings
+```powershell
+$env:CLOUDFLARE_ACCOUNT_ID="..."
+$env:CLOUDFLARE_API_TOKEN="..."
+C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.rag prepare `
+  --embedding-provider cloudflare `
+  --embedding-model "@cf/baai/bge-m3" `
+  --embedding-dimension 1024
+```
 
-Mỗi text representation được embed và cache theo `content_hash`.
+Lưu ý: `embedding_dimension` phải khớp dimension thật của model khi sync vào pgvector/evaluation.
 
-Mỗi embedding record cần log:
+### Bước 2: Smoke query BM25
 
-- embedding model.
-- embedding dimension.
-- content hash.
-- created at.
-- source text ID.
+```powershell
+C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.rag query-bm25 `
+  --index-path data\retrieval\bm25_index.pkl `
+  --query "HPG khoi cong nha may" `
+  --top-k 5
+```
 
-### Bước 5: Build pgvector indexes
+Kết quả phải trả về chunk liên quan đến bài HPG hoặc các bài có keyword tương ứng.
 
-Tạo bảng/index embedding:
+### Bước 3: Tạo bảng PostgreSQL/pgvector
 
-- `financial_news_documents`.
-- `financial_news_chunks`.
+```powershell
+psql $env:POSTGRES_DSN -f infra\postgres\004_retrieval.sql
+```
 
-Metadata filter cần có:
+Các bảng chính:
 
-- article_id.
-- chunk_id.
-- source.
-- published_at.
-- tickers_hint.
-- event_keywords.
-- chunk_level.
+- `financial_news_documents`
+- `financial_news_chunks`
+- `financial_news_chunk_embeddings`
 
-Không đồng bộ sang vector database riêng trong v1. PostgreSQL + pgvector là nơi lưu và query vector chính.
+### Bước 4: Sync PostgreSQL
 
-### Bước 6: Build FAISS baseline
+```powershell
+C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.rag sync-postgres `
+  --articles-path data\processed\articles_clean.jsonl `
+  --chunks-path data\processed\chunks.jsonl `
+  --embeddings-path data\retrieval\chunk_embeddings.jsonl
+```
 
-FAISS dùng cho ablation tốc độ và dense-only retrieval. Vì FAISS không quản lý metadata tốt, lưu mapping:
+Sync này dùng JSONL artifacts làm source và upsert vào PostgreSQL.
+
+## Embedding strategy
+
+M03 không gọi API embedding trong test mặc định vì cần test ổn định, không phụ thuộc mạng và chi phí.
+
+Vì vậy có 2 mode:
+
+- `hash`: deterministic local embedding, dùng để smoke test, BM25/dense pipeline baseline, CI/local.
+- `cloudflare`: production embedding, dùng cho corpus thật khi đã có Cloudflare credentials.
+
+Cache key:
+
+```text
+embedding_model + chunk_hash
+```
+
+Nếu text chunk không đổi, pipeline lấy lại embedding trong `embedding_cache.jsonl`, không gọi lại model.
+
+## FAISS baseline
+
+M03 ghi mapping vào:
 
 ```text
 data/vector_store/faiss/metadata.jsonl
 ```
 
-### Bước 7: Build BM25 index
+Nếu môi trường đã cài `faiss-cpu` và `numpy`, pipeline tự build:
 
-BM25 index dùng title + body/chunks. Tokenization tiếng Việt v1 có thể dùng whitespace + normalization đơn giản; nếu có thời gian, thử tokenizer tiếng Việt.
+```text
+data/vector_store/faiss/index.faiss
+```
 
-### Bước 8: Write summary report
+Nếu chưa cài, `manifest.json` sẽ ghi:
 
-Report cần có:
+```json
+{
+  "faiss_index_status": "skipped_missing_faiss"
+}
+```
 
-- số bài indexed.
-- số chunks.
-- average chunks/article.
-- embedding success rate.
-- lỗi embedding.
-- thời gian build index.
+Điều này giúp project hiện tại vẫn chạy nhẹ, nhưng sau này có thể bật FAISS baseline mà không đổi workflow.
+
+## Metrics trong report
+
+`reports/data/rag_preparation_summary.md` gồm:
+
+| Metric | Ý nghĩa |
+| --- | --- |
+| Clean articles indexed | Số bài sạch được đưa vào corpus |
+| Chunks generated | Tổng số chunks |
+| Average chunks/article | Mật độ chunk theo bài |
+| Embedding success rate | Tỷ lệ chunk có embedding thành công |
+| Embedding cache hit rate | Tỷ lệ reuse cache |
+| Chunk ticker metadata coverage | Tỷ lệ chunk có ticker hints |
+| Chunk event keyword coverage | Tỷ lệ chunk có keyword hints |
+| Chunk level distribution | Phân bố document/section/paragraph |
+| Source distribution | Số document chunks theo source |
 
 ## Kiểm thử
 
-- Test chunk không mất `article_id`.
-- Test chunk có metadata bắt buộc.
-- Test pgvector query trả kết quả.
-- Test BM25 query bằng keyword sự kiện trả kết quả hợp lý.
-- Test cache không gọi embedding lại với cùng hash.
+Đã có test:
 
-## Metrics
+```text
+tests/test_rag_preparation.py
+```
 
-| Metric | Mục tiêu |
-| --- | --- |
-| Embedding success rate | >= 95% |
-| Chunk metadata coverage | >= 95% |
-| Average chunks/article | 2-8 với corpus v1 |
-| Index query success | 100% với query smoke test |
+Chạy:
+
+```powershell
+C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m pytest tests\test_rag_preparation.py
+```
+
+Test bao phủ:
+
+- Chunking giữ `article_id`, ticker, event metadata.
+- Chunking tạo đủ document/section/paragraph.
+- BM25 query trả kết quả liên quan.
+- Embedding cache reuse theo chunk hash.
+- Full `run_rag_preparation` ghi đủ chunks, embeddings, BM25, vector manifest và report.
 
 ## Done Criteria
 
-- Có `chunks.jsonl`.
-- pgvector query được top K.
-- BM25 query được top K.
-- FAISS baseline build được nếu config bật.
+- Có module `finevent.rag`.
+- Có `chunks.jsonl` khi chạy prepare.
+- Có BM25 index và query được top K.
+- Có embedding artifacts và cache.
+- Có vector manifest và metadata cho local/FAISS.
+- Có SQL pgvector schema.
+- Có CLI sync PostgreSQL.
 - Có summary report.
+- Có test M03 pass.
 
 ## Lỗi thường gặp
 
 | Lỗi | Cách xử lý |
 | --- | --- |
-| Chunk cắt mất evidence | Dùng paragraph-aware split và overlap |
-| Embedding quá tốn chi phí | Cache theo content hash |
-| Metadata thiếu | Lấy từ article metadata, nếu thiếu ghi warning |
-| BM25 kém với tiếng Việt | Thử tokenizer hoặc keyword normalization |
+| Chunk cắt mất evidence | Dùng paragraph-aware split và paragraph overlap |
+| Embedding quá tốn chi phí | Cache theo `embedding_model + chunk_hash` |
+| Metadata thiếu | Lấy từ article metadata; thiếu thì để list rỗng, không tự bịa |
+| BM25 yếu với tiếng Việt có dấu | Tokenizer đã fold dấu; milestone sau có thể thử VnCoreNLP/underthesea |
+| FAISS không build | Cài `faiss-cpu` + `numpy`, pipeline sẽ tự build |
+| Cloudflare thiếu token | Dùng `hash` mode để test; chỉ dùng `cloudflare` khi có credentials |

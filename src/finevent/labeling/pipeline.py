@@ -247,7 +247,11 @@ def _inject_runtime_metadata(
     normalized.setdefault("article_id", article_record["article_id"])
     normalized.setdefault("warnings", [])
     normalized.setdefault("events", [])
-    model_info = normalized.get("model_info") if isinstance(normalized.get("model_info"), dict) else {}
+    model_info = (
+        normalized.get("model_info")
+        if isinstance(normalized.get("model_info"), dict)
+        else {}
+    )
     normalized["model_info"] = {
         **model_info,
         "model_name": model_info.get("model_name") or teacher_model,
