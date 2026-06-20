@@ -1,0 +1,344 @@
+{
+  "schema_version": "event_schema_v1",
+  "document_labels": [
+    "HAS_EVENT",
+    "NO_EVENT",
+    "UNCERTAIN"
+  ],
+  "impact_sentiments": [
+    "POSITIVE",
+    "NEGATIVE",
+    "NEUTRAL",
+    "MIXED"
+  ],
+  "common_argument_fields": [
+    "value",
+    "currency",
+    "percentage",
+    "quantity",
+    "time",
+    "effective_date",
+    "partner",
+    "project",
+    "location",
+    "product",
+    "person",
+    "role",
+    "legal_authority",
+    "document_reference",
+    "transaction_status"
+  ],
+  "event_types": {
+    "MA": {
+      "description": "Mergers, acquisitions, divestments, stake transactions, and ownership restructuring.",
+      "subtypes": {
+        "ACQUISITION": "Company acquires another company or business asset.",
+        "MERGER": "Two or more legal entities merge or consolidate.",
+        "DIVESTMENT": "Company exits or sells a material stake in a unit or project.",
+        "STAKE_PURCHASE": "Company buys additional shares or equity stake without necessarily taking full control.",
+        "STAKE_SALE": "Company sells part of its shares or equity stake.",
+        "OWNERSHIP_RESTRUCTURING": "Ownership is reorganized internally or control is transferred."
+      },
+      "argument_fields": [
+        "buyer",
+        "seller",
+        "target_company",
+        "stake_percentage",
+        "transaction_value",
+        "ownership_before",
+        "ownership_after",
+        "transaction_status"
+      ]
+    },
+    "CONTRACT": {
+      "description": "New contracts, large orders, bidding wins, contract extensions, terminations, and export orders.",
+      "subtypes": {
+        "NEW_CONTRACT": "Company signs a new contract with a concrete counterparty or scope.",
+        "LARGE_ORDER": "Company receives a large order without a clear bidding procedure.",
+        "BIDDING_WIN": "Company wins a tender, package, or bid-based project.",
+        "CONTRACT_EXTENSION": "Existing contract is extended or expanded.",
+        "CONTRACT_TERMINATION": "Contract is cancelled or terminated.",
+        "EXPORT_ORDER": "Order or contract is explicitly related to export markets."
+      },
+      "argument_fields": [
+        "partner",
+        "contract_value",
+        "package_name",
+        "project",
+        "product",
+        "contract_duration",
+        "delivery_market"
+      ]
+    },
+    "CAPITAL": {
+      "description": "Equity issuance, capital changes, bond issuance, and share buyback events.",
+      "subtypes": {
+        "EQUITY_ISSUANCE": "Company issues shares in general.",
+        "PRIVATE_PLACEMENT": "Company issues shares privately to selected investors.",
+        "RIGHTS_OFFERING": "Company offers shares to existing shareholders.",
+        "BONUS_SHARE": "Company issues bonus shares or pays stock dividend.",
+        "SHARE_BUYBACK": "Company buys back treasury shares.",
+        "CAPITAL_INCREASE": "Company increases charter capital.",
+        "CAPITAL_REDUCTION": "Company reduces charter capital.",
+        "BOND_ISSUANCE": "Company issues bonds."
+      },
+      "argument_fields": [
+        "capital_before",
+        "capital_after",
+        "share_volume",
+        "issue_price",
+        "offering_method",
+        "target_investors",
+        "use_of_proceeds",
+        "bond_value",
+        "maturity",
+        "interest_rate"
+      ]
+    },
+    "LEADERSHIP": {
+      "description": "Changes in board, chairperson, CEO, CFO, or senior management.",
+      "subtypes": {
+        "CEO_APPOINTMENT": "CEO or general director is appointed.",
+        "CEO_RESIGNATION": "CEO or general director resigns or is dismissed.",
+        "CHAIRMAN_CHANGE": "Board chairperson changes.",
+        "BOARD_CHANGE": "Board member changes.",
+        "CFO_CHANGE": "CFO or chief accountant changes.",
+        "SENIOR_MANAGEMENT_CHANGE": "Other senior executive changes."
+      },
+      "argument_fields": [
+        "person",
+        "role",
+        "action",
+        "predecessor",
+        "successor",
+        "effective_date",
+        "term"
+      ]
+    },
+    "EXPANSION": {
+      "description": "Expansion of factories, production capacity, branches, markets, or projects.",
+      "subtypes": {
+        "NEW_FACTORY": "New factory is built, started, opened, or put into operation.",
+        "CAPACITY_EXPANSION": "Existing plant or production line expands capacity.",
+        "NEW_BRANCH": "New branch, store, or point of sale is opened.",
+        "NEW_MARKET": "Company expands into a new domestic or foreign market.",
+        "NEW_PROJECT": "Company starts a new project that is not necessarily a factory.",
+        "PRODUCTION_RESTART": "Production or operations restart after interruption."
+      },
+      "argument_fields": [
+        "project",
+        "location",
+        "investment_value",
+        "capacity",
+        "start_date",
+        "operation_date",
+        "product",
+        "market"
+      ]
+    },
+    "LEGAL_RISK": {
+      "description": "Investigations, lawsuits, administrative penalties, warnings, criminal cases, and disputes.",
+      "subtypes": {
+        "INVESTIGATION": "Company is under official investigation, inspection, or audit.",
+        "LAWSUIT": "Company is involved in a material lawsuit.",
+        "ADMINISTRATIVE_FINE": "Company receives an administrative fine.",
+        "REGULATORY_WARNING": "Company receives a regulatory warning or request for explanation.",
+        "CRIMINAL_CASE": "Company or related leaders are linked to a criminal case.",
+        "CUSTOMER_SUPPLIER_DISPUTE": "Company has a dispute with customer, supplier, or partner."
+      },
+      "argument_fields": [
+        "legal_authority",
+        "violation",
+        "penalty_value",
+        "case_name",
+        "affected_party",
+        "decision_date",
+        "remediation"
+      ]
+    },
+    "PARTNERSHIP": {
+      "description": "Strategic partnerships, joint ventures, memoranda of understanding, distribution, and technology partnerships.",
+      "subtypes": {
+        "STRATEGIC_PARTNERSHIP": "Long-term strategic cooperation.",
+        "JOINT_VENTURE": "Parties establish a joint venture or jointly owned company.",
+        "MOU_SIGNING": "Parties sign a memorandum of understanding.",
+        "DISTRIBUTION_PARTNERSHIP": "Partnership is about sales, distribution, agency, or channel cooperation.",
+        "TECHNOLOGY_PARTNERSHIP": "Partnership is about technology transfer, platform, or technical cooperation."
+      },
+      "argument_fields": [
+        "partner",
+        "agreement_type",
+        "partnership_scope",
+        "project",
+        "duration",
+        "expected_goal"
+      ]
+    },
+    "LICENSE_APPROVAL": {
+      "description": "Licenses, permits, approvals, legal clearances, and investment approvals.",
+      "subtypes": {
+        "PROJECT_APPROVAL": "Project is approved or receives in-principle approval.",
+        "INVESTMENT_APPROVAL": "Investment plan, capital contribution, or expansion receives approval.",
+        "LICENSE_GRANTED": "License, permit, or certificate is granted.",
+        "LICENSE_RENEWAL": "License or permit is renewed.",
+        "REGULATORY_CLEARANCE": "Regulator clears legal conditions or authorizes a step."
+      },
+      "argument_fields": [
+        "legal_authority",
+        "approval_type",
+        "project",
+        "license_id",
+        "location",
+        "approved_area",
+        "effective_date"
+      ]
+    },
+    "BUSINESS_RESULT": {
+      "description": "Revenue, profit, loss, guidance, plan completion, and backlog updates.",
+      "subtypes": {
+        "REVENUE_GROWTH": "Revenue increases materially.",
+        "PROFIT_GROWTH": "Profit increases materially.",
+        "PROFIT_DECLINE": "Profit declines materially.",
+        "LOSS_REPORT": "Company reports a loss or sharply higher loss.",
+        "GUIDANCE_UPDATE": "Company updates business plan, forecast, or guidance.",
+        "BACKLOG_UPDATE": "Company reports backlog or remaining contract value."
+      },
+      "argument_fields": [
+        "period",
+        "revenue",
+        "profit",
+        "growth_rate",
+        "plan_completion",
+        "cause",
+        "guidance"
+      ]
+    },
+    "ASSET_TRANSACTION": {
+      "description": "Purchase, sale, liquidation, or transfer of assets, projects, land-use rights, subsidiaries, or affiliates.",
+      "subtypes": {
+        "ASSET_PURCHASE": "Company purchases a material asset, project, plant, or land bank.",
+        "ASSET_SALE": "Company sells or liquidates a material asset.",
+        "PROJECT_TRANSFER": "Project is transferred.",
+        "LAND_USE_RIGHT_TRANSFER": "Land-use rights or land bank are transferred.",
+        "SUBSIDIARY_TRANSFER": "Subsidiary or affiliate is transferred."
+      },
+      "argument_fields": [
+        "asset_name",
+        "asset_type",
+        "buyer",
+        "seller",
+        "transaction_value",
+        "ownership_change",
+        "transaction_status"
+      ]
+    },
+    "DEBT_CREDIT": {
+      "description": "Loans, credit facilities, debt restructuring, default risk, bond repayment, and credit rating changes.",
+      "subtypes": {
+        "NEW_LOAN": "Company signs or receives a new loan.",
+        "CREDIT_FACILITY": "Company receives a credit limit or credit facility.",
+        "DEBT_RESTRUCTURING": "Debt is extended, refinanced, or restructured.",
+        "DEBT_DEFAULT_RISK": "Company faces late payment or default risk.",
+        "BOND_REPAYMENT": "Company repays, buys back, or handles maturing bonds.",
+        "CREDIT_RATING_CHANGE": "Credit rating is upgraded, downgraded, assigned, or withdrawn."
+      },
+      "argument_fields": [
+        "lender",
+        "borrower",
+        "loan_value",
+        "credit_limit",
+        "bond_code",
+        "maturity",
+        "interest_rate",
+        "repayment_status",
+        "collateral"
+      ]
+    },
+    "DIVIDEND_SHAREHOLDER": {
+      "description": "Cash dividends, stock dividends, ESOP, major shareholder transactions, and foreign room changes.",
+      "subtypes": {
+        "CASH_DIVIDEND": "Company pays cash dividend.",
+        "STOCK_DIVIDEND": "Company pays stock dividend.",
+        "ESOP": "Company issues ESOP shares.",
+        "MAJOR_SHAREHOLDER_TRANSACTION": "Major shareholder or insider buys or sells a material stake.",
+        "FOREIGN_ROOM_CHANGE": "Foreign ownership room or foreign ownership limit changes."
+      },
+      "argument_fields": [
+        "dividend_type",
+        "dividend_rate",
+        "record_date",
+        "payment_date",
+        "shareholder",
+        "transaction_volume",
+        "ownership_before",
+        "ownership_after"
+      ]
+    },
+    "PRODUCT_SERVICE": {
+      "description": "Product or service launches, discontinuations, recalls, and price changes.",
+      "subtypes": {
+        "NEW_PRODUCT_LAUNCH": "Company launches a new product.",
+        "NEW_SERVICE_LAUNCH": "Company launches a new service or platform.",
+        "PRODUCT_DISCONTINUATION": "Company discontinues a product or service.",
+        "PRODUCT_RECALL": "Company recalls a product.",
+        "PRICE_CHANGE": "Company changes product or service price materially."
+      },
+      "argument_fields": [
+        "product",
+        "launch_date",
+        "market",
+        "price_change",
+        "affected_customers",
+        "reason"
+      ]
+    },
+    "MARKET_LISTING": {
+      "description": "IPO, listing, delisting, exchange transfer, trading warning, and trading suspension.",
+      "subtypes": {
+        "IPO": "Company conducts or announces an initial public offering.",
+        "LISTING": "Security is listed or begins trading on an exchange.",
+        "DELISTING": "Security is delisted.",
+        "EXCHANGE_TRANSFER": "Security transfers exchange or market board.",
+        "TRADING_WARNING": "Security is placed under warning, control, or restricted trading status.",
+        "TRADING_SUSPENSION": "Security is suspended or temporarily halted."
+      },
+      "argument_fields": [
+        "exchange",
+        "ticker",
+        "listing_date",
+        "status",
+        "reason",
+        "affected_shares"
+      ]
+    },
+    "ESG_OPERATIONAL_RISK": {
+      "description": "Environmental incidents, workplace accidents, supply-chain disruptions, factory shutdowns, and cyber security incidents.",
+      "subtypes": {
+        "ENVIRONMENTAL_INCIDENT": "Environmental incident or pollution event.",
+        "WORKPLACE_ACCIDENT": "Workplace accident or factory safety incident.",
+        "SUPPLY_CHAIN_DISRUPTION": "Supply chain disruption or shortage of inputs.",
+        "FACTORY_SHUTDOWN": "Factory, project, or operation is stopped or suspended.",
+        "CYBER_SECURITY_INCIDENT": "Cyber security or data incident."
+      },
+      "argument_fields": [
+        "incident_type",
+        "location",
+        "time",
+        "impact_scope",
+        "legal_authority",
+        "remediation",
+        "downtime"
+      ]
+    },
+    "OTHER": {
+      "description": "Specific corporate event not covered by taxonomy v1. Use only when no other event type is reasonable.",
+      "subtypes": {
+        "OTHER_SPECIFIC_EVENT": "Specific event outside taxonomy v1."
+      },
+      "argument_fields": [
+        "custom_arguments",
+        "reason_for_other"
+      ]
+    }
+  }
+}

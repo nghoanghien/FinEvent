@@ -2,6 +2,7 @@
 .venv/
 __pycache__/
 *.py[cod]
+*.egg-info/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
@@ -12,12 +13,16 @@ data/**
 !data/.gitkeep
 !data/dictionaries/
 !data/dictionaries/**
+!data/schema/
+!data/schema/**
 !data/raw/
 !data/raw/.gitkeep
 !data/raw/html/
 !data/raw/html/.gitkeep
 !data/processed/
 !data/processed/.gitkeep
+!data/labels/
+!data/labels/.gitkeep
 runs/**
 !runs/
 !runs/.gitkeep

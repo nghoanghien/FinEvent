@@ -39,6 +39,7 @@ finevent-hello = "finevent.hello_pipeline:main"
 finevent-ingest = "finevent.ingestion.cli:main"
 finevent-audit-dictionaries = "finevent.ingestion.audit_dictionaries:main"
 finevent-sync-ticker-dictionary = "finevent.ingestion.sync_ticker_dictionary:main"
+finevent-label = "finevent.labeling.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
