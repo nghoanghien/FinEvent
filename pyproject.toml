@@ -46,6 +46,7 @@ finevent-sync-ticker-dictionary = "finevent.ingestion.sync_ticker_dictionary:mai
 finevent-label = "finevent.labeling.cli:main"
 finevent-rag = "finevent.rag.cli:main"
 finevent-retrieve = "finevent.retrieval.cli:main"
+finevent-patterns = "finevent.patterns.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

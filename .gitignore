@@ -23,6 +23,8 @@ data/**
 !data/processed/.gitkeep
 !data/labels/
 !data/labels/.gitkeep
+!data/patterns/
+!data/patterns/.gitkeep
 !data/retrieval/
 !data/retrieval/.gitkeep
 !data/vector_store/
