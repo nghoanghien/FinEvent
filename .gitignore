@@ -35,6 +35,8 @@ reports/**
 !reports/.gitkeep
 !reports/data/
 !reports/data/.gitkeep
+!reports/evaluation/
+!reports/evaluation/.gitkeep
 
 *.log
 *.tmp
