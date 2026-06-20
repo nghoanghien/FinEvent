@@ -10,7 +10,6 @@ from pathlib import Path
 
 from finevent.ingestion.text import normalize_text
 
-
 DEFAULT_EVENT_KEYWORDS = [
     "M&A",
     "bo nhiem",
@@ -138,7 +137,10 @@ def extract_tickers_and_companies(
         names = (entry.company_name, *entry.aliases)
         if any(
             name
-            and (name.lower() in haystack_lower or _ascii_fold(name).lower() in folded_haystack_lower)
+            and (
+                name.lower() in haystack_lower
+                or _ascii_fold(name).lower() in folded_haystack_lower
+            )
             for name in names
         ):
             tickers.add(entry.ticker)
@@ -157,7 +159,10 @@ def extract_event_keyword_matches(
         folded_keyword = _ascii_fold(entry.keyword).lower()
         if folded_keyword and folded_keyword in haystack:
             matched[(entry.event_type, entry.event_subtype, entry.keyword)] = entry
-    return sorted(matched.values(), key=lambda item: (-item.priority, item.event_type, item.keyword))
+    return sorted(
+        matched.values(),
+        key=lambda item: (-item.priority, item.event_type, item.keyword),
+    )
 
 
 def extract_event_keywords(
@@ -166,7 +171,9 @@ def extract_event_keywords(
     taxonomy_entries: list[EventKeywordEntry] | None = None,
 ) -> list[str]:
     if taxonomy_entries is not None:
-        return sorted({entry.keyword for entry in extract_event_keyword_matches(text, taxonomy_entries)})
+        return sorted(
+            {entry.keyword for entry in extract_event_keyword_matches(text, taxonomy_entries)}
+        )
 
     haystack = _ascii_fold(normalize_text(text)).lower()
     matched: set[str] = set()
@@ -187,7 +194,9 @@ def extract_event_subtype_hints(matches: list[EventKeywordEntry]) -> list[str]:
 
 def extract_sector_hints(tickers: list[str], entries: list[CompanyEntry]) -> list[str]:
     ticker_set = set(tickers)
-    return sorted({entry.sector for entry in entries if entry.ticker in ticker_set and entry.sector})
+    return sorted(
+        {entry.sector for entry in entries if entry.ticker in ticker_set and entry.sector}
+    )
 
 
 def _ascii_fold(text: str) -> str:

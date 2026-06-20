@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from finevent.ingestion.metadata import (
-    DEFAULT_EVENT_KEYWORDS,
     DEFAULT_EVENT_KEYWORD_TAXONOMY_PATH,
+    DEFAULT_EVENT_KEYWORDS,
     extract_event_keyword_matches,
     extract_event_keywords,
     extract_event_subtype_hints,

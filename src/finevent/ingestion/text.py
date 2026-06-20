@@ -8,7 +8,6 @@ import unicodedata
 from html import unescape
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-
 TRACKING_QUERY_PREFIXES = ("utm_",)
 TRACKING_QUERY_KEYS = {"fbclid", "gclid"}
 
@@ -30,7 +29,7 @@ def text_hash(text: str) -> str:
 
 def stable_article_id(source: str, url: str, text: str) -> str:
     source_part = re.sub(r"[^a-z0-9]+", "_", source.lower()).strip("_") or "unknown"
-    digest = hashlib.sha1(f"{canonical_url(url)}\n{text_hash(text)}".encode("utf-8")).hexdigest()
+    digest = hashlib.sha1(f"{canonical_url(url)}\n{text_hash(text)}".encode()).hexdigest()
     return f"{source_part}_{digest[:12]}"
 
 
@@ -38,7 +37,9 @@ def canonical_url(url: str) -> str:
     parts = urlsplit(url.strip())
     query_items = []
     for key, value in parse_qsl(parts.query, keep_blank_values=True):
-        if key in TRACKING_QUERY_KEYS or any(key.startswith(prefix) for prefix in TRACKING_QUERY_PREFIXES):
+        if key in TRACKING_QUERY_KEYS or any(
+            key.startswith(prefix) for prefix in TRACKING_QUERY_PREFIXES
+        ):
             continue
         query_items.append((key, value))
     return urlunsplit(

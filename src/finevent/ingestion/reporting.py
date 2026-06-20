@@ -25,7 +25,9 @@ def build_data_quality_summary(
     ticker_coverage = _rate(sum(1 for record in clean_records if record.tickers_hint), total_clean)
     source_counts = Counter(record.source for record in clean_records)
     sector_counts = Counter(sector for record in clean_records for sector in record.sector_hints)
-    keyword_counts = Counter(keyword for record in clean_records for keyword in record.event_keywords)
+    keyword_counts = Counter(
+        keyword for record in clean_records for keyword in record.event_keywords
+    )
     event_type_counts = Counter(
         event_type for record in clean_records for event_type in record.event_type_hints
     )

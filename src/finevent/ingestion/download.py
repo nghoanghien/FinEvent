@@ -24,7 +24,7 @@ class UrlCandidate:
     discovered_at: str | None = None
 
     @classmethod
-    def from_dict(cls, data: JsonDict) -> "UrlCandidate":
+    def from_dict(cls, data: JsonDict) -> UrlCandidate:
         return cls(
             url=str(data["url"]),
             source=str(data.get("source") or "unknown"),

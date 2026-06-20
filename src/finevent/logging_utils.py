@@ -68,7 +68,10 @@ class JsonlRunLogger:
 
     def as_dict(self) -> JsonDict:
         data = asdict(self.context)
-        return {key: str(value) if isinstance(value, Path) else value for key, value in data.items()}
+        return {
+            key: str(value) if isinstance(value, Path) else value
+            for key, value in data.items()
+        }
 
 
 def create_run_logger(

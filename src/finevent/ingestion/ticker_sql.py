@@ -56,7 +56,12 @@ def sync_ticker_dictionary_csv(
 ) -> TickerSyncResult:
     entries = load_company_dictionary(csv_path)
     payloads = [company_entry_to_payload(entry) for entry in entries]
-    return upsert_ticker_payloads(engine, payloads, source_path=str(csv_path), source_type="csv_seed")
+    return upsert_ticker_payloads(
+        engine,
+        payloads,
+        source_path=str(csv_path),
+        source_type="csv_seed",
+    )
 
 
 def upsert_ticker_payloads(

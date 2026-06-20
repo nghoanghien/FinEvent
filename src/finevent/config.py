@@ -61,7 +61,7 @@ class AppConfig:
     config_path: Path
 
     @classmethod
-    def from_mapping(cls, data: JsonDict, config_path: Path) -> "AppConfig":
+    def from_mapping(cls, data: JsonDict, config_path: Path) -> AppConfig:
         storage = dict(data["storage"])
         if os.getenv("POSTGRES_DSN"):
             storage["postgres_dsn"] = os.environ["POSTGRES_DSN"]

@@ -16,7 +16,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--clean-output-path", default="data/processed/articles_clean.jsonl")
     parser.add_argument("--report-path", default="reports/data/data_quality_summary.md")
     parser.add_argument("--dictionary-path", default="data/dictionaries/ticker_company_map.csv")
-    parser.add_argument("--keyword-taxonomy-path", default="data/dictionaries/event_keyword_taxonomy.csv")
+    parser.add_argument(
+        "--keyword-taxonomy-path",
+        default="data/dictionaries/event_keyword_taxonomy.csv",
+    )
     parser.add_argument("--min-text-chars", type=int, default=300)
     parser.add_argument("--url-candidates-path", default=None)
     parser.add_argument("--download", action="store_true")
