@@ -7,8 +7,11 @@ CREATE TABLE IF NOT EXISTS extraction_runs (
     prompt_version TEXT NOT NULL,
     retrieval_config TEXT,
     pattern_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+    draft_output JSONB NOT NULL DEFAULT '{}'::jsonb,
     final_output JSONB NOT NULL DEFAULT '{}'::jsonb,
     validation_issues JSONB NOT NULL DEFAULT '[]'::jsonb,
+    verification_report JSONB NOT NULL DEFAULT '{}'::jsonb,
+    hallucination_metrics JSONB NOT NULL DEFAULT '{}'::jsonb,
     warnings JSONB NOT NULL DEFAULT '[]'::jsonb,
     errors JSONB NOT NULL DEFAULT '[]'::jsonb,
     run_dir TEXT,
@@ -41,6 +44,10 @@ CREATE INDEX IF NOT EXISTS idx_extraction_runs_final_output
     ON extraction_runs USING GIN (final_output);
 CREATE INDEX IF NOT EXISTS idx_extraction_runs_validation_issues
     ON extraction_runs USING GIN (validation_issues);
+CREATE INDEX IF NOT EXISTS idx_extraction_runs_verification_report
+    ON extraction_runs USING GIN (verification_report);
+CREATE INDEX IF NOT EXISTS idx_extraction_runs_hallucination_metrics
+    ON extraction_runs USING GIN (hallucination_metrics);
 
 CREATE INDEX IF NOT EXISTS idx_extraction_node_traces_run_id
     ON extraction_node_traces(run_id);

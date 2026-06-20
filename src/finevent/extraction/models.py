@@ -17,6 +17,12 @@ class ExtractionRunConfig:
     use_retrieval: bool = True
     use_patterns: bool = True
     allow_zero_context: bool = True
+    enable_verification: bool = True
+    evidence_match_threshold: float = 0.82
+    argument_match_threshold: float = 0.78
+    drop_unsupported_events: bool = True
+    null_unsupported_arguments: bool = True
+    verification_version: str = "m07_verification_v1"
     run_label: str = "m06_online_extraction"
 
     @classmethod
@@ -57,6 +63,8 @@ class ExtractionWorkflowState:
     raw_model_output: str | JsonDict | None = None
     draft_output: JsonDict | None = None
     final_output: JsonDict | None = None
+    verification_report: JsonDict | None = None
+    hallucination_metrics: JsonDict = field(default_factory=dict)
     validation_issues: list[JsonDict] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
@@ -76,6 +84,8 @@ class ExtractionWorkflowState:
             "raw_model_output": self.raw_model_output,
             "draft_output": self.draft_output,
             "final_output": self.final_output,
+            "verification_report": self.verification_report,
+            "hallucination_metrics": self.hallucination_metrics,
             "validation_issues": self.validation_issues,
             "warnings": self.warnings,
             "errors": self.errors,

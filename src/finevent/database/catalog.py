@@ -16,6 +16,7 @@ MIGRATION_ORDER = (
     "004_retrieval.sql",
     "005_event_patterns.sql",
     "006_extraction_runs.sql",
+    "007_verification_reports.sql",
 )
 
 TABLE_COLUMNS: dict[str, tuple[str, ...]] = {
@@ -238,8 +239,11 @@ TABLE_COLUMNS: dict[str, tuple[str, ...]] = {
         "prompt_version",
         "retrieval_config",
         "pattern_ids",
+        "draft_output",
         "final_output",
         "validation_issues",
+        "verification_report",
+        "hallucination_metrics",
         "warnings",
         "errors",
         "run_dir",

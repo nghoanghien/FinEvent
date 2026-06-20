@@ -16,6 +16,7 @@ from finevent.extraction.student import (
     run_langchain_student_model,
 )
 from finevent.extraction.validation import validate_or_repair_extraction_output
+from finevent.extraction.verification import VerificationConfig, verify_extraction_output
 from finevent.jsonl import write_jsonl
 from finevent.logging_utils import create_run_id
 from finevent.patterns.models import PatternCandidate
@@ -74,6 +75,10 @@ def run_online_extraction_workflow(
         ),
     )
     _run_node(state, "validation_repair", lambda: _node_validate(state))
+    if run_config.enable_verification:
+        _run_node(state, "verification", lambda: _node_verify(state))
+    else:
+        state.warnings.append("verification_disabled")
     if persist_logs:
         _run_node(state, "logging", lambda: _node_log(state, artifact_config))
     return state
@@ -92,6 +97,8 @@ def build_public_result(state: ExtractionWorkflowState) -> JsonDict:
         "retrieval_trace": state.retrieved_contexts,
         "selected_patterns": state.selected_patterns,
         "validation_issues": state.validation_issues,
+        "verification_report": state.verification_report,
+        "hallucination_metrics": state.hallucination_metrics,
         "workflow_warnings": state.warnings,
         "workflow_errors": state.errors,
         "node_traces": [trace.to_dict() for trace in state.traces],
@@ -291,6 +298,42 @@ def _node_validate(state: ExtractionWorkflowState) -> JsonDict:
     }
 
 
+def _node_verify(state: ExtractionWorkflowState) -> JsonDict:
+    if not state.article:
+        raise ValueError("preprocess must run before verification.")
+    if state.draft_output is None:
+        raise ValueError("validation_repair must produce draft_output before verification.")
+    result = verify_extraction_output(
+        state.draft_output,
+        article=state.article,
+        retrieved_contexts=state.retrieved_contexts,
+        config=VerificationConfig(
+            evidence_match_threshold=state.config.evidence_match_threshold,
+            argument_match_threshold=state.config.argument_match_threshold,
+            drop_unsupported_events=state.config.drop_unsupported_events,
+            null_unsupported_arguments=state.config.null_unsupported_arguments,
+            verification_version=state.config.verification_version,
+        ),
+    )
+    state.final_output = result.verified_output
+    state.verification_report = result.report
+    state.hallucination_metrics = result.metrics
+
+    if result.report.get("dropped_events"):
+        state.warnings.append("verification_dropped_events")
+    if result.report.get("unsupported_fields"):
+        state.warnings.append("verification_unsupported_fields")
+    if not result.report.get("schema_valid_after_verification", False):
+        state.warnings.append("verification_schema_has_errors")
+    return {
+        "document_label": result.verified_output.get("document_label"),
+        "event_count": len(result.verified_output.get("events", [])),
+        "dropped_event_count": len(result.report.get("dropped_events", [])),
+        "unsupported_field_count": len(result.report.get("unsupported_fields", [])),
+        "groundedness_score": result.metrics.get("groundedness_score"),
+    }
+
+
 def _node_log(
     state: ExtractionWorkflowState,
     artifacts: ExtractionWorkflowArtifacts,
@@ -299,6 +342,21 @@ def _node_log(
     run_dir.mkdir(parents=True, exist_ok=True)
     state.run_dir = str(run_dir)
     (run_dir / "prompt.txt").write_text(state.extraction_prompt, encoding="utf-8")
+    if state.draft_output is not None:
+        (run_dir / "draft_output.json").write_text(
+            json.dumps(state.draft_output, ensure_ascii=False, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+    if state.final_output is not None:
+        (run_dir / "verified_output.json").write_text(
+            json.dumps(state.final_output, ensure_ascii=False, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+    if state.verification_report is not None:
+        (run_dir / "verification_report.json").write_text(
+            json.dumps(state.verification_report, ensure_ascii=False, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
     (run_dir / "result.json").write_text(
         json.dumps(build_public_result(state), ensure_ascii=False, indent=2, sort_keys=True),
         encoding="utf-8",

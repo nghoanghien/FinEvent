@@ -100,6 +100,9 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--prompt-version", default="m06_extraction_v1")
     parser.add_argument("--disable-retrieval", action="store_true")
     parser.add_argument("--disable-patterns", action="store_true")
+    parser.add_argument("--disable-verification", action="store_true")
+    parser.add_argument("--evidence-match-threshold", type=float, default=0.82)
+    parser.add_argument("--argument-match-threshold", type=float, default=0.78)
     parser.add_argument("--chunks-path", default="data/processed/chunks.jsonl")
     parser.add_argument("--bm25-index-path", default="data/retrieval/bm25_index.pkl")
     parser.add_argument(
@@ -124,6 +127,9 @@ def _config_from_args(args: argparse.Namespace) -> ExtractionRunConfig:
         prompt_version=args.prompt_version,
         use_retrieval=not args.disable_retrieval,
         use_patterns=not args.disable_patterns,
+        enable_verification=not args.disable_verification,
+        evidence_match_threshold=args.evidence_match_threshold,
+        argument_match_threshold=args.argument_match_threshold,
     )
 
 
