@@ -37,6 +37,10 @@ rag = [
   "requests>=2.32",
   "sqlalchemy>=2.0",
 ]
+workflow = [
+  "langchain-core>=0.3",
+  "langgraph>=0.2",
+]
 
 [project.scripts]
 finevent-hello = "finevent.hello_pipeline:main"
@@ -47,6 +51,7 @@ finevent-label = "finevent.labeling.cli:main"
 finevent-rag = "finevent.rag.cli:main"
 finevent-retrieve = "finevent.retrieval.cli:main"
 finevent-patterns = "finevent.patterns.cli:main"
+finevent-extract = "finevent.extraction.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

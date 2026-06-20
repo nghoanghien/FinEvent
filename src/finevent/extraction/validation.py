@@ -1,0 +1,138 @@
+"""Parse, normalize and validate extraction model outputs."""
+
+from __future__ import annotations
+
+import copy
+import json
+import re
+
+from finevent.extraction.models import ExtractionRunConfig, ValidationRepairResult
+from finevent.schema.validation import parse_teacher_output, validate_label_document
+from finevent.types import JsonDict
+
+
+def validate_or_repair_extraction_output(
+    raw_output: str | JsonDict,
+    *,
+    article: JsonDict,
+    run_id: str,
+    config: ExtractionRunConfig,
+) -> ValidationRepairResult:
+    parse_error: str | None = None
+    repaired = False
+    try:
+        parsed = parse_teacher_output(raw_output)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        parse_error = str(exc)
+        parsed = _extract_json_object(raw_output)
+        repaired = parsed is not None
+
+    if parsed is None:
+        fallback = _fallback_uncertain_output(article=article, run_id=run_id, config=config)
+        return ValidationRepairResult(
+            output=fallback,
+            issues=[
+                {
+                    "path": "$",
+                    "code": "parse_failed",
+                    "message": parse_error or "Model output could not be parsed as JSON.",
+                    "severity": "error",
+                }
+            ],
+            repaired=False,
+            parse_error=parse_error,
+        )
+
+    normalized = _fill_required_fields(parsed, article=article, run_id=run_id, config=config)
+    validation = validate_label_document(normalized, article)
+    output = validation.normalized or normalized
+    return ValidationRepairResult(
+        output=output,
+        issues=validation.issues_as_dicts(),
+        repaired=repaired,
+        parse_error=parse_error,
+    )
+
+
+def _extract_json_object(raw_output: object) -> JsonDict | None:
+    if not isinstance(raw_output, str):
+        return None
+    text = raw_output.strip()
+    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.DOTALL | re.IGNORECASE)
+    if fenced:
+        text = fenced.group(1)
+    else:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start < 0 or end <= start:
+            return None
+        text = text[start : end + 1]
+    try:
+        loaded = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    return loaded if isinstance(loaded, dict) else None
+
+
+def _fill_required_fields(
+    payload: JsonDict,
+    *,
+    article: JsonDict,
+    run_id: str,
+    config: ExtractionRunConfig,
+) -> JsonDict:
+    normalized = copy.deepcopy(payload)
+    normalized.setdefault("article_id", article.get("article_id"))
+    events = normalized.get("events")
+    if not isinstance(events, list):
+        events = []
+        normalized["events"] = events
+    normalized.setdefault("document_label", "HAS_EVENT" if events else "NO_EVENT")
+    normalized.setdefault("warnings", [])
+    normalized.setdefault(
+        "model_info",
+        {
+            "model_name": config.student_model,
+            "prompt_version": config.prompt_version,
+            "run_id": run_id,
+        },
+    )
+
+    if normalized["document_label"] == "NO_EVENT":
+        normalized["events"] = []
+        return normalized
+
+    for index, event in enumerate(events):
+        if not isinstance(event, dict):
+            continue
+        event.setdefault("event_id", f"{article.get('article_id')}_e{index + 1:02d}")
+        event.setdefault("ticker", None)
+        event.setdefault("company_name", None)
+        event.setdefault("event_subtype", None)
+        event.setdefault("event_summary", "")
+        event.setdefault("event_arguments", {})
+        event.setdefault("impact_sentiment", "NEUTRAL")
+        event.setdefault("evidence_span", "")
+        event.setdefault("source_url", article.get("url") or "")
+        event.setdefault("published_at", article.get("published_at"))
+        event.setdefault("confidence", 0.5)
+    return normalized
+
+
+def _fallback_uncertain_output(
+    *,
+    article: JsonDict,
+    run_id: str,
+    config: ExtractionRunConfig,
+) -> JsonDict:
+    return {
+        "article_id": article.get("article_id"),
+        "document_label": "UNCERTAIN",
+        "events": [],
+        "warnings": ["model_output_parse_failed"],
+        "model_info": {
+            "model_name": config.student_model,
+            "prompt_version": config.prompt_version,
+            "run_id": run_id,
+        },
+    }

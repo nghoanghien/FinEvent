@@ -1,0 +1,211 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from finevent.extraction.models import ExtractionRunConfig
+from finevent.extraction.validation import validate_or_repair_extraction_output
+from finevent.extraction.workflow import (
+    ExtractionWorkflowArtifacts,
+    build_public_result,
+    run_online_extraction_workflow,
+)
+from finevent.patterns.pipeline import run_pattern_library_build
+from finevent.rag.pipeline import run_rag_preparation
+
+
+def test_online_extraction_event_text_runs_without_retrieval_or_patterns(tmp_path: Path) -> None:
+    state = run_online_extraction_workflow(
+        {
+            "input_type": "text",
+            "title": "HPG khoi cong du an nha may moi",
+            "value": (
+                "Tap doan Hoa Phat cong bo khoi cong du an nha may moi tai khu cong nghiep. "
+                "Du an du kien mo rong nang luc san xuat."
+            ),
+            "source": "manual",
+        },
+        config=ExtractionRunConfig(use_retrieval=False, use_patterns=False),
+        artifacts=ExtractionWorkflowArtifacts(logs_dir=tmp_path / "runs"),
+    )
+    result = build_public_result(state)
+
+    assert result["document_label"] == "HAS_EVENT"
+    assert result["events"]
+    assert result["events"][0]["event_type"] == "EXPANSION"
+    assert result["retrieval_trace"] == []
+    assert result["selected_patterns"] == []
+    assert Path(result["run_dir"], "result.json").exists()
+    assert {trace["node"] for trace in result["node_traces"]} >= {
+        "preprocess",
+        "extraction",
+        "validation_repair",
+    }
+
+
+def test_online_extraction_no_event_text_returns_no_event(tmp_path: Path) -> None:
+    state = run_online_extraction_workflow(
+        {
+            "input_type": "text",
+            "title": "Thi truong chung khoan dao dong trong phien",
+            "value": (
+                "VN-Index tang giam dan xen trong phien khi nha dau tu than trong. "
+                "Bai viet chi tom tat dien bien thi truong chung."
+            ),
+        },
+        config=ExtractionRunConfig(use_retrieval=False, use_patterns=False),
+        artifacts=ExtractionWorkflowArtifacts(logs_dir=tmp_path / "runs"),
+    )
+    result = build_public_result(state)
+
+    assert result["document_label"] == "NO_EVENT"
+    assert result["events"] == []
+    assert "no_company_or_ticker_hint" in result["workflow_warnings"]
+
+
+def test_validation_repairs_markdown_wrapped_json() -> None:
+    article = _event_article()
+    config = ExtractionRunConfig()
+    raw_output = """
+    Here is the JSON:
+    ```json
+    {
+      "article_id": "cafef_833adef5f3d9",
+      "document_label": "NO_EVENT",
+      "events": [],
+      "warnings": [],
+      "model_info": {
+        "model_name": "fixture_student",
+        "prompt_version": "m06_test",
+        "run_id": "fixture_run"
+      }
+    }
+    ```
+    """
+
+    result = validate_or_repair_extraction_output(
+        raw_output,
+        article=article,
+        run_id="fixture_run",
+        config=config,
+    )
+
+    assert result.repaired
+    assert result.output["document_label"] == "NO_EVENT"
+    assert not [issue for issue in result.issues if issue["severity"] == "error"]
+
+
+def test_online_extraction_uses_retrieval_and_patterns(tmp_path: Path) -> None:
+    articles_path = tmp_path / "articles_clean.jsonl"
+    gold_path = tmp_path / "events_gold.jsonl"
+    articles_path.write_text(
+        json.dumps(_event_article(), ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    gold_path.write_text(
+        json.dumps(_event_gold_record(), ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+    rag_result = run_rag_preparation(
+        articles_path=articles_path,
+        chunks_output_path=tmp_path / "chunks.jsonl",
+        retrieval_dir=tmp_path / "retrieval",
+        vector_store_dir=tmp_path / "vector_store",
+        report_path=tmp_path / "rag_summary.md",
+        embedding_dimension=32,
+        target_words=16,
+        max_words=32,
+        overlap_words=4,
+    )
+    pattern_result = run_pattern_library_build(
+        articles_path=articles_path,
+        gold_path=gold_path,
+        patterns_output_path=tmp_path / "patterns.jsonl",
+        rejected_patterns_output_path=tmp_path / "patterns_rejected.jsonl",
+        embeddings_output_path=tmp_path / "pattern_embeddings.jsonl",
+        embedding_cache_path=tmp_path / "pattern_embedding_cache.jsonl",
+        metrics_path=tmp_path / "pattern_metrics.csv",
+        report_path=tmp_path / "pattern_summary.md",
+        embedding_dimension=32,
+    )
+
+    state = run_online_extraction_workflow(
+        {"input_type": "article", "article": _event_article()},
+        artifacts=ExtractionWorkflowArtifacts(
+            chunks_path=rag_result.chunks_path,
+            bm25_index_path=rag_result.bm25_index_path,
+            retrieval_embeddings_path=rag_result.embeddings_path,
+            patterns_path=pattern_result.patterns_path,
+            pattern_embeddings_path=pattern_result.embeddings_path,
+            logs_dir=tmp_path / "runs",
+        ),
+    )
+    result = build_public_result(state)
+
+    assert result["document_label"] == "HAS_EVENT"
+    assert result["retrieval_trace"]
+    assert result["selected_patterns"]
+    assert result["selected_patterns"][0]["event_type"] == "EXPANSION"
+    assert "Few-shot patterns:" in state.extraction_prompt
+
+
+def _event_article() -> dict:
+    text = (
+        "Tap doan Hoa Phat cong bo khoi cong du an nha may moi tai khu cong nghiep.\n"
+        "Du an du kien mo rong nang luc san xuat va co the tac dong tich cuc "
+        "den ket qua kinh doanh."
+    )
+    return {
+        "article_id": "cafef_833adef5f3d9",
+        "source": "cafef",
+        "url": "file://tests/fixtures/html/cafef_sample.html",
+        "title": "HPG khoi cong du an nha may moi",
+        "published_at": "2026-01-15T08:00:00+07:00",
+        "text": text,
+        "content_hash": "sha256:fixture",
+        "tickers_hint": ["HPG"],
+        "company_names_hint": ["Hoa Phat Group"],
+        "sector_hints": ["materials_steel"],
+        "event_keywords": ["khoi cong", "mo rong", "nha may moi"],
+        "event_type_hints": ["EXPANSION"],
+        "event_subtype_hints": ["NEW_FACTORY"],
+        "language": "vi",
+    }
+
+
+def _event_gold_record() -> dict:
+    return {
+        "article_id": "cafef_833adef5f3d9",
+        "teacher_model": "fixture_teacher",
+        "prompt_version": "m02_teacher_v1",
+        "validation_status": "PASS",
+        "validation_errors": [],
+        "label": {
+            "article_id": "cafef_833adef5f3d9",
+            "document_label": "HAS_EVENT",
+            "events": [
+                {
+                    "event_id": "cafef_833adef5f3d9_e01",
+                    "ticker": "HPG",
+                    "company_name": "Hoa Phat Group",
+                    "event_type": "EXPANSION",
+                    "event_subtype": "NEW_FACTORY",
+                    "event_summary": "Hoa Phat cong bo khoi cong du an nha may moi.",
+                    "event_arguments": {
+                        "project": "du an nha may moi",
+                        "location": "khu cong nghiep",
+                    },
+                    "impact_sentiment": "POSITIVE",
+                    "evidence_span": (
+                        "Tap doan Hoa Phat cong bo khoi cong du an nha may moi "
+                        "tai khu cong nghiep."
+                    ),
+                    "source_url": "file://tests/fixtures/html/cafef_sample.html",
+                    "published_at": "2026-01-15T08:00:00+07:00",
+                    "confidence": 0.86,
+                }
+            ],
+            "warnings": [],
+        },
+    }
