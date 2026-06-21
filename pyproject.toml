@@ -46,6 +46,13 @@ workflow = [
   "langchain-core>=0.3",
   "langgraph>=0.2",
 ]
+evaluation = [
+  "matplotlib>=3.9",
+  "numpy>=2.0",
+  "pandas>=2.2",
+  "scikit-learn>=1.5",
+  "seaborn>=0.13",
+]
 
 [project.scripts]
 finevent-hello = "finevent.hello_pipeline:main"
@@ -57,6 +64,7 @@ finevent-rag = "finevent.rag.cli:main"
 finevent-retrieve = "finevent.retrieval.cli:main"
 finevent-patterns = "finevent.patterns.cli:main"
 finevent-extract = "finevent.extraction.cli:main"
+finevent-evaluate = "finevent.evaluation.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

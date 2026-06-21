@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from finevent.schema.validation import parse_teacher_output, validate_label_document
 
-
 ARTICLE = {
     "article_id": "cafef_833adef5f3d9",
     "source": "cafef",

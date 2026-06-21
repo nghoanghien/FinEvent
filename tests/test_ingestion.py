@@ -13,8 +13,8 @@ from finevent.ingestion.metadata import (
     load_event_keyword_taxonomy,
 )
 from finevent.ingestion.pipeline import run_local_html_ingestion
-from finevent.ingestion.ticker_sql import company_entry_to_payload, normalize_alias
 from finevent.ingestion.text import canonical_url, normalize_text, text_hash
+from finevent.ingestion.ticker_sql import company_entry_to_payload, normalize_alias
 from finevent.jsonl import read_jsonl
 
 
