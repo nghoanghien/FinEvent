@@ -1,0 +1,235 @@
+# 03 - Workflow Runner
+
+## Mục Tiêu
+
+Workflow Runner là màn hình cho phép bấm chạy từng milestone hoặc workflow lớn.
+Nó phải đủ rõ để người dùng biết sẽ chạy gì, dùng input nào, output nằm ở đâu và
+đang chạy đến bước nào.
+
+## Preset Workflows
+
+### 1. Full M00-M08
+
+Chạy toàn bộ pipeline end-to-end:
+
+1. DB healthcheck.
+2. Apply migrations.
+3. Verify pgvector.
+4. Ingest/clean articles.
+5. Sync articles to PostgreSQL.
+6. Teacher labeling.
+7. Sync gold labels.
+8. RAG preparation.
+9. Sync chunks/embeddings.
+10. Retrieval comparison.
+11. Pattern library build.
+12. Sync patterns.
+13. Student 8B batch extraction.
+14. Sync extraction runs.
+15. Evaluation/report generation.
+
+Output chính:
+
+- `data/processed/articles_clean.jsonl`
+- `data/labels/events_gold.jsonl`
+- `data/retrieval/chunk_embeddings.jsonl`
+- `data/patterns/patterns.jsonl`
+- `data/extraction/student_predictions.jsonl`
+- `reports/evaluation/report_index.md`
+
+### 2. Data Collection + Cleaning + DB Sync
+
+Chạy phần dữ liệu:
+
+- crawl/download articles;
+- parse HTML;
+- clean text;
+- extract metadata hints;
+- sync PostgreSQL.
+
+Khi dùng:
+
+- cần thêm dữ liệu mới;
+- cần kiểm tra crawler/parser;
+- cần refresh bài báo trong DB.
+
+### 3. RAG Preparation + Embedding
+
+Chạy:
+
+- structure-aware chunking;
+- BM25 index;
+- embedding API;
+- vector artifact;
+- pgvector sync.
+
+Khi dùng:
+
+- thay đổi chunking;
+- thay embedding model;
+- thêm corpus mới;
+- muốn rebuild retrieval index.
+
+### 4. Teacher Labeling
+
+Chạy:
+
+- teacher prompt;
+- parse output;
+- auto validation;
+- accept AI labels as gold;
+- sync DB.
+
+Khi dùng:
+
+- có bài mới chưa có gold label;
+- thay teacher prompt;
+- thay schema/taxonomy.
+
+Không có human review trong workflow hiện tại theo quyết định của project.
+
+### 5. Retrieval Evaluation
+
+Chạy:
+
+- BM25 only;
+- dense only;
+- hybrid;
+- metadata-aware hybrid;
+- rule-aware rerank;
+- LLM reasoning rerank nếu bật.
+
+Output:
+
+- `reports/evaluation/retrieval_metrics.csv`
+- `reports/evaluation/retrieval_error_analysis.md`
+
+### 6. Pattern Library Build
+
+Chạy:
+
+- build patterns từ gold labels;
+- validate pattern;
+- embed patterns;
+- sync pattern DB.
+
+Output:
+
+- `data/patterns/patterns.jsonl`
+- `data/patterns/pattern_embeddings.jsonl`
+- `reports/evaluation/pattern_library_summary.md`
+
+### 7. Student 8B Batch Extraction
+
+Chạy:
+
+- retrieval;
+- pattern selection;
+- prompt budgeting;
+- student 8B extraction;
+- validation;
+- verification;
+- sync PostgreSQL;
+- write prediction JSONL.
+
+Output:
+
+- `data/extraction/student_predictions.jsonl`
+- `runs/extraction/*`
+
+### 8. Final Evaluation And Reports
+
+Chạy:
+
+- compare predictions vs gold labels;
+- aggregate metrics;
+- write CSV/JSONL;
+- write Markdown reports.
+
+Output:
+
+- `reports/evaluation/report_index.md`
+- `reports/evaluation/eval_summary.md`
+- `reports/evaluation/extraction_batch_summary.md`
+- `reports/evaluation/verification_summary.md`
+- `reports/evaluation/schema_error_summary.md`
+- `reports/evaluation/improvement_recommendations.md`
+
+## Controls Trên UI
+
+Mỗi workflow card cần có:
+
+- tên workflow;
+- mô tả ngắn;
+- input chính;
+- output chính;
+- estimated cost/risk;
+- nút `Run`;
+- nút `Open last report`;
+- nút `Open latest run`.
+
+## Config Form
+
+Form cơ bản:
+
+| Field | Mặc định | Ghi chú |
+| --- | --- | --- |
+| `max_articles` | 25 hoặc empty | Giới hạn số bài cho test |
+| `embedding_provider` | `direct_http` | Dùng endpoint self-host |
+| `embedding_dimension` | 1024 | Theo model hiện tại |
+| `student_provider` | `env` | Gọi student 8B từ `.env` |
+| `retrieval_config` | `metadata_aware_hybrid` | Config tốt nhất hiện tại |
+| `pattern_count` | 3 | Few-shot patterns |
+| `max_contexts` | 5 | Context cho extraction |
+| `max_prompt_chars` | 11000 | Tránh vượt context 4096 token |
+| `sync_postgres` | true | Lưu kết quả vào DB |
+
+Advanced config có thể collapse:
+
+- input/output path;
+- teacher model;
+- student model;
+- threshold verification;
+- batch offset/limit;
+- rerank mode.
+
+## Run Lifecycle
+
+```text
+created -> queued -> running -> success
+                       ├── failed
+                       └── canceled
+```
+
+Khi bấm `Run`:
+
+1. Frontend gọi `POST /admin/runs`.
+2. Backend tạo `PipelineRun`.
+3. Backend tạo danh sách `PipelineStep`.
+4. Job runner bắt đầu chạy step đầu tiên.
+5. Frontend redirect sang `/admin/runs/{run_id}`.
+6. UI subscribe SSE logs.
+7. Sau mỗi step, artifact/report link được cập nhật.
+
+## Retry Và Cancel
+
+V1 cần:
+
+- cancel running run;
+- retry whole run;
+- retry from failed step.
+
+Không cần retry từng internal command quá nhỏ trong V1.
+
+## Failure UI
+
+Khi step fail:
+
+- timeline tô đỏ step lỗi;
+- live log tự scroll đến dòng lỗi;
+- hiển thị exit code;
+- hiển thị command đã chạy;
+- hiển thị stderr cuối cùng;
+- hiển thị artifact đã sinh trước khi lỗi;
+- gợi ý mở runbook/report liên quan.
+

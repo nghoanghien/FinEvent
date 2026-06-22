@@ -16,6 +16,11 @@ docs/
   adr/
     README.md
     0001-database-layer-strategy.md
+  admin-dashboard/
+    README.md
+    01-product-scope.md
+    ...
+    11-testing-acceptance.md
   schema/
     event-schema.md
   workflows/
@@ -61,7 +66,8 @@ docs/
 6. Đọc các workflow theo đúng luồng: data -> RAG preparation -> retrieval -> pattern -> extraction -> verification -> evaluation -> demo.
 7. Đọc [Experiment Plan](experiments/experiment-plan.md) để biết cần chạy thí nghiệm nào cho SE365.
 8. Đọc [Project Roadmap](implementation/project-roadmap.md), [Milestone Implementation Details](implementation/milestone-implementation-details.md) và từng file trong [implementation/milestones/](implementation/milestones/) để quản lý tiến độ code.
-9. Đọc [Academic Report Guide](report/README.md), đặc biệt [Contributions](report/03-contributions.md), để viết báo cáo nộp môn.
+9. Đọc [Admin Dashboard Documentation](admin-dashboard/README.md) khi cần thiết kế UI chạy workflow, xem live logs, DB, reports và structured outputs.
+10. Đọc [Academic Report Guide](report/README.md), đặc biệt [Contributions](report/03-contributions.md), để viết báo cáo nộp môn.
 
 ## Tài liệu theo nhóm
 
@@ -79,6 +85,23 @@ docs/
 | --- | --- |
 | [README.md](adr/README.md) | Index các quyết định kiến trúc |
 | [0001-database-layer-strategy.md](adr/0001-database-layer-strategy.md) | Chiến lược database layer: Raw SQL, SQLAlchemy Core, Alembic và ORM có chọn lọc |
+
+### Admin Dashboard
+
+| File | Vai trò |
+| --- | --- |
+| [README.md](admin-dashboard/README.md) | Index bộ tài liệu UI admin và observability |
+| [01-product-scope.md](admin-dashboard/01-product-scope.md) | Mục tiêu, audience, use cases và phạm vi v1 |
+| [02-information-architecture.md](admin-dashboard/02-information-architecture.md) | Cấu trúc màn hình và luồng điều hướng |
+| [03-workflow-runner.md](admin-dashboard/03-workflow-runner.md) | Thiết kế nút chạy từng milestone/workflow |
+| [04-live-logs-observability.md](admin-dashboard/04-live-logs-observability.md) | Live logs giống Colab, timeline và progress |
+| [05-database-browser.md](admin-dashboard/05-database-browser.md) | UI xem articles, chunks, labels, patterns, extraction runs trong DB |
+| [06-report-viewer.md](admin-dashboard/06-report-viewer.md) | UI xem Markdown/CSV/JSONL reports |
+| [07-structured-output-viewer.md](admin-dashboard/07-structured-output-viewer.md) | UI xem event table, evidence, arguments, verification |
+| [08-api-contract.md](admin-dashboard/08-api-contract.md) | API FastAPI cần có cho admin dashboard |
+| [09-backend-job-design.md](admin-dashboard/09-backend-job-design.md) | Thiết kế job runner, run state và log persistence |
+| [10-frontend-implementation-plan.md](admin-dashboard/10-frontend-implementation-plan.md) | Kế hoạch triển khai Next.js frontend |
+| [11-testing-acceptance.md](admin-dashboard/11-testing-acceptance.md) | Test cases và done criteria |
 
 ### Schema
 
