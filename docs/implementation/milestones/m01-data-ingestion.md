@@ -22,6 +22,8 @@ Thu thập và làm sạch bài báo tài chính tiếng Việt để tạo corp
 ```text
 data/raw/articles_raw.jsonl
 data/raw/html/
+data/raw/discovered_urls.jsonl
+data/raw/download_log.jsonl
 data/processed/articles_clean.jsonl
 PostgreSQL database
 reports/data/data_quality_summary.md
@@ -61,6 +63,29 @@ python -m finevent.ingestion \
   --clean-output-path data/processed/articles_clean.jsonl \
   --report-path reports/data/data_quality_summary.md
 ```
+
+Nếu muốn chạy tự động hơn, dùng discovery từ các trang chuyên mục đã cấu hình sẵn rồi download HTML và parse trong cùng một lệnh:
+
+```bash
+python -m finevent.ingestion \
+  --discover \
+  --input-html-dir data/raw/html \
+  --discovered-output-path data/raw/discovered_urls.jsonl \
+  --download-log-path data/raw/download_log.jsonl \
+  --raw-output-path data/raw/articles_raw.jsonl \
+  --clean-output-path data/processed/articles_clean.jsonl \
+  --report-path reports/data/data_quality_summary.md \
+  --max-discovered-urls 80 \
+  --max-download-articles 25
+```
+
+Logic discovery/download này nằm trong code chính của M01, không còn chỉ nằm trong notebook. Notebook `data-augmentation.ipynb` chỉ dùng để chạy thử trên RAM, quan sát chất lượng parser/cleaning nhanh và xuất JSONL sau khi đã kiểm tra ổn.
+
+Artifact của luồng tự động:
+
+- `data/raw/discovered_urls.jsonl`: danh sách URL ứng viên đã discovery, có `source`, `link_text`, `score`, `seed_url`, `discovered_at`.
+- `data/raw/download_log.jsonl`: log từng lượt download, gồm HTTP status, lỗi nếu có và thời điểm download.
+- `data/raw/html/`: HTML snapshot để debug parser và tái lập kết quả.
 
 Các artifact dữ liệu sinh ra trong `data/raw/*.jsonl`, `data/processed/*.jsonl` và `reports/data/*.md` được ignore khỏi git. Dictionary trong `data/dictionaries/` và schema SQL trong `infra/postgres/` được track.
 
@@ -134,6 +159,12 @@ Không đưa mạng xã hội vào v1 vì nhiễu cao và khó đánh giá.
 
 Tạo script nhận ticker/keyword và sinh danh sách URL ứng viên.
 
+Implementation hiện tại đặt logic này ở `finevent.ingestion.discovery`:
+
+- `default_seed_pages()`: seed các trang chuyên mục tài chính/doanh nghiệp.
+- `discover_url_candidates()`: đọc seed page, lọc link cùng domain, loại link chuyên mục/media/static và xếp hạng URL theo keyword/ticker hint.
+- `discovered_urls.jsonl`: lưu lại danh sách URL ứng viên để có thể tái lập run hoặc chỉnh tay khi cần.
+
 Mỗi URL record cần có:
 
 ```json
@@ -153,6 +184,12 @@ Lưu raw HTML để debug parser:
 ```text
 data/raw/html/{article_id}.html
 ```
+
+Implementation hiện tại đặt logic này ở `finevent.ingestion.download`:
+
+- `fetch_url_candidates()`: download HTML và giữ trong RAM, dùng cho notebook/debug nhanh.
+- `download_url_candidates()`: download HTML và ghi snapshot vào `data/raw/html/`, dùng cho CLI/batch run.
+- `download_log.jsonl`: lưu HTTP status, lỗi và kích thước HTML để kiểm tra chất lượng crawl.
 
 `articles_raw.jsonl` lưu:
 

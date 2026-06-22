@@ -58,12 +58,7 @@ def _parse_with_bs4(html: str, *, source: str, url: str) -> ParsedArticle:
         ]
     )
 
-    article_node = soup.find("article")
-    if article_node is None:
-        for selector in (".article-content", ".detail-content", ".news-content", ".contentdetail"):
-            article_node = soup.select_one(selector)
-            if article_node is not None:
-                break
+    article_node = _select_best_article_node(soup)
     container = article_node or soup.body or soup
     paragraphs = [node.get_text(" ", strip=True) for node in container.find_all(["p", "li"])]
     body_text = normalize_text("\n".join(text for text in paragraphs if text))
@@ -87,6 +82,39 @@ def _parse_with_bs4(html: str, *, source: str, url: str) -> ParsedArticle:
         body_text=body_text,
         warnings=warnings,
     )
+
+
+def _select_best_article_node(soup: object) -> object | None:
+    selectors = (
+        "[itemprop='articleBody']",
+        ".article__body",
+        ".cms-body",
+        ".article-content",
+        ".detail-content",
+        ".news-content",
+        ".contentdetail",
+        ".article-detail",
+        ".post-content",
+        ".content-news",
+        "article",
+    )
+    candidates = []
+    for selector in selectors:
+        candidates.extend(soup.select(selector))
+    if not candidates:
+        return None
+    return max(candidates, key=_article_text_score)
+
+
+def _article_text_score(node: object) -> int:
+    paragraphs = [
+        child.get_text(" ", strip=True)
+        for child in node.find_all(["p", "li"])
+        if child.get_text(" ", strip=True)
+    ]
+    if paragraphs:
+        return sum(len(text) for text in paragraphs)
+    return len(node.get_text(" ", strip=True))
 
 
 def _meta_content(soup: object, attr_name: str, attr_value: str) -> str | None:

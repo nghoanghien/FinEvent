@@ -46,6 +46,17 @@ workflow = [
   "langchain-core>=0.3",
   "langgraph>=0.2",
 ]
+llm = [
+  "langchain-openai>=0.2",
+  "openai>=1.50",
+  "tenacity>=8.5",
+]
+notebook = [
+  "ipykernel>=6.29",
+  "jupyter>=1.1",
+  "nbclient>=0.10",
+  "nbformat>=5.10",
+]
 evaluation = [
   "matplotlib>=3.9",
   "numpy>=2.0",

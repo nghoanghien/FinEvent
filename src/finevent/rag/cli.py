@@ -21,7 +21,11 @@ def build_parser() -> argparse.ArgumentParser:
     prepare.add_argument("--retrieval-dir", default="data/retrieval")
     prepare.add_argument("--vector-store-dir", default="data/vector_store")
     prepare.add_argument("--report-path", default="reports/data/rag_preparation_summary.md")
-    prepare.add_argument("--embedding-provider", default="hash", choices=["hash", "cloudflare"])
+    prepare.add_argument(
+        "--embedding-provider",
+        default="hash",
+        choices=["hash", "cloudflare", "openai_compatible"],
+    )
     prepare.add_argument("--embedding-model", default=None)
     prepare.add_argument("--embedding-dimension", type=int, default=128)
     prepare.add_argument("--target-words", type=int, default=420)

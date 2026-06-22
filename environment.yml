@@ -5,3 +5,5 @@ dependencies:
   - python=3.11
   - pip
   - uv
+  - pip:
+      - "-e .[dev,config,ingestion,rag,workflow,llm,notebook,evaluation]"

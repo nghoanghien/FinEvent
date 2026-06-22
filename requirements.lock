@@ -1,1 +1,1 @@
--e .
+-e .[dev,config,ingestion,rag,workflow,llm,notebook,evaluation]

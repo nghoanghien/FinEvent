@@ -8,6 +8,7 @@ import os
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 from finevent.jsonl import read_jsonl, write_jsonl
 from finevent.logging_utils import utc_now_iso
@@ -104,6 +105,30 @@ class CloudflareEmbeddingClient(EmbeddingClient):
         return vectors
 
 
+class LangChainEmbeddingClient(EmbeddingClient):
+    """Embedding adapter for LangChain embedding objects."""
+
+    def __init__(
+        self,
+        *,
+        embedding_model: Any,
+        model_name: str,
+        dimension: int = 0,
+    ):
+        self.embedding_model = embedding_model
+        self.model_name = model_name
+        self.dimension = dimension
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        if hasattr(self.embedding_model, "embed_documents"):
+            vectors = self.embedding_model.embed_documents(texts)
+        elif hasattr(self.embedding_model, "embed_texts"):
+            vectors = self.embedding_model.embed_texts(texts)
+        else:
+            raise TypeError("Embedding model must expose embed_documents or embed_texts.")
+        return [[float(value) for value in vector] for vector in vectors]
+
+
 def build_embedding_client(
     *,
     provider: str = "hash",
@@ -118,6 +143,15 @@ def build_embedding_client(
     if provider == "cloudflare":
         return CloudflareEmbeddingClient(
             model_name=model_name or "@cf/baai/bge-m3",
+            dimension=dimension,
+        )
+    if provider in {"openai_compatible", "langchain_openai"}:
+        from finevent.llm import build_openai_compatible_embeddings_from_env
+
+        embedding_model = build_openai_compatible_embeddings_from_env(model=model_name)
+        return LangChainEmbeddingClient(
+            embedding_model=embedding_model,
+            model_name=model_name or "openai_compatible_embedding",
             dimension=dimension,
         )
     raise ValueError(f"Unsupported embedding provider: {provider}")

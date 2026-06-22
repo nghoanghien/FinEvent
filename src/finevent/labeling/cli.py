@@ -8,6 +8,8 @@ import json
 from finevent.db import get_sqlalchemy_engine
 from finevent.labeling.event_sql import sync_event_labels_jsonl
 from finevent.labeling.pipeline import generate_teacher_prompts, validate_teacher_outputs
+from finevent.labeling.teacher_llm import run_teacher_llm_on_prompts
+from finevent.llm import build_teacher_chat_model_from_env, load_provider_runtime_config
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -19,6 +21,17 @@ def build_parser() -> argparse.ArgumentParser:
     prompts.add_argument("--prompt-output-path", default="data/labels/teacher_prompts.jsonl")
     prompts.add_argument("--taxonomy-path", default="data/schema/event_taxonomy_v1.json")
     prompts.add_argument("--limit", type=int, default=None)
+
+    run_teacher = subparsers.add_parser(
+        "run-teacher",
+        help="Call the configured teacher LLM for generated prompt records.",
+    )
+    run_teacher.add_argument("--prompt-path", default="data/labels/teacher_prompts.jsonl")
+    run_teacher.add_argument("--output-path", default="data/labels/teacher_outputs.jsonl")
+    run_teacher.add_argument("--max-records", type=int, default=None)
+    run_teacher.add_argument("--max-retries", type=int, default=2)
+    run_teacher.add_argument("--retry-sleep-seconds", type=float, default=2.0)
+    run_teacher.add_argument("--run-id", default=None)
 
     validate = subparsers.add_parser(
         "validate",
@@ -60,6 +73,33 @@ def main(argv: list[str] | None = None) -> None:
                 {
                     "prompt_path": str(result.prompt_path),
                     "prompt_count": result.prompt_count,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return
+
+    if args.command == "run-teacher":
+        provider_config = load_provider_runtime_config()
+        result = run_teacher_llm_on_prompts(
+            prompt_path=args.prompt_path,
+            output_path=args.output_path,
+            teacher_model=build_teacher_chat_model_from_env(),
+            teacher_model_name=provider_config.teacher_model or "teacher_model",
+            max_records=args.max_records,
+            max_retries=args.max_retries,
+            retry_sleep_seconds=args.retry_sleep_seconds,
+            run_id=args.run_id,
+        )
+        print(
+            json.dumps(
+                {
+                    "teacher_output_path": str(result.teacher_output_path),
+                    "prompt_count": result.prompt_count,
+                    "success_count": result.success_count,
+                    "error_count": result.error_count,
+                    "run_id": result.run_id,
                 },
                 ensure_ascii=False,
                 indent=2,
