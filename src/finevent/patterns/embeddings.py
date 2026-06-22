@@ -38,7 +38,7 @@ def embed_patterns_with_cache(
         vectors = client.embed_texts([pattern.pattern_text for pattern, _ in batch])
         for (pattern, pattern_hash), vector in zip(batch, vectors, strict=True):
             record = PatternEmbeddingRecord(
-                embedding_id=_embedding_id(client.model_name, pattern_hash),
+                embedding_id=_embedding_id(client.model_name, pattern.pattern_id),
                 pattern_id=pattern.pattern_id,
                 embedding_model=client.model_name,
                 embedding_dimension=len(vector),
@@ -87,9 +87,7 @@ def _record_from_cache(
 ) -> PatternEmbeddingRecord:
     vector = [float(value) for value in cached.get("vector", [])]
     return PatternEmbeddingRecord(
-        embedding_id=str(
-            cached.get("embedding_id") or _embedding_id(client.model_name, pattern_hash)
-        ),
+        embedding_id=_embedding_id(client.model_name, pattern.pattern_id),
         pattern_id=pattern.pattern_id,
         embedding_model=client.model_name,
         embedding_dimension=len(vector),
@@ -101,8 +99,8 @@ def _record_from_cache(
     )
 
 
-def _embedding_id(model_name: str, pattern_hash: str) -> str:
-    digest = hashlib.sha1(f"{model_name}:{pattern_hash}".encode()).hexdigest()
+def _embedding_id(model_name: str, identity: str) -> str:
+    digest = hashlib.sha1(f"{model_name}:{identity}".encode()).hexdigest()
     return f"pattern_emb_{digest[:16]}"
 
 

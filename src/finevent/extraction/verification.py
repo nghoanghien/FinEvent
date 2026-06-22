@@ -114,7 +114,7 @@ def verify_extraction_output(
 
     pre_schema = validate_label_document(draft_output, article, taxonomy=taxonomy)
     sanitized = _sanitize_document(draft_output, accumulator)
-    draft_events = sanitized.get("events") if isinstance(sanitized.get("events"), list) else []
+    draft_events = _event_list(sanitized)
     verified_events: list[JsonDict] = []
 
     for index, raw_event in enumerate(draft_events):
@@ -422,11 +422,8 @@ def _check_taxonomy_consistency(
     if not isinstance(event_type, str) or event_type not in taxonomy.event_types:
         return
 
-    arguments = (
-        event.get("event_arguments")
-        if isinstance(event.get("event_arguments"), dict)
-        else {}
-    )
+    raw_arguments = event.get("event_arguments")
+    arguments: JsonDict = raw_arguments if isinstance(raw_arguments, dict) else {}
     core_groups = CORE_ARGUMENT_GROUPS.get(event_type, ())
     for group in core_groups:
         if not any(not _is_empty_value(arguments.get(field)) for field in group):
@@ -454,12 +451,8 @@ def _build_report(
     accumulator: _VerificationAccumulator,
     config: VerificationConfig,
 ) -> JsonDict:
-    draft_events = (
-        draft_output.get("events") if isinstance(draft_output.get("events"), list) else []
-    )
-    verified_events = (
-        verified_output.get("events") if isinstance(verified_output.get("events"), list) else []
-    )
+    draft_events = _event_list(draft_output)
+    verified_events = _event_list(verified_output)
     metrics = _compute_metrics(
         draft_event_count=len(draft_events),
         verified_event_count=len(verified_events),
@@ -487,6 +480,11 @@ def _build_report(
         "warnings": accumulator.warnings,
         "metrics": metrics,
     }
+
+
+def _event_list(document: JsonDict) -> list[object]:
+    events = document.get("events")
+    return events if isinstance(events, list) else []
 
 
 def _compute_metrics(

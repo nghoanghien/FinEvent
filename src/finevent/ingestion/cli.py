@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 
+from finevent.db import get_sqlalchemy_engine
+from finevent.ingestion.article_sql import sync_clean_articles_jsonl
 from finevent.ingestion.discovery import SeedPage, default_seed_pages, discover_url_candidates
 from finevent.ingestion.download import download_url_candidates, read_url_candidates
 from finevent.ingestion.pipeline import run_local_html_ingestion
@@ -36,6 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-discovered-urls", type=int, default=80)
     parser.add_argument("--max-download-articles", type=int, default=25)
     parser.add_argument("--request-timeout-seconds", type=float, default=20.0)
+    parser.add_argument("--sync-postgres", action="store_true")
     return parser
 
 
@@ -94,6 +97,12 @@ def main(argv: list[str] | None = None) -> None:
         keyword_taxonomy_path=args.keyword_taxonomy_path,
         min_text_chars=args.min_text_chars,
     )
+    article_sync = None
+    if args.sync_postgres:
+        article_sync = sync_clean_articles_jsonl(
+            get_sqlalchemy_engine(),
+            articles_path=args.clean_output_path,
+        )
     print(
         json.dumps(
             {
@@ -109,6 +118,7 @@ def main(argv: list[str] | None = None) -> None:
                 "download_count": download_count,
                 "download_error_count": download_error_count,
                 "download_log_path": args.download_log_path if download_records else None,
+                "postgres_sync": article_sync.__dict__ if article_sync else None,
             },
             ensure_ascii=False,
             indent=2,

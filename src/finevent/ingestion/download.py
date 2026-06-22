@@ -135,7 +135,7 @@ def fetch_url_candidates(
         try:
             response = client.get(candidate.url, timeout=timeout_seconds)
             response.raise_for_status()
-            html = response.text
+            html = _decode_response_text(response)
             pages.append(
                 FetchedPage(
                     candidate=candidate,
@@ -187,3 +187,17 @@ def download_url_candidates(
         )
 
     return records
+
+
+def _decode_response_text(response: Any) -> str:
+    content = getattr(response, "content", None)
+    if isinstance(content, bytes) and content:
+        encoding = getattr(response, "encoding", None)
+        apparent_encoding = getattr(response, "apparent_encoding", None)
+        if not encoding or str(encoding).lower() in {"iso-8859-1", "latin-1"}:
+            encoding = apparent_encoding or "utf-8"
+        try:
+            return content.decode(str(encoding), errors="replace")
+        except LookupError:
+            return content.decode("utf-8", errors="replace")
+    return str(getattr(response, "text", ""))

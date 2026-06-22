@@ -53,6 +53,15 @@ def main(argv: list[str] | None = None) -> None:
                     "config_count": result.config_count,
                     "article_count": result.article_count,
                     "error_count": result.error_count,
+                    "report_index_path": str(result.report_index_path),
+                    "extraction_batch_summary_path": str(
+                        result.extraction_batch_summary_path
+                    ),
+                    "verification_summary_path": str(result.verification_summary_path),
+                    "schema_error_summary_path": str(result.schema_error_summary_path),
+                    "improvement_recommendations_path": str(
+                        result.improvement_recommendations_path
+                    ),
                 },
                 ensure_ascii=False,
                 indent=2,

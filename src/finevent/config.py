@@ -10,6 +10,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote_plus
 
 from finevent.paths import repo_root, resolve_project_path
 from finevent.types import JsonDict, PathLike
@@ -65,6 +66,8 @@ class AppConfig:
         storage = dict(data["storage"])
         if os.getenv("POSTGRES_DSN"):
             storage["postgres_dsn"] = os.environ["POSTGRES_DSN"]
+        elif any(os.getenv(name) for name in _POSTGRES_COMPONENT_ENV_KEYS):
+            storage["postgres_dsn"] = _postgres_dsn_from_components()
 
         return cls(
             project=ProjectConfig(**data["project"]),
@@ -138,3 +141,24 @@ def _parse_scalar(value: str) -> Any:
         return int(value)
     except ValueError:
         return value.strip('"').strip("'")
+
+
+_POSTGRES_COMPONENT_ENV_KEYS = (
+    "POSTGRES_USER",
+    "POSTGRES_PASSWORD",
+    "POSTGRES_HOST",
+    "POSTGRES_PORT",
+    "POSTGRES_DB",
+)
+
+
+def _postgres_dsn_from_components() -> str:
+    user = os.getenv("POSTGRES_USER") or "finevent"
+    password = os.getenv("POSTGRES_PASSWORD") or "password"
+    host = os.getenv("POSTGRES_HOST") or "localhost"
+    port = os.getenv("POSTGRES_PORT") or "55433"
+    database = os.getenv("POSTGRES_DB") or "finevent"
+    return (
+        "postgresql+psycopg://"
+        f"{quote_plus(user)}:{quote_plus(password)}@{host}:{port}/{quote_plus(database)}"
+    )

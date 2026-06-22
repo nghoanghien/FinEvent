@@ -24,6 +24,11 @@ class ExtractionRunConfig:
     null_unsupported_arguments: bool = True
     verification_version: str = "m07_verification_v1"
     run_label: str = "m06_online_extraction"
+    max_article_chars: int = 2200
+    max_context_chars: int = 450
+    max_pattern_excerpt_chars: int = 350
+    max_pattern_output_chars: int = 700
+    max_prompt_chars: int = 11000
 
     @classmethod
     def from_dict(cls, data: JsonDict | None) -> ExtractionRunConfig:

@@ -4,7 +4,7 @@ project:
   config_version: m00
 
 storage:
-  postgres_dsn: postgresql+psycopg://finevent:password@localhost:5432/finevent
+  postgres_dsn: postgresql+psycopg://finevent:password@localhost:55433/finevent
   vector_backend: pgvector
   raw_dir: data/raw
   processed_dir: data/processed

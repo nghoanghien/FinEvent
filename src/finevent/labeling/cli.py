@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+from typing import cast
 
 from finevent.db import get_sqlalchemy_engine
 from finevent.labeling.event_sql import sync_event_labels_jsonl
 from finevent.labeling.pipeline import generate_teacher_prompts, validate_teacher_outputs
-from finevent.labeling.teacher_llm import run_teacher_llm_on_prompts
+from finevent.labeling.teacher_llm import InvokableModel, run_teacher_llm_on_prompts
 from finevent.llm import build_teacher_chat_model_from_env, load_provider_runtime_config
 
 
@@ -48,6 +49,14 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--report-path", default="reports/data/labeling_summary.md")
     validate.add_argument("--taxonomy-path", default="data/schema/event_taxonomy_v1.json")
     validate.add_argument("--run-id", default=None)
+    validate.add_argument(
+        "--strict-validation",
+        action="store_true",
+        help=(
+            "Reject labels with schema/grounding validation errors. By default, parseable "
+            "AI-generated labels are accepted as operational gold labels."
+        ),
+    )
 
     sync = subparsers.add_parser(
         "sync-postgres",
@@ -85,7 +94,7 @@ def main(argv: list[str] | None = None) -> None:
         result = run_teacher_llm_on_prompts(
             prompt_path=args.prompt_path,
             output_path=args.output_path,
-            teacher_model=build_teacher_chat_model_from_env(),
+            teacher_model=cast(InvokableModel, build_teacher_chat_model_from_env()),
             teacher_model_name=provider_config.teacher_model or "teacher_model",
             max_records=args.max_records,
             max_retries=args.max_retries,
@@ -117,6 +126,7 @@ def main(argv: list[str] | None = None) -> None:
             report_path=args.report_path,
             taxonomy_path=args.taxonomy_path,
             run_id=args.run_id,
+            accept_ai_as_gold=not args.strict_validation,
         )
         print(
             json.dumps(

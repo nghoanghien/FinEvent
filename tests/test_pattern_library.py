@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 from finevent.jsonl import read_jsonl
@@ -64,6 +65,32 @@ def test_pattern_embedding_cache_and_selection(tmp_path: Path) -> None:
     assert candidates
     assert candidates[0].event_type == "EXPANSION"
     assert candidates[0].ticker == "HPG"
+
+
+def test_duplicate_pattern_hash_keeps_unique_embedding_ids(tmp_path: Path) -> None:
+    patterns = build_patterns_from_gold(
+        gold_records=[_event_gold_record()],
+        articles_by_id={"cafef_833adef5f3d9": _event_article()},
+    )
+    duplicate = replace(patterns[0], pattern_id=f"{patterns[0].pattern_id}_duplicate")
+    client = HashEmbeddingClient(dimension=32)
+
+    first = embed_patterns_with_cache(
+        [patterns[0], duplicate],
+        client=client,
+        output_path=tmp_path / "pattern_embeddings.jsonl",
+        cache_path=tmp_path / "pattern_embedding_cache.jsonl",
+    )
+    second = embed_patterns_with_cache(
+        [patterns[0], duplicate],
+        client=client,
+        output_path=tmp_path / "pattern_embeddings_second.jsonl",
+        cache_path=tmp_path / "pattern_embedding_cache.jsonl",
+    )
+
+    assert len({record.embedding_id for record in first}) == 2
+    assert len({record.embedding_id for record in second}) == 2
+    assert all(record.cache_hit for record in second)
 
 
 def test_render_few_shot_patterns_contains_schema_output(tmp_path: Path) -> None:

@@ -102,10 +102,12 @@ def build_queries_from_article(article: JsonDict) -> list[RetrievalQuery]:
 
 
 def build_queries_from_gold_label(gold_record: JsonDict) -> list[RetrievalQuery]:
-    label = gold_record.get("label") if isinstance(gold_record.get("label"), dict) else gold_record
+    raw_label = gold_record.get("label")
+    label: JsonDict = raw_label if isinstance(raw_label, dict) else gold_record
     article_id = str(label.get("article_id") or gold_record.get("article_id") or "gold")
     queries: list[RetrievalQuery] = []
-    for event_index, event in enumerate(label.get("events", [])):
+    events = label.get("events")
+    for event_index, event in enumerate(events if isinstance(events, list) else []):
         if not isinstance(event, dict):
             continue
         ticker = [str(event["ticker"]).upper()] if event.get("ticker") else []

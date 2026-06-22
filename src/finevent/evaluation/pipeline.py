@@ -13,6 +13,7 @@ from finevent.evaluation.reporting import (
     build_evaluation_summary,
     write_csv,
     write_error_outputs,
+    write_markdown_report_suite,
 )
 from finevent.jsonl import write_jsonl
 from finevent.types import JsonDict, PathLike
@@ -28,6 +29,11 @@ class EvaluationPipelineResult:
     error_examples_path: Path
     detailed_predictions_path: Path
     eval_summary_path: Path
+    report_index_path: Path
+    extraction_batch_summary_path: Path
+    verification_summary_path: Path
+    schema_error_summary_path: Path
+    improvement_recommendations_path: Path
     config_count: int
     article_count: int
     error_count: int
@@ -117,6 +123,15 @@ def run_evaluation_pipeline(
         ),
         encoding="utf-8",
     )
+    markdown_report_paths = write_markdown_report_suite(
+        output_dir=output_path,
+        metrics_rows=metrics_rows,
+        hallucination_rows=hallucination_rows,
+        error_rows=error_rows,
+        per_event_type_rows=per_event_type_rows,
+        detailed_rows=detailed_rows,
+        retrieval_metrics_rows=retrieval_rows,
+    )
 
     return EvaluationPipelineResult(
         output_dir=output_path,
@@ -127,6 +142,11 @@ def run_evaluation_pipeline(
         error_examples_path=error_examples_path,
         detailed_predictions_path=detailed_predictions_path,
         eval_summary_path=eval_summary_path,
+        report_index_path=markdown_report_paths["report_index"],
+        extraction_batch_summary_path=markdown_report_paths["extraction_batch_summary"],
+        verification_summary_path=markdown_report_paths["verification_summary"],
+        schema_error_summary_path=markdown_report_paths["schema_error_summary"],
+        improvement_recommendations_path=markdown_report_paths["improvement_recommendations"],
         config_count=len(run_results),
         article_count=len(evaluated_article_ids),
         error_count=len(error_rows),

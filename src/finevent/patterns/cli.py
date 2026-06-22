@@ -164,7 +164,8 @@ def _add_store_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--query-embedding-provider",
         default=None,
-        help="Set this to cloudflare when pattern embeddings were built with Cloudflare.",
+        choices=["hash", "cloudflare", "openai_compatible", "direct_http"],
+        help="Use the same provider/model as the stored pattern embeddings for live search.",
     )
     parser.add_argument("--query-embedding-model", default=None)
     parser.add_argument("--query-embedding-dimension", type=int, default=128)

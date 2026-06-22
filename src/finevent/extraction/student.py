@@ -8,10 +8,15 @@ runs when no LLM endpoint is available.
 from __future__ import annotations
 
 import json
+from typing import Any, Protocol
 
 from finevent.ingestion.text import normalize_text
 from finevent.schema.taxonomy import load_event_taxonomy
 from finevent.types import JsonDict
+
+
+class InvokableStudentModel(Protocol):
+    def invoke(self, prompt: str) -> Any: ...
 
 POSITIVE_TYPES = {
     "CONTRACT",
@@ -82,7 +87,7 @@ def run_deterministic_student_extractor(
     )
 
 
-def run_langchain_student_model(model: object, prompt: str) -> str:
+def run_langchain_student_model(model: InvokableStudentModel, prompt: str) -> str:
     """Call a LangChain model object without implementing provider adapters."""
     response = model.invoke(prompt)
     content = getattr(response, "content", response)

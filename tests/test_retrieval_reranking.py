@@ -12,6 +12,16 @@ from finevent.retrieval.llm_rerank import build_llm_reasoning_rerank_prompt
 from finevent.retrieval.querying import build_queries_from_article
 
 
+class CountingEmbeddingClient(HashEmbeddingClient):
+    def __init__(self, *, dimension: int = 32):
+        super().__init__(dimension=dimension)
+        self.call_count = 0
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        self.call_count += len(texts)
+        return super().embed_texts(texts)
+
+
 def test_query_decomposition_uses_article_metadata() -> None:
     queries = build_queries_from_article(_article())
     query_types = {query.query_type for query in queries}
@@ -35,6 +45,18 @@ def test_retrieval_strategies_return_score_breakdown(tmp_path: Path) -> None:
         assert "dense_score" in candidates[0].score_breakdown
         assert "bm25_score" in candidates[0].score_breakdown
         assert "metadata_score" in candidates[0].score_breakdown
+
+
+def test_query_embeddings_are_cached_across_retrieval_configs(tmp_path: Path) -> None:
+    artifacts = _build_retrieval_artifacts(tmp_path)
+    client = CountingEmbeddingClient(dimension=32)
+    engine = RetrievalEngine.from_artifacts(**artifacts, query_embedding_client=client)
+    queries = build_queries_from_article(_article())
+
+    engine.retrieve(queries, config="dense_only")
+    engine.retrieve(queries, config="hybrid")
+
+    assert client.call_count == len(queries)
 
 
 def test_rule_and_llm_rerank_keep_relevant_event_chunk_on_top(tmp_path: Path) -> None:

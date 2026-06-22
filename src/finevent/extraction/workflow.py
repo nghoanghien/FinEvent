@@ -12,6 +12,7 @@ from finevent.extraction.models import ExtractionRunConfig, ExtractionWorkflowSt
 from finevent.extraction.preprocess import preprocess_extraction_input
 from finevent.extraction.prompting import build_extraction_prompt
 from finevent.extraction.student import (
+    InvokableStudentModel,
     run_deterministic_student_extractor,
     run_langchain_student_model,
 )
@@ -24,7 +25,7 @@ from finevent.patterns.querying import build_pattern_query_from_article
 from finevent.patterns.store import PatternStore
 from finevent.rag.embeddings import build_embedding_client
 from finevent.retrieval.engine import RetrievalEngine, artifacts_exist
-from finevent.retrieval.models import RetrievalCandidate
+from finevent.retrieval.models import RetrievalCandidate, RetrievalQuery
 from finevent.retrieval.querying import build_queries_from_article
 from finevent.types import JsonDict, PathLike
 
@@ -39,6 +40,9 @@ class ExtractionWorkflowArtifacts:
     logs_dir: PathLike = "runs/extraction"
     dictionary_path: PathLike = "data/dictionaries/ticker_company_map.csv"
     keyword_taxonomy_path: PathLike = "data/dictionaries/event_keyword_taxonomy.csv"
+    retrieval_query_embedding_provider: str | None = None
+    retrieval_query_embedding_model: str | None = None
+    retrieval_query_embedding_dimension: int = 128
     pattern_query_embedding_provider: str | None = None
     pattern_query_embedding_model: str | None = None
     pattern_query_embedding_dimension: int = 128
@@ -49,7 +53,7 @@ def run_online_extraction_workflow(
     *,
     config: ExtractionRunConfig | None = None,
     artifacts: ExtractionWorkflowArtifacts | None = None,
-    langchain_model: object | None = None,
+    langchain_model: InvokableStudentModel | None = None,
     raw_model_output: str | JsonDict | None = None,
     persist_logs: bool = True,
 ) -> ExtractionWorkflowState:
@@ -181,10 +185,18 @@ def _node_retrieve(
         state.warnings.append("retrieval_artifacts_missing")
         return {"retrieved_count": 0}
 
+    query_client = None
+    if artifacts.retrieval_query_embedding_provider:
+        query_client = build_embedding_client(
+            provider=artifacts.retrieval_query_embedding_provider,
+            model_name=artifacts.retrieval_query_embedding_model,
+            dimension=artifacts.retrieval_query_embedding_dimension,
+        )
     engine = RetrievalEngine.from_artifacts(
         chunks_path=artifacts.chunks_path,
         bm25_index_path=artifacts.bm25_index_path,
         embeddings_path=artifacts.retrieval_embeddings_path,
+        query_embedding_client=query_client,
     )
     candidates = engine.retrieve(
         [_retrieval_query_from_dict(query) for query in state.query_plan],
@@ -237,7 +249,7 @@ def _node_select_patterns(
 def _node_extract(
     state: ExtractionWorkflowState,
     *,
-    langchain_model: object | None,
+    langchain_model: InvokableStudentModel | None,
     raw_model_output: str | JsonDict | None,
 ) -> JsonDict:
     if not state.article:
@@ -249,6 +261,11 @@ def _node_extract(
         contexts=contexts,
         patterns=patterns,
         prompt_version=state.config.prompt_version,
+        max_article_chars=state.config.max_article_chars,
+        max_context_chars=state.config.max_context_chars,
+        max_pattern_excerpt_chars=state.config.max_pattern_excerpt_chars,
+        max_pattern_output_chars=state.config.max_pattern_output_chars,
+        max_prompt_chars=state.config.max_prompt_chars,
     )
     if raw_model_output is not None:
         state.raw_model_output = raw_model_output
@@ -368,9 +385,7 @@ def _node_log(
     }
 
 
-def _retrieval_query_from_dict(record: JsonDict) -> object:
-    from finevent.retrieval.models import RetrievalQuery
-
+def _retrieval_query_from_dict(record: JsonDict) -> RetrievalQuery:
     return RetrievalQuery(
         query_id=str(record["query_id"]),
         article_id=str(record["article_id"]),

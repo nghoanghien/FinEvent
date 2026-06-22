@@ -8,6 +8,8 @@ import pytest
 from finevent.jsonl import read_jsonl, write_jsonl
 from finevent.labeling.teacher_llm import run_teacher_llm_on_prompts
 from finevent.llm import (
+    DirectHttpChatModel,
+    DirectHttpEmbeddings,
     build_openai_compatible_embeddings_from_env,
     build_student_chat_model_from_env,
     build_teacher_chat_model_from_env,
@@ -34,6 +36,22 @@ class FakeChatModel:
 class FakeEmbeddingModel:
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return [[float(index), 1.0] for index, _ in enumerate(texts)]
+
+
+class FakeHttpResponse:
+    def __init__(self, payload: dict, status_code: int = 200, text: str = "ok") -> None:
+        self._payload = payload
+        self.status_code = status_code
+        self.text = text
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            import requests
+
+            raise requests.HTTPError("fixture http error")
+
+    def json(self) -> dict:
+        return self._payload
 
 
 def test_provider_config_redacts_secret(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -85,6 +103,59 @@ def test_langchain_embedding_client_adapts_embed_documents() -> None:
     )
 
     assert client.embed_texts(["a", "b"]) == [[0.0, 1.0], [1.0, 1.0]]
+
+
+def test_direct_http_chat_model_invokes_openai_compatible_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict] = []
+
+    def fake_post(url: str, headers: dict, json: dict, timeout: float) -> FakeHttpResponse:
+        calls.append({"url": url, "headers": headers, "json": json, "timeout": timeout})
+        return FakeHttpResponse({"choices": [{"message": {"content": '{"ok": true}'}}]})
+
+    import requests
+
+    monkeypatch.setattr(requests, "post", fake_post)
+    model = DirectHttpChatModel(
+        api_key="student-key",
+        model="qwen/qwen3-8b",
+        base_url="https://example.local/v1",
+        max_tokens=64,
+        disable_thinking=True,
+    )
+
+    response = model.invoke("Return JSON.")
+
+    assert response.content == '{"ok": true}'
+    assert calls[0]["url"] == "https://example.local/v1/chat/completions"
+    assert calls[0]["json"]["messages"][0]["content"].startswith("/no_think")
+    assert calls[0]["json"]["max_tokens"] == 64
+
+
+def test_direct_http_embeddings_parse_vectors(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_post(url: str, headers: dict, json: dict, timeout: float) -> FakeHttpResponse:
+        assert url == "https://example.local/v1/embeddings"
+        assert json["input"] == ["a", "b"]
+        return FakeHttpResponse(
+            {
+                "data": [
+                    {"embedding": [0.1, 0.2]},
+                    {"embedding": [0.3, 0.4]},
+                ]
+            }
+        )
+
+    import requests
+
+    monkeypatch.setattr(requests, "post", fake_post)
+    embeddings = DirectHttpEmbeddings(
+        api_key="embedding-key",
+        model="embedding-model",
+        base_url="https://example.local/v1",
+    )
+
+    assert embeddings.embed_documents(["a", "b"]) == [[0.1, 0.2], [0.3, 0.4]]
 
 
 def test_langchain_provider_builders_accept_openai_compatible_env(

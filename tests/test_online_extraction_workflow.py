@@ -14,6 +14,16 @@ from finevent.patterns.pipeline import run_pattern_library_build
 from finevent.rag.pipeline import run_rag_preparation
 
 
+class RecordingStudentModel:
+    def __init__(self, output: dict):
+        self.output = output
+        self.prompt = ""
+
+    def invoke(self, prompt: str) -> str:
+        self.prompt = prompt
+        return json.dumps(self.output, ensure_ascii=False)
+
+
 def test_online_extraction_event_text_runs_without_retrieval_or_patterns(tmp_path: Path) -> None:
     state = run_online_extraction_workflow(
         {
@@ -41,6 +51,41 @@ def test_online_extraction_event_text_runs_without_retrieval_or_patterns(tmp_pat
         "extraction",
         "validation_repair",
     }
+
+
+def test_online_extraction_respects_prompt_budget_before_student_call(tmp_path: Path) -> None:
+    student = RecordingStudentModel(
+        {
+            "article_id": "manual_long_input",
+            "document_label": "NO_EVENT",
+            "events": [],
+            "warnings": [],
+            "model_info": {
+                "model_name": "fixture_student",
+                "prompt_version": "m06_test",
+                "run_id": "fixture_run",
+            },
+        }
+    )
+    state = run_online_extraction_workflow(
+        {
+            "input_type": "text",
+            "title": "HPG cong bo nhieu thong tin doanh nghiep",
+            "value": "HPG cap nhat thong tin du an va tinh hinh kinh doanh. " * 300,
+            "source": "manual",
+        },
+        config=ExtractionRunConfig(
+            use_retrieval=False,
+            use_patterns=False,
+            max_article_chars=900,
+            max_prompt_chars=5000,
+        ),
+        artifacts=ExtractionWorkflowArtifacts(logs_dir=tmp_path / "runs"),
+        langchain_model=student,
+    )
+
+    assert len(student.prompt) <= 5000
+    assert state.raw_model_output is not None
 
 
 def test_online_extraction_no_event_text_returns_no_event(tmp_path: Path) -> None:
@@ -93,6 +138,50 @@ def test_validation_repairs_markdown_wrapped_json() -> None:
     assert result.repaired
     assert result.output["document_label"] == "NO_EVENT"
     assert not [issue for issue in result.issues if issue["severity"] == "error"]
+
+
+def test_validation_locks_system_identifiers_to_input_article() -> None:
+    article = _event_article()
+    raw_output = {
+        "article_id": "wrong_article_id",
+        "document_label": "HAS_EVENT",
+        "events": [
+            {
+                "event_id": "wrong_article_id_e01",
+                "ticker": "HPG",
+                "company_name": "Hoa Phat Group",
+                "event_type": "EXPANSION",
+                "event_subtype": "NEW_FACTORY",
+                "event_summary": "Hoa Phat cong bo khoi cong du an nha may moi.",
+                "event_arguments": {},
+                "impact_sentiment": "POSITIVE",
+                "evidence_span": "Tap doan Hoa Phat cong bo khoi cong du an nha may moi.",
+                "source_url": "https://example.com/wrong",
+                "published_at": "2025-01-01",
+                "confidence": 0.8,
+            }
+        ],
+        "warnings": [],
+        "model_info": {
+            "model_name": "hallucinated_model",
+            "prompt_version": "bad_prompt",
+            "run_id": "bad_run",
+        },
+    }
+
+    result = validate_or_repair_extraction_output(
+        raw_output,
+        article=article,
+        run_id="fixture_run",
+        config=ExtractionRunConfig(student_model="fixture_student", prompt_version="m06_test"),
+    )
+
+    assert result.output["article_id"] == article["article_id"]
+    assert result.output["model_info"]["run_id"] == "fixture_run"
+    assert result.output["model_info"]["model_name"] == "fixture_student"
+    assert result.output["events"][0]["event_id"].startswith(f"{article['article_id']}_")
+    assert result.output["events"][0]["source_url"] == article["url"]
+    assert result.output["events"][0]["published_at"] == article["published_at"]
 
 
 def test_online_extraction_uses_retrieval_and_patterns(tmp_path: Path) -> None:

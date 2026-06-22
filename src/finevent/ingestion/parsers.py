@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import Any, cast
 
 from finevent.ingestion.models import ParsedArticle
 from finevent.ingestion.text import normalize_text
@@ -30,7 +31,7 @@ def infer_source_from_path(path: Path) -> str:
 def _parse_with_bs4(html: str, *, source: str, url: str) -> ParsedArticle:
     from bs4 import BeautifulSoup
 
-    soup = BeautifulSoup(html, "html.parser")
+    soup = cast(Any, BeautifulSoup(html, "html.parser"))
     for tag in soup(["script", "style", "noscript", "svg"]):
         tag.decompose()
 
@@ -84,7 +85,7 @@ def _parse_with_bs4(html: str, *, source: str, url: str) -> ParsedArticle:
     )
 
 
-def _select_best_article_node(soup: object) -> object | None:
+def _select_best_article_node(soup: Any) -> Any | None:
     selectors = (
         "[itemprop='articleBody']",
         ".article__body",
@@ -106,7 +107,7 @@ def _select_best_article_node(soup: object) -> object | None:
     return max(candidates, key=_article_text_score)
 
 
-def _article_text_score(node: object) -> int:
+def _article_text_score(node: Any) -> int:
     paragraphs = [
         child.get_text(" ", strip=True)
         for child in node.find_all(["p", "li"])
@@ -117,7 +118,7 @@ def _article_text_score(node: object) -> int:
     return len(node.get_text(" ", strip=True))
 
 
-def _meta_content(soup: object, attr_name: str, attr_value: str) -> str | None:
+def _meta_content(soup: Any, attr_name: str, attr_value: str) -> str | None:
     node = soup.find("meta", attrs={attr_name: attr_value})
     if node is None:
         return None
@@ -125,7 +126,7 @@ def _meta_content(soup: object, attr_name: str, attr_value: str) -> str | None:
     return str(content).strip() if content else None
 
 
-def _select_text(soup: object, selector: str) -> str | None:
+def _select_text(soup: Any, selector: str) -> str | None:
     node = soup.select_one(selector)
     if node is None:
         return None
@@ -133,7 +134,7 @@ def _select_text(soup: object, selector: str) -> str | None:
     return text or None
 
 
-def _select_attr(soup: object, selector: str, attr: str) -> str | None:
+def _select_attr(soup: Any, selector: str, attr: str) -> str | None:
     node = soup.select_one(selector)
     if node is None:
         return None

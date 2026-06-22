@@ -49,6 +49,11 @@ def test_evaluation_pipeline_writes_ablation_reports(tmp_path: Path) -> None:
     per_type_rows = _read_csv(result.per_event_type_path)
     error_examples = read_jsonl(result.error_examples_path)
     summary = result.eval_summary_path.read_text(encoding="utf-8")
+    report_index = result.report_index_path.read_text(encoding="utf-8")
+    extraction_summary = result.extraction_batch_summary_path.read_text(encoding="utf-8")
+    verification_summary = result.verification_summary_path.read_text(encoding="utf-8")
+    schema_summary = result.schema_error_summary_path.read_text(encoding="utf-8")
+    recommendations = result.improvement_recommendations_path.read_text(encoding="utf-8")
 
     assert result.config_count == 2
     assert result.article_count == 3
@@ -65,6 +70,11 @@ def test_evaluation_pipeline_writes_ablation_reports(tmp_path: Path) -> None:
     assert any(row["error_code"] == "E_MISSED_EVENT" for row in error_rows)
     assert any(record["error_code"] == "E_UNSUPPORTED_ARGUMENT" for record in error_examples)
     assert "Best config: `workflow`" in summary
+    assert "extraction_batch_summary.md" in report_index
+    assert "Extraction Batch Summary" in extraction_summary
+    assert "Verification And Grounding Summary" in verification_summary
+    assert "Schema And Error Summary" in schema_summary
+    assert "Improvement Recommendations" in recommendations
 
 
 def test_evaluation_handles_missing_predictions_without_crashing(tmp_path: Path) -> None:

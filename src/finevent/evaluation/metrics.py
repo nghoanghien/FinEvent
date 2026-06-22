@@ -725,7 +725,9 @@ def _mean(values: Iterable[float]) -> float:
 
 
 def _float(value: object) -> float:
+    if not isinstance(value, int | float | str) or isinstance(value, bool):
+        return 0.0
     try:
         return float(value)
-    except (TypeError, ValueError):
+    except ValueError:
         return 0.0

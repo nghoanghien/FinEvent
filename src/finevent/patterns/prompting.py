@@ -12,6 +12,7 @@ def render_few_shot_patterns(
     candidates: list[PatternCandidate],
     *,
     max_excerpt_chars: int = 900,
+    max_output_chars: int | None = None,
 ) -> str:
     if not candidates:
         return "No approved few-shot patterns are available."
@@ -23,6 +24,12 @@ def render_few_shot_patterns(
     for candidate in candidates:
         label = candidate.event_type or candidate.document_label
         subtype = f"/{candidate.event_subtype}" if candidate.event_subtype else ""
+        output_json = json.dumps(
+            candidate.gold_output,
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
         sections.extend(
             [
                 "",
@@ -31,7 +38,7 @@ def render_few_shot_patterns(
                 "Input excerpt:",
                 _trim(candidate.input_excerpt, max_excerpt_chars),
                 "Expected output JSON:",
-                json.dumps(candidate.gold_output, ensure_ascii=False, indent=2, sort_keys=True),
+                _trim(output_json, max_output_chars) if max_output_chars else output_json,
                 "Why this pattern matters:",
                 normalize_text(candidate.explanation_brief),
             ]

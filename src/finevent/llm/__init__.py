@@ -1,6 +1,9 @@
 """LLM and embedding provider helpers."""
 
 from finevent.llm.providers import (
+    DirectHttpChatModel,
+    DirectHttpChatResponse,
+    DirectHttpEmbeddings,
     MissingProviderConfigError,
     ProviderRuntimeConfig,
     build_openai_compatible_embeddings_from_env,
@@ -11,6 +14,9 @@ from finevent.llm.providers import (
 )
 
 __all__ = [
+    "DirectHttpChatModel",
+    "DirectHttpChatResponse",
+    "DirectHttpEmbeddings",
     "MissingProviderConfigError",
     "ProviderRuntimeConfig",
     "build_openai_compatible_embeddings_from_env",

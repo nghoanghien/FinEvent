@@ -26,9 +26,20 @@ from finevent.jsonl import read_jsonl
 
 
 class FakeResponse:
-    def __init__(self, text: str, status_code: int = 200) -> None:
+    def __init__(
+        self,
+        text: str,
+        status_code: int = 200,
+        *,
+        content: bytes | None = None,
+        encoding: str | None = None,
+        apparent_encoding: str | None = None,
+    ) -> None:
         self.text = text
         self.status_code = status_code
+        self.content = content
+        self.encoding = encoding
+        self.apparent_encoding = apparent_encoding
 
     def raise_for_status(self) -> None:
         if self.status_code >= 400:
@@ -36,12 +47,15 @@ class FakeResponse:
 
 
 class FakeSession:
-    def __init__(self, html: str) -> None:
+    def __init__(self, html: str, response: FakeResponse | None = None) -> None:
         self.html = html
+        self.response = response
         self.requested_urls: list[str] = []
 
     def get(self, url: str, timeout: float) -> FakeResponse:
         self.requested_urls.append(url)
+        if self.response is not None:
+            return self.response
         return FakeResponse(self.html)
 
 
@@ -165,6 +179,28 @@ def test_fetch_url_candidates_keeps_html_in_memory() -> None:
     log_record = pages[0].to_log_dict()
     assert log_record["html_char_count"] > 0
     assert log_record["candidate_score"] == 9
+
+
+def test_fetch_url_candidates_prefers_detected_vietnamese_encoding() -> None:
+    candidate = UrlCandidate(
+        url="https://example.com/vietnamese.html",
+        source="example",
+    )
+    html = "<html><body>Doanh nghiệp tăng vốn</body></html>"
+    response = FakeResponse(
+        text="<html><body>Doanh nghiá»‡p tÄƒng vá»‘n</body></html>",
+        content=html.encode("utf-8"),
+        encoding="ISO-8859-1",
+        apparent_encoding="utf-8",
+    )
+
+    pages = fetch_url_candidates(
+        [candidate],
+        session=FakeSession("", response=response),
+        timeout_seconds=1.0,
+    )
+
+    assert pages[0].html == html
 
 
 def test_parser_prefers_real_article_body_over_short_article_tag() -> None:

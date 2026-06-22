@@ -15,7 +15,15 @@ def build_labeling_summary(
     rejected_records: list[JsonDict],
 ) -> str:
     total = len(ai_generated_records)
-    pass_count = len(gold_records)
+    accepted_count = len(gold_records)
+    strict_pass_count = sum(
+        1 for record in gold_records if record.get("validation_status") == "PASS"
+    )
+    auto_accepted_with_issues = sum(
+        1
+        for record in gold_records
+        if record.get("validation_status") == "AUTO_ACCEPTED_WITH_ISSUES"
+    )
     rejected_count = len(rejected_records)
     document_label_counts = Counter(
         record.get("label", {}).get("document_label")
@@ -38,11 +46,17 @@ def build_labeling_summary(
         for record in gold_records
         for event in record.get("label", {}).get("events", [])
     )
-    error_counts = Counter(
+    rejected_error_counts = Counter(
         issue.get("code")
         for record in rejected_records
         for issue in record.get("validation_errors", [])
         if issue.get("severity", "error") == "error"
+    )
+    validation_issue_counts = Counter(
+        issue.get("code")
+        for record in ai_generated_records
+        for issue in record.get("validation_errors", [])
+        if issue.get("code")
     )
     warning_counts = Counter(
         issue.get("code")
@@ -57,9 +71,12 @@ def build_labeling_summary(
         "## Overview",
         "",
         f"- AI-generated label records: {total}",
-        f"- Gold pass count: {pass_count}",
+        f"- Gold accepted count: {accepted_count}",
+        f"- Strict validation pass count: {strict_pass_count}",
+        f"- Auto-accepted with validation issues: {auto_accepted_with_issues}",
         f"- Rejected count: {rejected_count}",
-        f"- Auto validation pass rate: {_rate(pass_count, total):.2%}",
+        f"- Gold acceptance rate: {_rate(accepted_count, total):.2%}",
+        f"- Strict validation pass rate: {_rate(strict_pass_count, total):.2%}",
         f"- Rejection rate: {_rate(rejected_count, total):.2%}",
         "",
         "## Document Labels In Gold Set",
@@ -105,13 +122,23 @@ def build_labeling_summary(
     lines.extend(
         [
             "",
+            "## Validation Issues Across AI Labels",
+            "",
+            "| Validation issue | Count |",
+            "| --- | ---: |",
+        ]
+    )
+    lines.extend(f"| {code} | {count} |" for code, count in validation_issue_counts.most_common())
+    lines.extend(
+        [
+            "",
             "## Rejection Reasons",
             "",
             "| Validation error | Count |",
             "| --- | ---: |",
         ]
     )
-    lines.extend(f"| {code} | {count} |" for code, count in error_counts.most_common())
+    lines.extend(f"| {code} | {count} |" for code, count in rejected_error_counts.most_common())
     lines.extend(
         [
             "",
@@ -127,7 +154,8 @@ def build_labeling_summary(
             "",
             "## Notes",
             "",
-            "- Gold labels are accepted by automatic validation only.",
+            "- Parseable AI-generated labels are accepted as operational gold labels.",
+            "- Validation issues are retained for audit and error analysis.",
             "- There is no human review step in this milestone.",
             (
                 "- Rejected labels should be repaired by an AI repair prompt "

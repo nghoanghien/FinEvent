@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from finevent.jsonl import write_jsonl
+from finevent.rag.embeddings import EmbeddingClient
 from finevent.retrieval.engine import RetrievalEngine
 from finevent.retrieval.evaluation import (
     aggregate_metric_rows,
@@ -37,11 +38,13 @@ def run_retrieval_comparison(
     metrics_path: PathLike = "reports/evaluation/retrieval_metrics.csv",
     error_analysis_path: PathLike = "reports/evaluation/retrieval_error_analysis.md",
     config_names: list[str] | None = None,
+    query_embedding_client: EmbeddingClient | None = None,
 ) -> RetrievalExperimentResult:
     engine = RetrievalEngine.from_artifacts(
         chunks_path=chunks_path,
         bm25_index_path=bm25_index_path,
         embeddings_path=embeddings_path,
+        query_embedding_client=query_embedding_client,
     )
     eval_cases = build_eval_cases_from_gold(gold_path=gold_path, chunks_path=chunks_path)
     selected_config_names = config_names or [

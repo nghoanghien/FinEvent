@@ -6,10 +6,11 @@ import argparse
 import json
 
 from finevent.jsonl import read_jsonl
+from finevent.rag.embeddings import EmbeddingClient, build_embedding_client
 from finevent.retrieval.engine import RetrievalEngine
 from finevent.retrieval.experiments import run_retrieval_comparison
 from finevent.retrieval.llm_rerank import build_llm_reasoning_rerank_prompt
-from finevent.retrieval.models import DEFAULT_RETRIEVAL_CONFIGS, RetrievalQuery
+from finevent.retrieval.models import DEFAULT_RETRIEVAL_CONFIGS, RetrievalConfig, RetrievalQuery
 from finevent.retrieval.querying import build_queries_from_article
 
 
@@ -110,6 +111,7 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.command == "compare":
+        query_client = _query_client_from_args(args)
         result = run_retrieval_comparison(
             chunks_path=args.chunks_path,
             bm25_index_path=args.bm25_index_path,
@@ -119,6 +121,7 @@ def main(argv: list[str] | None = None) -> None:
             metrics_path=args.metrics_path,
             error_analysis_path=args.error_analysis_path,
             config_names=args.configs,
+            query_embedding_client=query_client,
         )
         print(
             json.dumps(
@@ -155,6 +158,14 @@ def _add_artifact_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--chunks-path", default="data/processed/chunks.jsonl")
     parser.add_argument("--bm25-index-path", default="data/retrieval/bm25_index.pkl")
     parser.add_argument("--embeddings-path", default="data/retrieval/chunk_embeddings.jsonl")
+    parser.add_argument(
+        "--query-embedding-provider",
+        default=None,
+        choices=["hash", "cloudflare", "openai_compatible", "direct_http"],
+        help="Use the same provider/model as the stored dense embeddings for live dense search.",
+    )
+    parser.add_argument("--query-embedding-model", default=None)
+    parser.add_argument("--query-embedding-dimension", type=int, default=128)
 
 
 def _engine_from_args(args: argparse.Namespace) -> RetrievalEngine:
@@ -162,10 +173,21 @@ def _engine_from_args(args: argparse.Namespace) -> RetrievalEngine:
         chunks_path=args.chunks_path,
         bm25_index_path=args.bm25_index_path,
         embeddings_path=args.embeddings_path,
+        query_embedding_client=_query_client_from_args(args),
     )
 
 
-def _config_with_optional_top_k(config_name: str, top_k: int | None) -> object:
+def _query_client_from_args(args: argparse.Namespace) -> EmbeddingClient | None:
+    if not args.query_embedding_provider:
+        return None
+    return build_embedding_client(
+        provider=args.query_embedding_provider,
+        model_name=args.query_embedding_model,
+        dimension=args.query_embedding_dimension,
+    )
+
+
+def _config_with_optional_top_k(config_name: str, top_k: int | None) -> RetrievalConfig:
     config = DEFAULT_RETRIEVAL_CONFIGS[config_name]
     if top_k is None:
         return config

@@ -67,6 +67,7 @@ evaluation = [
 
 [project.scripts]
 finevent-hello = "finevent.hello_pipeline:main"
+finevent-db = "finevent.database.cli:main"
 finevent-ingest = "finevent.ingestion.cli:main"
 finevent-audit-dictionaries = "finevent.ingestion.audit_dictionaries:main"
 finevent-sync-ticker-dictionary = "finevent.ingestion.sync_ticker_dictionary:main"
@@ -76,6 +77,7 @@ finevent-retrieve = "finevent.retrieval.cli:main"
 finevent-patterns = "finevent.patterns.cli:main"
 finevent-extract = "finevent.extraction.cli:main"
 finevent-evaluate = "finevent.evaluation.cli:main"
+finevent-live = "finevent.ops.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

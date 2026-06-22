@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+from collections.abc import Iterable
 from pathlib import Path
 
 from finevent.patterns.models import PatternCandidate, PatternRecord
@@ -131,6 +132,6 @@ def _has_same_event_subtype(pattern: PatternRecord, candidates: list[PatternCand
     return False
 
 
-def _mean(values: object) -> float:
+def _mean(values: Iterable[float]) -> float:
     collected = list(values)
     return sum(collected) / len(collected) if collected else 0.0

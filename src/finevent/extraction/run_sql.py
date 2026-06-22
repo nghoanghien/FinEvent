@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from finevent.extraction.models import ExtractionWorkflowState
 from finevent.extraction.workflow import build_public_result
 from finevent.types import JsonDict
 
@@ -16,7 +17,10 @@ class ExtractionRunSyncResult:
     trace_count: int
 
 
-def sync_extraction_state(engine: Any, state: object) -> ExtractionRunSyncResult:
+def sync_extraction_state(
+    engine: Any,
+    state: ExtractionWorkflowState,
+) -> ExtractionRunSyncResult:
     sql = _sqlalchemy_text()
     result = build_public_result(state)
     final_output = state.final_output or {}

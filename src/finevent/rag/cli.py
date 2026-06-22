@@ -24,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     prepare.add_argument(
         "--embedding-provider",
         default="hash",
-        choices=["hash", "cloudflare", "openai_compatible"],
+        choices=["hash", "cloudflare", "openai_compatible", "direct_http"],
     )
     prepare.add_argument("--embedding-model", default=None)
     prepare.add_argument("--embedding-dimension", type=int, default=128)

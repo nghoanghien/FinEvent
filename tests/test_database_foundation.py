@@ -7,11 +7,20 @@ import pytest
 
 import finevent.database
 from finevent.database.catalog import MIGRATION_ORDER, TABLE_COLUMNS, table_names
+from finevent.database.cli import build_parser
 
 
 def test_database_package_imports_without_sqlalchemy() -> None:
     assert finevent.database.get_database_url
     assert "articles" in table_names()
+
+
+def test_database_cli_has_runtime_commands() -> None:
+    parser = build_parser()
+
+    assert parser.parse_args(["healthcheck"]).command == "healthcheck"
+    assert parser.parse_args(["apply-migrations"]).command == "apply-migrations"
+    assert parser.parse_args(["verify-pgvector"]).command == "verify-pgvector"
 
 
 def test_database_catalog_covers_postgres_migration_tables() -> None:

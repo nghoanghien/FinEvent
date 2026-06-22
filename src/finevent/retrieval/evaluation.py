@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import math
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -222,6 +223,6 @@ def _ndcg_at_k(retrieved_ids: list[str], relevant_chunk_ids: set[str], k: int) -
     return dcg / ideal_dcg if ideal_dcg else 0.0
 
 
-def _mean(values: object) -> float:
+def _mean(values: Iterable[float]) -> float:
     collected = list(values)
     return sum(collected) / len(collected) if collected else 0.0

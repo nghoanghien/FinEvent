@@ -24,7 +24,7 @@ def test_generate_teacher_prompts(tmp_path: Path) -> None:
     assert "EXPANSION" in records[0]["prompt"]
 
 
-def test_validate_teacher_outputs_splits_gold_and_rejected(tmp_path: Path) -> None:
+def test_validate_teacher_outputs_accepts_parseable_ai_labels_as_gold(tmp_path: Path) -> None:
     articles_path = tmp_path / "articles_clean.jsonl"
     teacher_outputs_path = tmp_path / "teacher_outputs.jsonl"
     ai_path = tmp_path / "events_ai_generated.jsonl"
@@ -50,11 +50,42 @@ def test_validate_teacher_outputs_splits_gold_and_rejected(tmp_path: Path) -> No
     )
 
     assert result.total_count == 2
+    assert result.pass_count == 2
+    assert result.rejected_count == 0
+    assert read_jsonl(gold_path)[0]["validation_status"] == "PASS"
+    assert read_jsonl(gold_path)[1]["validation_status"] == "AUTO_ACCEPTED_WITH_ISSUES"
+    assert read_jsonl(rejected_path) == []
+    assert "Gold acceptance rate" in report_path.read_text(encoding="utf-8")
+
+
+def test_validate_teacher_outputs_can_run_strict_validation(tmp_path: Path) -> None:
+    articles_path = tmp_path / "articles_clean.jsonl"
+    teacher_outputs_path = tmp_path / "teacher_outputs.jsonl"
+    ai_path = tmp_path / "events_ai_generated.jsonl"
+    gold_path = tmp_path / "events_gold.jsonl"
+    rejected_path = tmp_path / "events_rejected.jsonl"
+    report_path = tmp_path / "labeling_summary.md"
+    articles_path.write_text(json.dumps(_article(), ensure_ascii=False) + "\n", encoding="utf-8")
+    teacher_outputs_path.write_text(
+        json.dumps(_teacher_output_record(), ensure_ascii=False) + "\n"
+        + json.dumps(_bad_teacher_output_record(), ensure_ascii=False)
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = validate_teacher_outputs(
+        articles_path=articles_path,
+        teacher_output_path=teacher_outputs_path,
+        ai_generated_output_path=ai_path,
+        gold_output_path=gold_path,
+        rejected_output_path=rejected_path,
+        report_path=report_path,
+        run_id="test_run",
+        accept_ai_as_gold=False,
+    )
+
     assert result.pass_count == 1
     assert result.rejected_count == 1
-    assert read_jsonl(gold_path)[0]["validation_status"] == "PASS"
-    assert read_jsonl(rejected_path)[0]["validation_status"] == "FAIL"
-    assert "Auto validation pass rate" in report_path.read_text(encoding="utf-8")
 
 
 def _article() -> dict:

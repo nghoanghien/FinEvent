@@ -145,13 +145,17 @@ def build_embedding_client(
             model_name=model_name or "@cf/baai/bge-m3",
             dimension=dimension,
         )
-    if provider in {"openai_compatible", "langchain_openai"}:
+    if provider in {"openai_compatible", "langchain_openai", "direct_http"}:
         from finevent.llm import build_openai_compatible_embeddings_from_env
 
-        embedding_model = build_openai_compatible_embeddings_from_env(model=model_name)
+        embedding_model = build_openai_compatible_embeddings_from_env(
+            model=model_name,
+            provider="direct_http" if provider == "direct_http" else provider,
+        )
         return LangChainEmbeddingClient(
             embedding_model=embedding_model,
-            model_name=model_name or "openai_compatible_embedding",
+            model_name=model_name
+            or str(getattr(embedding_model, "model", "openai_compatible_embedding")),
             dimension=dimension,
         )
     raise ValueError(f"Unsupported embedding provider: {provider}")
@@ -181,7 +185,7 @@ def embed_chunks_with_cache(
         vectors = client.embed_texts([chunk.text for chunk in batch])
         for chunk, vector in zip(batch, vectors, strict=True):
             record = EmbeddingRecord(
-                embedding_id=_embedding_id(client.model_name, chunk.chunk_hash),
+                embedding_id=_embedding_id(client.model_name, chunk.chunk_id),
                 chunk_id=chunk.chunk_id,
                 article_id=chunk.article_id,
                 embedding_model=client.model_name,
@@ -231,9 +235,7 @@ def _record_from_cache(
 ) -> EmbeddingRecord:
     vector = [float(value) for value in cached.get("vector", [])]
     return EmbeddingRecord(
-        embedding_id=str(
-            cached.get("embedding_id") or _embedding_id(client.model_name, chunk.chunk_hash)
-        ),
+        embedding_id=_embedding_id(client.model_name, chunk.chunk_id),
         chunk_id=chunk.chunk_id,
         article_id=chunk.article_id,
         embedding_model=client.model_name,

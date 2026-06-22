@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 from finevent.rag.bm25 import Bm25Index, load_bm25_index
@@ -52,6 +53,29 @@ def test_embedding_cache_reuses_same_chunk_hash(tmp_path: Path) -> None:
 
     assert first
     assert all(record.embedding_dimension == 32 for record in second)
+    assert all(record.cache_hit for record in second)
+
+
+def test_duplicate_chunk_hash_keeps_unique_embedding_ids(tmp_path: Path) -> None:
+    chunks = build_article_chunks(_article(), target_words=16, max_words=28, overlap_words=4)
+    duplicate = replace(chunks[0], chunk_id=f"{chunks[0].chunk_id}_duplicate")
+    client = HashEmbeddingClient(dimension=32)
+
+    first = embed_chunks_with_cache(
+        [chunks[0], duplicate],
+        client=client,
+        output_path=tmp_path / "embeddings_first.jsonl",
+        cache_path=tmp_path / "embedding_cache.jsonl",
+    )
+    second = embed_chunks_with_cache(
+        [chunks[0], duplicate],
+        client=client,
+        output_path=tmp_path / "embeddings_second.jsonl",
+        cache_path=tmp_path / "embedding_cache.jsonl",
+    )
+
+    assert len({record.embedding_id for record in first}) == 2
+    assert len({record.embedding_id for record in second}) == 2
     assert all(record.cache_hit for record in second)
 
 

@@ -194,7 +194,8 @@ def discover_from_seed(
     soup = BeautifulSoup(response.text, "html.parser")
     candidates: list[UrlCandidate] = []
     for anchor in soup.select("a[href]"):
-        raw_href = anchor.get("href") or ""
+        raw_href_value = anchor.get("href") or ""
+        raw_href = raw_href_value[0] if isinstance(raw_href_value, list) else str(raw_href_value)
         absolute_url = normalize_candidate_url(urljoin(seed.url, raw_href))
         if not absolute_url.startswith("http") or not same_site(absolute_url, seed.url):
             continue

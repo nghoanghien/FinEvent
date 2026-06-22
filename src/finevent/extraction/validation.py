@@ -82,21 +82,23 @@ def _fill_required_fields(
     config: ExtractionRunConfig,
 ) -> JsonDict:
     normalized = copy.deepcopy(payload)
-    normalized.setdefault("article_id", article.get("article_id"))
+    article_id = str(article.get("article_id") or "")
+    normalized["article_id"] = article_id
     events = normalized.get("events")
     if not isinstance(events, list):
         events = []
         normalized["events"] = events
     normalized.setdefault("document_label", "HAS_EVENT" if events else "NO_EVENT")
     normalized.setdefault("warnings", [])
-    normalized.setdefault(
-        "model_info",
-        {
-            "model_name": config.student_model,
-            "prompt_version": config.prompt_version,
-            "run_id": run_id,
-        },
-    )
+    model_info = normalized.get("model_info")
+    if not isinstance(model_info, dict):
+        model_info = {}
+    normalized["model_info"] = {
+        **model_info,
+        "model_name": config.student_model,
+        "prompt_version": config.prompt_version,
+        "run_id": run_id,
+    }
 
     if normalized["document_label"] == "NO_EVENT":
         normalized["events"] = []
@@ -105,7 +107,10 @@ def _fill_required_fields(
     for index, event in enumerate(events):
         if not isinstance(event, dict):
             continue
-        event.setdefault("event_id", f"{article.get('article_id')}_e{index + 1:02d}")
+        event_id = str(event.get("event_id") or "")
+        if not event_id.startswith(f"{article_id}_"):
+            event_id = f"{article_id}_e{index + 1:02d}"
+        event["event_id"] = event_id
         event.setdefault("ticker", None)
         event.setdefault("company_name", None)
         event.setdefault("event_subtype", None)
@@ -113,8 +118,8 @@ def _fill_required_fields(
         event.setdefault("event_arguments", {})
         event.setdefault("impact_sentiment", "NEUTRAL")
         event.setdefault("evidence_span", "")
-        event.setdefault("source_url", article.get("url") or "")
-        event.setdefault("published_at", article.get("published_at"))
+        event["source_url"] = article.get("url") or event.get("source_url") or ""
+        event["published_at"] = article.get("published_at") or event.get("published_at")
         event.setdefault("confidence", 0.5)
     return normalized
 

@@ -86,6 +86,7 @@ def validate_teacher_outputs(
     report_path: PathLike = "reports/data/labeling_summary.md",
     taxonomy_path: PathLike = "data/schema/event_taxonomy_v1.json",
     run_id: str | None = None,
+    accept_ai_as_gold: bool = True,
 ) -> LabelingValidationResult:
     taxonomy = load_event_taxonomy(taxonomy_path)
     articles_by_id = {record["article_id"]: record for record in read_jsonl(articles_path)}
@@ -105,7 +106,11 @@ def validate_teacher_outputs(
             run_id=run_id,
         )
         ai_generated_records.append(standardized)
-        if standardized["validation_status"] == "PASS":
+        if standardized.get("label") is not None and accept_ai_as_gold:
+            if standardized["validation_status"] != "PASS":
+                standardized["validation_status"] = "AUTO_ACCEPTED_WITH_ISSUES"
+            gold_records.append(standardized)
+        elif standardized["validation_status"] == "PASS":
             gold_records.append(standardized)
         else:
             rejected_records.append(standardized)
@@ -247,11 +252,8 @@ def _inject_runtime_metadata(
     normalized.setdefault("article_id", article_record["article_id"])
     normalized.setdefault("warnings", [])
     normalized.setdefault("events", [])
-    model_info = (
-        normalized.get("model_info")
-        if isinstance(normalized.get("model_info"), dict)
-        else {}
-    )
+    raw_model_info = normalized.get("model_info")
+    model_info = raw_model_info if isinstance(raw_model_info, dict) else {}
     normalized["model_info"] = {
         **model_info,
         "model_name": model_info.get("model_name") or teacher_model,

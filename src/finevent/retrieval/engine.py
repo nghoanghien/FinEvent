@@ -8,7 +8,7 @@ from pathlib import Path
 
 from finevent.jsonl import read_jsonl
 from finevent.rag.bm25 import Bm25Index, load_bm25_index
-from finevent.rag.embeddings import HashEmbeddingClient
+from finevent.rag.embeddings import EmbeddingClient, HashEmbeddingClient
 from finevent.rag.models import ChunkRecord
 from finevent.rag.pipeline import chunks_from_jsonl
 from finevent.retrieval.llm_rerank import (
@@ -45,16 +45,18 @@ class RetrievalEngine:
         chunks: list[ChunkRecord],
         bm25_index: Bm25Index,
         embeddings_by_chunk: dict[str, JsonDict],
+        query_embedding_client: EmbeddingClient | None = None,
     ):
         self.chunks = chunks
         self.chunks_by_id = {chunk.chunk_id: chunk for chunk in chunks}
         self.bm25_index = bm25_index
         self.embeddings_by_chunk = embeddings_by_chunk
         self.embedding_model, self.embedding_dimension = _infer_embedding_shape(embeddings_by_chunk)
-        self.query_embedding_client = HashEmbeddingClient(
+        self.query_embedding_client = query_embedding_client or HashEmbeddingClient(
             model_name=self.embedding_model,
             dimension=self.embedding_dimension,
         )
+        self._query_embedding_cache: dict[str, list[float]] = {}
 
     @classmethod
     def from_artifacts(
@@ -63,6 +65,7 @@ class RetrievalEngine:
         chunks_path: PathLike = "data/processed/chunks.jsonl",
         bm25_index_path: PathLike = "data/retrieval/bm25_index.pkl",
         embeddings_path: PathLike = "data/retrieval/chunk_embeddings.jsonl",
+        query_embedding_client: EmbeddingClient | None = None,
     ) -> RetrievalEngine:
         chunks = chunks_from_jsonl(chunks_path)
         bm25_index = load_bm25_index(bm25_index_path)
@@ -75,6 +78,7 @@ class RetrievalEngine:
             chunks=chunks,
             bm25_index=bm25_index,
             embeddings_by_chunk=embeddings_by_chunk,
+            query_embedding_client=query_embedding_client,
         )
 
     def retrieve(
@@ -149,7 +153,7 @@ class RetrievalEngine:
         config: RetrievalConfig,
         score_state: dict[str, JsonDict],
     ) -> None:
-        query_vector = self.query_embedding_client.embed_texts([query.text])[0]
+        query_vector = self._embed_query(query)
         scored: list[tuple[str, float]] = []
         for chunk_id, embedding in self.embeddings_by_chunk.items():
             vector = [float(value) for value in embedding.get("vector", [])]
@@ -163,6 +167,15 @@ class RetrievalEngine:
             state = score_state[chunk_id]
             state["dense_score"] = max(state["dense_score"], score * query.weight)
             state["matched_query_types"].add(query.query_type)
+
+    def _embed_query(self, query: RetrievalQuery) -> list[float]:
+        cache_key = f"{self.query_embedding_client.model_name}::{query.text}"
+        cached = self._query_embedding_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        vector = self.query_embedding_client.embed_texts([query.text])[0]
+        self._query_embedding_cache[cache_key] = vector
+        return vector
 
     def _merge_metadata_scores(
         self,
