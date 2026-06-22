@@ -2,17 +2,30 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
+from finevent.api.cors import get_allowed_origins
+from finevent.api.job_runner import ensure_dispatcher_started, reconcile_interrupted_runs
 from finevent.db import get_sqlalchemy_engine
 from finevent.ingestion.ticker_sql import TickerUpsertPayload, upsert_ticker_payloads
 
 try:
-    from fastapi import FastAPI, HTTPException, Query
+    from fastapi import FastAPI, HTTPException, Query, Request
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.responses import JSONResponse
     from pydantic import BaseModel, Field
     from sqlalchemy import text
 except ImportError as exc:  # pragma: no cover - exercised only when API extra is missing
     raise RuntimeError("Install the api extra before running the FastAPI app.") from exc
+
+from finevent.api.admin_db import router as admin_db_router
+from finevent.api.admin_health import router as admin_health_router
+from finevent.api.admin_outputs import router as admin_outputs_router
+from finevent.api.admin_reports import router as admin_reports_router
+from finevent.api.admin_runs import router as admin_runs_router
+from finevent.api.auth import admin_auth_middleware
 
 
 class TickerUpsertRequest(BaseModel):
@@ -31,7 +44,43 @@ class BulkTickerUpsertRequest(BaseModel):
     records: list[TickerUpsertRequest]
 
 
-app = FastAPI(title="FinEvent-VN API", version="0.1.0")
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    reconcile_interrupted_runs()
+    ensure_dispatcher_started()
+    yield
+
+
+app = FastAPI(title="FinEvent-VN API", version="0.1.0", lifespan=lifespan)
+allowed_origins = get_allowed_origins()
+if allowed_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["Authorization", "Content-Type", "X-Admin-API-Key"],
+    )
+app.middleware("http")(admin_auth_middleware)
+app.include_router(admin_health_router)
+app.include_router(admin_reports_router)
+app.include_router(admin_runs_router)
+app.include_router(admin_db_router)
+app.include_router(admin_outputs_router)
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
+    if isinstance(exc.detail, dict) and "error_code" in exc.detail:
+        return JSONResponse(status_code=exc.status_code, content=exc.detail)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error_code": "HTTP_ERROR",
+            "message": str(exc.detail),
+            "details": {},
+        },
+    )
 
 
 @app.get("/health")

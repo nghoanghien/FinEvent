@@ -35,6 +35,7 @@ ingestion = [
 api = [
   "fastapi>=0.115",
   "pydantic>=2.0",
+  "python-dotenv>=1.0",
   "sqlalchemy>=2.0",
   "uvicorn>=0.30",
 ]
