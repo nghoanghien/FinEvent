@@ -56,6 +56,13 @@ reports/evaluation/
   error_examples.jsonl
   prediction_details.jsonl
   eval_summary.md
+  charts_summary.md
+  figures/
+    extraction_metrics.svg
+    retrieval_metrics.svg
+    error_distribution.svg
+    event_type_f1.svg
+    grounding_metrics.svg
 ```
 
 ## Công nghệ
@@ -65,9 +72,10 @@ reports/evaluation/
 | Loader | `finevent.evaluation.loading` | Đọc gold labels, prediction JSONL, extraction run artifacts |
 | Metrics | `finevent.evaluation.metrics` | Tính event detection F1, macro-F1, slot-F1, error taxonomy |
 | Report writer | `finevent.evaluation.reporting` | Xuất CSV, JSONL, Markdown summary |
+| Chart writer | `finevent.evaluation.charts` | Xuất SVG chart cho metrics, retrieval, lỗi và groundedness |
 | Pipeline | `finevent.evaluation.pipeline` | Chạy end-to-end evaluation và ablation aggregation |
 | CLI | `finevent-evaluate` | Chạy workflow từ terminal |
-| Optional notebook stack | pandas/numpy/sklearn/matplotlib/seaborn | Phân tích nâng cao, vẽ biểu đồ báo cáo |
+| Optional notebook stack | pandas/numpy/sklearn/matplotlib/seaborn | Phân tích nâng cao ngoài pipeline nếu cần |
 
 ## Quy trình
 
@@ -178,6 +186,21 @@ Các nhóm lỗi chính:
 - error distribution;
 - retrieval metrics nếu có.
 
+### 8. Charts report
+
+`charts_summary.md` nhúng các biểu đồ SVG:
+
+| Figure | Ý nghĩa |
+| --- | --- |
+| `figures/extraction_metrics.svg` | Event F1, Type F1, Slot F1, JSON valid, Schema valid |
+| `figures/retrieval_metrics.svg` | Recall@5, MRR, nDCG@10 theo retrieval config |
+| `figures/error_distribution.svg` | Phân bố lỗi theo error code |
+| `figures/event_type_f1.svg` | Các event type yếu nhất theo F1 |
+| `figures/grounding_metrics.svg` | Evidence coverage, unsupported rates, groundedness |
+
+Các biểu đồ này được sinh tự động bằng SVG thuần Python để có thể mở trong
+Markdown, browser hoặc admin dashboard mà không cần notebook.
+
 Config tốt nhất được chọn theo thứ tự ưu tiên:
 
 ```text
@@ -211,7 +234,7 @@ finevent-evaluate run `
 - Chạy được bằng CLI.
 - Xuất đủ `metrics_by_run.csv`, `per_event_type_metrics.csv`,
   `hallucination_metrics.csv`, `errors_by_type.csv`, `error_examples.jsonl`,
-  `eval_summary.md`.
+  `eval_summary.md`, `charts_summary.md` và các SVG trong `reports/evaluation/figures/`.
 - Có metric extraction, hallucination và error analysis.
 - Hỗ trợ nhiều config để làm ablation.
 - Missing prediction không làm workflow crash.

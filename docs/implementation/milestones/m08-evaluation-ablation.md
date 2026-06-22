@@ -104,6 +104,13 @@ reports/evaluation/
   error_examples.jsonl
   prediction_details.jsonl
   eval_summary.md
+  charts_summary.md
+  figures/
+    extraction_metrics.svg
+    retrieval_metrics.svg
+    error_distribution.svg
+    event_type_f1.svg
+    grounding_metrics.svg
 ```
 
 ## Công nghệ và vai trò
@@ -116,13 +123,15 @@ reports/evaluation/
 | Macro/micro F1 | Hàm metric nội bộ | Đo event type và impact sentiment |
 | Slot-level metric | Rule-based slot comparison | Đo precision/recall/F1 cho `event_arguments` |
 | Hallucination aggregation | M07 `verification_report` | Tổng hợp evidence coverage, unsupported field/event rate |
+| SVG chart writer | `finevent.evaluation.charts` | Sinh biểu đồ metrics, retrieval, error distribution và groundedness |
 | CLI | `finevent-evaluate` | Chạy evaluation từ terminal |
-| Optional analysis stack | pandas, numpy, scikit-learn, matplotlib, seaborn | Dùng cho notebook/biểu đồ nâng cao về sau |
+| Optional analysis stack | pandas, numpy, scikit-learn, matplotlib, seaborn | Phân tích nâng cao ngoài pipeline nếu cần |
 
 Package chính:
 
 ```text
 src/finevent/evaluation/
+  charts.py
   loading.py
   metrics.py
   reporting.py

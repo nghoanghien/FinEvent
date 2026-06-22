@@ -46,6 +46,7 @@ def write_markdown_report_suite(
     per_event_type_rows: list[JsonDict],
     detailed_rows: list[JsonDict],
     retrieval_metrics_rows: list[JsonDict] | None = None,
+    include_academic_figures: bool = False,
 ) -> dict[str, Path]:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -58,6 +59,7 @@ def write_markdown_report_suite(
     }
     report_files = [
         "eval_summary.md",
+        "charts_summary.md",
         "metrics_by_run.csv",
         "per_event_type_metrics.csv",
         "hallucination_metrics.csv",
@@ -68,7 +70,26 @@ def write_markdown_report_suite(
         "retrieval_error_analysis.md",
         "pattern_library_summary.md",
         "pattern_metrics.csv",
+        "figures/extraction_metrics.svg",
+        "figures/retrieval_metrics.svg",
+        "figures/error_distribution.svg",
+        "figures/event_type_f1.svg",
+        "figures/grounding_metrics.svg",
     ]
+    if include_academic_figures:
+        report_files.extend(
+            [
+                "academic_charts_summary.md",
+                "figures_academic/final_quality_dashboard.png",
+                "figures_academic/dataset/event_type_distribution.png",
+                "figures_academic/dataset/polarity_distribution.png",
+                "figures_academic/retrieval/retrieval_metrics_comparison.png",
+                "figures_academic/extraction/extraction_overview.png",
+                "figures_academic/extraction/per_event_type_f1.png",
+                "figures_academic/extraction/error_distribution.png",
+                "figures_academic/verification/grounding_metrics.png",
+            ]
+        )
     paths["report_index"].write_text(
         build_report_index(
             report_files=report_files,
@@ -111,28 +132,102 @@ def write_markdown_report_suite(
 
 
 def build_report_index(*, report_files: list[str], generated_reports: list[str]) -> str:
+    return _build_clean_report_index(report_files=report_files, generated_reports=generated_reports)
+
+
+def _build_clean_report_index(
+    *,
+    report_files: list[str],
+    generated_reports: list[str],
+) -> str:
     lines = [
         "# Report Index",
         "",
         "## Quick Reading Order",
         "",
         "1. `eval_summary.md` - tổng quan kết quả cuối cùng.",
-        "2. `extraction_batch_summary.md` - chất lượng batch extraction M06.",
-        "3. `verification_summary.md` - groundedness và hallucination reduction M07.",
-        "4. `schema_error_summary.md` - lỗi schema, event type, argument và ticker.",
-        "5. `improvement_recommendations.md` - ưu tiên cải thiện tiếp theo.",
-        "6. `retrieval_metrics.csv` và `retrieval_error_analysis.md` - đánh giá retrieval M04.",
+        "2. `charts_summary.md` - biểu đồ SVG nhẹ cho metrics chính.",
+        "3. `academic_charts_summary.md` - biểu đồ học thuật bằng matplotlib/seaborn.",
+        "4. `extraction_batch_summary.md` - chất lượng batch extraction M06.",
+        "5. `verification_summary.md` - groundedness và hallucination reduction M07.",
+        "6. `schema_error_summary.md` - lỗi schema, event type, argument và ticker.",
+        "7. `improvement_recommendations.md` - ưu tiên cải thiện tiếp theo.",
+        "8. `retrieval_metrics.csv` và `retrieval_error_analysis.md` - đánh giá retrieval M04.",
         "",
         "## Markdown Reports",
         "",
     ]
-    for file_name in ["eval_summary.md", *generated_reports, "retrieval_error_analysis.md"]:
+    for file_name in [
+        "eval_summary.md",
+        "charts_summary.md",
+        "academic_charts_summary.md",
+        *generated_reports,
+        "retrieval_error_analysis.md",
+    ]:
         if file_name in report_files or file_name in generated_reports:
+            lines.append(f"- [{file_name}]({file_name})")
+
+    lines.extend(["", "## Figures", ""])
+    for file_name in report_files:
+        if file_name.endswith((".svg", ".png")):
             lines.append(f"- [{file_name}]({file_name})")
 
     lines.extend(["", "## Data Tables And Raw Artifacts", ""])
     for file_name in report_files:
-        if file_name.endswith(".md"):
+        if file_name.endswith((".md", ".svg", ".png")):
+            continue
+        lines.append(f"- [{file_name}]({file_name})")
+    lines.extend(
+        [
+            "",
+            "## Notes",
+            "",
+            "- Các report này được sinh lại khi chạy `finevent.evaluation run`.",
+            "- Gold labels hiện là AI-generated và được accept sau automatic validation.",
+            "- Dùng `error_examples.jsonl` để debug từng article/event cụ thể.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _build_legacy_report_index(
+    *,
+    report_files: list[str],
+    generated_reports: list[str],
+) -> str:
+    lines = [
+        "# Report Index",
+        "",
+        "## Quick Reading Order",
+        "",
+        "1. `eval_summary.md` - tổng quan kết quả cuối cùng.",
+        "2. `charts_summary.md` - biểu đồ trực quan cho metrics chính.",
+        "3. `extraction_batch_summary.md` - chất lượng batch extraction M06.",
+        "4. `verification_summary.md` - groundedness và hallucination reduction M07.",
+        "5. `schema_error_summary.md` - lỗi schema, event type, argument và ticker.",
+        "6. `improvement_recommendations.md` - ưu tiên cải thiện tiếp theo.",
+        "7. `retrieval_metrics.csv` và `retrieval_error_analysis.md` - đánh giá retrieval M04.",
+        "",
+        "## Markdown Reports",
+        "",
+    ]
+    for file_name in [
+        "eval_summary.md",
+        "charts_summary.md",
+        *generated_reports,
+        "retrieval_error_analysis.md",
+    ]:
+        if file_name in report_files or file_name in generated_reports:
+            lines.append(f"- [{file_name}]({file_name})")
+
+    lines.extend(["", "## Figures", ""])
+    for file_name in report_files:
+        if file_name.endswith(".svg"):
+            lines.append(f"- [{file_name}]({file_name})")
+
+    lines.extend(["", "## Data Tables And Raw Artifacts", ""])
+    for file_name in report_files:
+        if file_name.endswith((".md", ".svg")):
             continue
         lines.append(f"- [{file_name}]({file_name})")
     lines.extend(

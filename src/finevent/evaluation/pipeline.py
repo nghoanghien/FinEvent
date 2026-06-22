@@ -6,6 +6,8 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 
+from finevent.evaluation.academic_figures import write_academic_figure_suite
+from finevent.evaluation.charts import write_chart_suite
 from finevent.evaluation.loading import load_gold_records, load_prediction_records
 from finevent.evaluation.metrics import evaluate_prediction_group, group_predictions_by_config
 from finevent.evaluation.models import EvaluationRunResult
@@ -34,6 +36,10 @@ class EvaluationPipelineResult:
     verification_summary_path: Path
     schema_error_summary_path: Path
     improvement_recommendations_path: Path
+    charts_summary_path: Path
+    figures_dir_path: Path
+    academic_charts_summary_path: Path | None
+    academic_figures_dir_path: Path | None
     config_count: int
     article_count: int
     error_count: int
@@ -47,6 +53,7 @@ def run_evaluation_pipeline(
     retrieval_metrics_path: PathLike | None = "reports/evaluation/retrieval_metrics.csv",
     output_dir: PathLike = "reports/evaluation",
     default_config_name: str = "default",
+    with_academic_figures: bool = True,
 ) -> EvaluationPipelineResult:
     gold_records = load_gold_records(gold_path)
     predictions = load_prediction_records(
@@ -123,6 +130,26 @@ def run_evaluation_pipeline(
         ),
         encoding="utf-8",
     )
+    chart_paths = write_chart_suite(
+        output_dir=output_path,
+        metrics_rows=metrics_rows,
+        hallucination_rows=hallucination_rows,
+        error_rows=error_rows,
+        per_event_type_rows=per_event_type_rows,
+        retrieval_metrics_rows=retrieval_rows,
+    )
+    academic_paths: dict[str, Path] = {}
+    if with_academic_figures:
+        academic_paths = write_academic_figure_suite(
+            output_dir=output_path,
+            gold_records=gold_records,
+            metrics_rows=metrics_rows,
+            hallucination_rows=hallucination_rows,
+            error_rows=error_rows,
+            per_event_type_rows=per_event_type_rows,
+            detailed_rows=detailed_rows,
+            retrieval_metrics_rows=retrieval_rows,
+        )
     markdown_report_paths = write_markdown_report_suite(
         output_dir=output_path,
         metrics_rows=metrics_rows,
@@ -131,6 +158,7 @@ def run_evaluation_pipeline(
         per_event_type_rows=per_event_type_rows,
         detailed_rows=detailed_rows,
         retrieval_metrics_rows=retrieval_rows,
+        include_academic_figures=with_academic_figures,
     )
 
     return EvaluationPipelineResult(
@@ -147,6 +175,10 @@ def run_evaluation_pipeline(
         verification_summary_path=markdown_report_paths["verification_summary"],
         schema_error_summary_path=markdown_report_paths["schema_error_summary"],
         improvement_recommendations_path=markdown_report_paths["improvement_recommendations"],
+        charts_summary_path=chart_paths["charts_summary"],
+        figures_dir_path=chart_paths["figures_dir"],
+        academic_charts_summary_path=academic_paths.get("academic_charts_summary"),
+        academic_figures_dir_path=academic_paths.get("figures_dir"),
         config_count=len(run_results),
         article_count=len(evaluated_article_ids),
         error_count=len(error_rows),

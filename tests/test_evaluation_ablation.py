@@ -54,6 +54,7 @@ def test_evaluation_pipeline_writes_ablation_reports(tmp_path: Path) -> None:
     verification_summary = result.verification_summary_path.read_text(encoding="utf-8")
     schema_summary = result.schema_error_summary_path.read_text(encoding="utf-8")
     recommendations = result.improvement_recommendations_path.read_text(encoding="utf-8")
+    charts_summary = result.charts_summary_path.read_text(encoding="utf-8")
 
     assert result.config_count == 2
     assert result.article_count == 3
@@ -75,6 +76,30 @@ def test_evaluation_pipeline_writes_ablation_reports(tmp_path: Path) -> None:
     assert "Verification And Grounding Summary" in verification_summary
     assert "Schema And Error Summary" in schema_summary
     assert "Improvement Recommendations" in recommendations
+    assert "charts_summary.md" in report_index
+    assert "Charts Summary" in charts_summary
+    assert result.figures_dir_path.exists()
+    assert result.academic_charts_summary_path is not None
+    assert result.academic_figures_dir_path is not None
+    assert result.academic_charts_summary_path.exists()
+    assert result.academic_figures_dir_path.exists()
+    assert (result.figures_dir_path / "extraction_metrics.svg").exists()
+    assert (result.figures_dir_path / "retrieval_metrics.svg").exists()
+    assert (result.figures_dir_path / "error_distribution.svg").exists()
+    assert (result.figures_dir_path / "event_type_f1.svg").exists()
+    assert (result.figures_dir_path / "grounding_metrics.svg").exists()
+    assert (
+        result.academic_figures_dir_path / "final_quality_dashboard.png"
+    ).exists()
+    assert (
+        result.academic_figures_dir_path / "extraction" / "extraction_overview.png"
+    ).exists()
+    assert (
+        result.academic_figures_dir_path / "dataset" / "event_type_distribution.png"
+    ).exists()
+    assert (result.figures_dir_path / "extraction_metrics.svg").read_text(
+        encoding="utf-8"
+    ).startswith("<svg")
 
 
 def test_evaluation_handles_missing_predictions_without_crashing(tmp_path: Path) -> None:

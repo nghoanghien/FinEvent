@@ -27,6 +27,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Only read --predictions-path and ignore runs/extraction artifacts.",
     )
+    run.add_argument(
+        "--skip-academic-figures",
+        action="store_true",
+        help="Skip matplotlib/seaborn academic figures and only write lightweight SVG charts.",
+    )
     return parser
 
 
@@ -40,6 +45,7 @@ def main(argv: list[str] | None = None) -> None:
             retrieval_metrics_path=args.retrieval_metrics_path,
             output_dir=args.output_dir,
             default_config_name=args.default_config_name,
+            with_academic_figures=not args.skip_academic_figures,
         )
         print(
             json.dumps(
@@ -61,6 +67,18 @@ def main(argv: list[str] | None = None) -> None:
                     "schema_error_summary_path": str(result.schema_error_summary_path),
                     "improvement_recommendations_path": str(
                         result.improvement_recommendations_path
+                    ),
+                    "charts_summary_path": str(result.charts_summary_path),
+                    "figures_dir_path": str(result.figures_dir_path),
+                    "academic_charts_summary_path": (
+                        str(result.academic_charts_summary_path)
+                        if result.academic_charts_summary_path
+                        else None
+                    ),
+                    "academic_figures_dir_path": (
+                        str(result.academic_figures_dir_path)
+                        if result.academic_figures_dir_path
+                        else None
                     ),
                 },
                 ensure_ascii=False,
