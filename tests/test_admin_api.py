@@ -48,6 +48,10 @@ def test_admin_report_and_output_endpoints_use_safe_workspace(
         headers=headers,
     )
     output_detail = client.get("/admin/outputs/run_001", headers=headers)
+    output_by_article = client.get(
+        "/admin/outputs/by-article/article_001",
+        headers=headers,
+    )
     traversal = client.get(
         "/admin/reports/content",
         params={"path": "reports/../.env"},
@@ -79,6 +83,8 @@ def test_admin_report_and_output_endpoints_use_safe_workspace(
     assert outputs.json()["items"][0]["run_id"] == "run_001"
     assert output_detail.status_code == 200
     assert output_detail.json()["output"]["article_id"] == "article_001"
+    assert output_by_article.status_code == 200
+    assert output_by_article.json()["output"]["article_id"] == "article_001"
     assert traversal.status_code == 403
     assert traversal.json()["error_code"] == "ARTIFACT_ROOT_NOT_ALLOWED"
 

@@ -52,6 +52,22 @@ def list_outputs(
     }
 
 
+@router.get("/by-article/{article_id}")
+def get_output_by_article(article_id: str) -> dict[str, Any]:
+    db_run_id = _latest_db_run_id_for_article(article_id)
+    if db_run_id:
+        return get_output(db_run_id)
+    matches = _list_output_files(article_id=article_id)
+    if not matches:
+        raise api_error(
+            404,
+            "OUTPUT_NOT_FOUND",
+            "No extraction output exists for this article.",
+            details={"article_id": article_id},
+        )
+    return get_output(str(matches[0]["run_id"]))
+
+
 @router.get("/{run_id}")
 def get_output(run_id: str) -> dict[str, Any]:
     db_output = _get_output_from_db(run_id)
@@ -70,22 +86,6 @@ def get_output(run_id: str) -> dict[str, Any]:
         "path": artifact_relative_path(result_path),
         "output": load_json_file(result_path),
     }
-
-
-@router.get("/by-article/{article_id}")
-def get_output_by_article(article_id: str) -> dict[str, Any]:
-    db_run_id = _latest_db_run_id_for_article(article_id)
-    if db_run_id:
-        return get_output(db_run_id)
-    matches = _list_output_files(article_id=article_id)
-    if not matches:
-        raise api_error(
-            404,
-            "OUTPUT_NOT_FOUND",
-            "No extraction output exists for this article.",
-            details={"article_id": article_id},
-        )
-    return get_output(str(matches[0]["run_id"]))
 
 
 def _list_outputs_from_db(

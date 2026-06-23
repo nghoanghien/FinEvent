@@ -54,6 +54,8 @@ docs/
     02-application-value.md
     03-contributions.md
     ...
+  runbooks/
+    local-stack.md
 ```
 
 ## Cách đọc nhanh
@@ -68,6 +70,7 @@ docs/
 8. Đọc [Project Roadmap](implementation/project-roadmap.md), [Milestone Implementation Details](implementation/milestone-implementation-details.md) và từng file trong [implementation/milestones/](implementation/milestones/) để quản lý tiến độ code.
 9. Đọc [Admin Dashboard Documentation](admin-dashboard/README.md) khi cần thiết kế UI chạy workflow, xem live logs, DB, reports và structured outputs.
 10. Đọc [Academic Report Guide](report/README.md), đặc biệt [Contributions](report/03-contributions.md), để viết báo cáo nộp môn.
+11. Đọc [Local Stack Runbook](runbooks/local-stack.md) để chạy DB, backend và frontend bằng Docker Compose.
 
 ## Tài liệu theo nhóm
 
