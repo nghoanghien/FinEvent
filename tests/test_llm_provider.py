@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -15,6 +16,10 @@ from finevent.llm import (
     build_teacher_chat_model_from_env,
     load_provider_runtime_config,
     redact_secret,
+)
+from finevent.llm.providers import (
+    DEFAULT_OPENAI_COMPATIBLE_USER_AGENT,
+    _with_no_think_prefix,
 )
 from finevent.rag.embeddings import LangChainEmbeddingClient
 
@@ -57,10 +62,14 @@ class FakeHttpResponse:
 def test_provider_config_redacts_secret(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "teacher-test-1234567890")
     monkeypatch.setenv("TEACHER_LLM_MODEL", "teacher-test")
+    monkeypatch.setenv("STUDENT_LLM_PROVIDER", "")
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "")
 
     config = load_provider_runtime_config()
 
     assert config.teacher_model == "teacher-test"
+    assert config.student_provider == "langchain_openai"
+    assert config.embedding_provider == "langchain_openai"
     assert redact_secret("teacher-test-1234567890") == "teac...7890"
     assert config.redacted_dict()["teacher_api_key"] == "teac...7890"
 
@@ -175,3 +184,52 @@ def test_langchain_provider_builders_accept_openai_compatible_env(
     assert teacher is not None
     assert student is not None
     assert embeddings is not None
+
+
+def test_langchain_student_builder_sets_self_host_headers_and_token_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("STUDENT_LLM_API_KEY", "student-key")
+    monkeypatch.setenv("STUDENT_LLM_MODEL", "qwen/qwen3-8b")
+    monkeypatch.setenv("STUDENT_LLM_BASE_URL", "https://example.local/v1")
+    monkeypatch.setenv("OPENAI_COMPATIBLE_USER_AGENT", "finevent-test/0.1")
+
+    student = build_student_chat_model_from_env(
+        provider="langchain_openai",
+        disable_thinking=False,
+        max_tokens=64,
+    )
+    student_client = cast(Any, student)
+
+    assert student_client.default_headers == {"User-Agent": "finevent-test/0.1"}
+    assert student_client.max_tokens == 64
+
+
+def test_langchain_embedding_builder_sets_self_host_headers_and_batching(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("STUDENT_LLM_API_KEY", "student-key")
+    monkeypatch.setenv("EMBEDDING_MODEL", "text-embedding-qwen3-embedding-0.6b")
+    monkeypatch.setenv("EMBEDDING_BASE_URL", "https://example.local/v1")
+
+    embeddings = build_openai_compatible_embeddings_from_env(
+        provider="langchain_openai",
+        batch_size=7,
+    )
+    embeddings_client = cast(Any, embeddings)
+
+    assert embeddings_client.default_headers == {
+        "User-Agent": DEFAULT_OPENAI_COMPATIBLE_USER_AGENT
+    }
+    assert embeddings_client.chunk_size == 7
+    assert embeddings_client.tiktoken_enabled is False
+    assert embeddings_client.check_embedding_ctx_length is False
+
+
+def test_no_think_prefix_uses_langchain_runnable_composition() -> None:
+    from langchain_core.runnables import RunnableLambda
+
+    chain = cast(Any, _with_no_think_prefix(RunnableLambda(lambda value: value)))
+
+    assert chain.invoke("Return JSON.") == "/no_think\nReturn JSON."
+    assert chain.invoke("/no_think\nReturn JSON.") == "/no_think\nReturn JSON."

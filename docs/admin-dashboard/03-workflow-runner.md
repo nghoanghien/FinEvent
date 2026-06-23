@@ -175,7 +175,7 @@ Form cơ bản:
 | Field | Mặc định | Ghi chú |
 | --- | --- | --- |
 | `max_articles` | 25 hoặc empty | Giới hạn số bài cho test |
-| `embedding_provider` | `direct_http` | Dùng endpoint self-host |
+| `embedding_provider` | `langchain_openai` | Dùng endpoint self-host qua LangChain |
 | `embedding_dimension` | 1024 | Theo model hiện tại |
 | `student_provider` | `env` | Gọi student 8B từ `.env` |
 | `retrieval_config` | `metadata_aware_hybrid` | Config tốt nhất hiện tại |
@@ -232,4 +232,3 @@ Khi step fail:
 - hiển thị stderr cuối cùng;
 - hiển thị artifact đã sinh trước khi lỗi;
 - gợi ý mở runbook/report liên quan.
-

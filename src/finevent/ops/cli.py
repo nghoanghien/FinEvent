@@ -52,7 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--request-timeout-seconds", type=float, default=20.0)
     run.add_argument("--skip-download", action="store_true")
     run.add_argument("--seed-pages-path", default=None)
-    run.add_argument("--embedding-provider", default="direct_http")
+    run.add_argument("--embedding-provider", default="langchain_openai")
     run.add_argument("--embedding-model", default=None)
     run.add_argument("--embedding-dimension", type=int, default=1024)
     run.add_argument("--teacher-max-retries", type=int, default=2)

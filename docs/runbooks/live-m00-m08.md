@@ -62,11 +62,11 @@ python -m finevent.labeling generate-prompts --limit 25
 python -m finevent.labeling run-teacher --max-records 25
 python -m finevent.labeling validate
 python -m finevent.labeling sync-postgres
-python -m finevent.rag prepare --embedding-provider direct_http --embedding-dimension 1024
+python -m finevent.rag prepare --embedding-provider langchain_openai --embedding-dimension 1024
 python -m finevent.rag sync-postgres
-python -m finevent.retrieval compare --query-embedding-provider direct_http --query-embedding-dimension 1024
-python -m finevent.patterns build --embedding-provider direct_http --embedding-dimension 1024
+python -m finevent.retrieval compare --query-embedding-provider langchain_openai --query-embedding-dimension 1024
+python -m finevent.patterns build --embedding-provider langchain_openai --embedding-dimension 1024
 python -m finevent.patterns sync-postgres
-python -m finevent.extraction run-article --article-id <article_id> --student-provider env --sync-postgres --retrieval-query-embedding-provider direct_http --retrieval-query-embedding-dimension 1024 --pattern-query-embedding-provider direct_http --pattern-query-embedding-dimension 1024
+python -m finevent.extraction run-article --article-id <article_id> --student-provider env --sync-postgres --retrieval-query-embedding-provider langchain_openai --retrieval-query-embedding-dimension 1024 --pattern-query-embedding-provider langchain_openai --pattern-query-embedding-dimension 1024
 python -m finevent.evaluation run
 ```

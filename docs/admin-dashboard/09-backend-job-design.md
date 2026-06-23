@@ -73,9 +73,9 @@ Ví dụ Student 8B batch extraction:
 python -m finevent.extraction run-batch
   --student-provider env
   --sync-postgres
-  --retrieval-query-embedding-provider direct_http
+  --retrieval-query-embedding-provider langchain_openai
   --retrieval-query-embedding-dimension 1024
-  --pattern-query-embedding-provider direct_http
+  --pattern-query-embedding-provider langchain_openai
   --pattern-query-embedding-dimension 1024
   --output-path data/extraction/student_predictions.jsonl
 ```
@@ -142,4 +142,3 @@ Long-term:
 - notification.
 
 Không nên dùng Celery ngay nếu mục tiêu hiện tại là dashboard nội bộ và demo.
-

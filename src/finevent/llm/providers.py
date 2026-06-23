@@ -13,6 +13,8 @@ from typing import Any, cast
 
 from finevent.paths import repo_root
 
+DEFAULT_OPENAI_COMPATIBLE_USER_AGENT = "finevent-vn/0.1 langchain-openai-compatible"
+
 
 class MissingProviderConfigError(RuntimeError):
     """Raised when a required live-provider environment variable is missing."""
@@ -35,6 +37,7 @@ class ProviderRuntimeConfig:
     embedding_model: str | None
     embedding_base_url: str | None
     embedding_batch_size: int
+    openai_compatible_user_agent: str
 
     def redacted_dict(self) -> dict[str, str | None]:
         data = asdict(self)
@@ -57,13 +60,13 @@ def load_provider_runtime_config() -> ProviderRuntimeConfig:
         teacher_api_key=os.getenv("OPENAI_API_KEY") or os.getenv("TEACHER_LLM_API_KEY"),
         teacher_model=os.getenv("TEACHER_LLM_MODEL"),
         teacher_base_url=os.getenv("TEACHER_LLM_BASE_URL"),
-        student_provider=os.getenv("STUDENT_LLM_PROVIDER") or "direct_http",
+        student_provider=os.getenv("STUDENT_LLM_PROVIDER") or "langchain_openai",
         student_api_key=os.getenv("STUDENT_LLM_API_KEY"),
         student_model=os.getenv("STUDENT_LLM_MODEL"),
         student_base_url=os.getenv("STUDENT_LLM_BASE_URL") or os.getenv("STUDENT_LLM_ENDPOINT"),
         student_disable_thinking=_env_bool("STUDENT_LLM_DISABLE_THINKING", default=True),
         student_max_tokens=_env_int("STUDENT_LLM_MAX_TOKENS", default=1536),
-        embedding_provider=os.getenv("EMBEDDING_PROVIDER") or "direct_http",
+        embedding_provider=os.getenv("EMBEDDING_PROVIDER") or "langchain_openai",
         embedding_api_key=os.getenv("EMBEDDING_API_KEY") or os.getenv("STUDENT_LLM_API_KEY"),
         embedding_model=os.getenv("EMBEDDING_MODEL"),
         embedding_base_url=(
@@ -72,6 +75,9 @@ def load_provider_runtime_config() -> ProviderRuntimeConfig:
             or os.getenv("STUDENT_LLM_ENDPOINT")
         ),
         embedding_batch_size=_env_int("EMBEDDING_BATCH_SIZE", default=16),
+        openai_compatible_user_agent=(
+            os.getenv("OPENAI_COMPATIBLE_USER_AGENT") or DEFAULT_OPENAI_COMPATIBLE_USER_AGENT
+        ),
     )
 
 
@@ -90,6 +96,10 @@ def build_teacher_chat_model_from_env(**overrides: Any) -> object:
         base_url=_override_optional_str(overrides, "base_url", config.teacher_base_url),
         temperature=_override_float(overrides, "temperature", 0.0),
         timeout=_override_float(overrides, "timeout", 120.0),
+        default_headers=_self_host_default_headers(
+            base_url=_override_optional_str(overrides, "base_url", config.teacher_base_url),
+            user_agent=config.openai_compatible_user_agent,
+        ),
     )
 
 
@@ -98,7 +108,7 @@ def build_student_chat_model_from_env(**overrides: Any) -> object:
     _require("STUDENT_LLM_API_KEY", config.student_api_key)
     _require("STUDENT_LLM_MODEL", config.student_model)
     _require("STUDENT_LLM_BASE_URL", config.student_base_url)
-    provider = str(overrides.get("provider") or config.student_provider or "direct_http")
+    provider = str(overrides.get("provider") or config.student_provider or "langchain_openai")
     if provider == "direct_http":
         return DirectHttpChatModel(
             api_key=_override_str(overrides, "api_key", config.student_api_key),
@@ -113,13 +123,21 @@ def build_student_chat_model_from_env(**overrides: Any) -> object:
         )
     if provider not in {"langchain_openai", "openai_compatible"}:
         raise MissingProviderConfigError(f"Unsupported STUDENT_LLM_PROVIDER: {provider}")
-    return _build_chat_openai(
+    chat_model = _build_chat_openai(
         api_key=_override_str(overrides, "api_key", config.student_api_key),
         model=_override_str(overrides, "model", config.student_model),
         base_url=_override_optional_str(overrides, "base_url", config.student_base_url),
         temperature=_override_float(overrides, "temperature", 0.0),
         timeout=_override_float(overrides, "timeout", 120.0),
+        max_completion_tokens=int(overrides.get("max_tokens") or config.student_max_tokens),
+        default_headers=_self_host_default_headers(
+            base_url=_override_optional_str(overrides, "base_url", config.student_base_url),
+            user_agent=config.openai_compatible_user_agent,
+        ),
     )
+    if bool(overrides.get("disable_thinking", config.student_disable_thinking)):
+        return _with_no_think_prefix(chat_model)
+    return chat_model
 
 
 def build_openai_compatible_embeddings_from_env(**overrides: Any) -> object:
@@ -127,7 +145,7 @@ def build_openai_compatible_embeddings_from_env(**overrides: Any) -> object:
     _require("EMBEDDING_API_KEY or STUDENT_LLM_API_KEY", config.embedding_api_key)
     _require("EMBEDDING_MODEL", config.embedding_model)
     _require("EMBEDDING_BASE_URL or STUDENT_LLM_BASE_URL", config.embedding_base_url)
-    provider = str(overrides.get("provider") or config.embedding_provider or "direct_http")
+    provider = str(overrides.get("provider") or config.embedding_provider or "langchain_openai")
     if provider == "direct_http":
         return DirectHttpEmbeddings(
             api_key=_override_str(overrides, "api_key", config.embedding_api_key),
@@ -148,6 +166,13 @@ def build_openai_compatible_embeddings_from_env(**overrides: Any) -> object:
         model=_override_str(overrides, "model", config.embedding_model),
         base_url=_override_optional_str(overrides, "base_url", config.embedding_base_url),
         timeout=_override_float(overrides, "timeout", 120.0),
+        chunk_size=int(overrides.get("batch_size") or config.embedding_batch_size),
+        default_headers=_self_host_default_headers(
+            base_url=_override_optional_str(overrides, "base_url", config.embedding_base_url),
+            user_agent=config.openai_compatible_user_agent,
+        ),
+        tiktoken_enabled=False,
+        check_embedding_ctx_length=False,
     )
 
 
@@ -162,9 +187,10 @@ class DirectHttpChatResponse:
 class DirectHttpChatModel:
     """OpenAI-compatible chat client using direct HTTP.
 
-    This is intentionally scoped to the self-host compatibility issue observed
-    with LangChain/OpenAI SDK. It exposes `invoke(prompt)` so existing workflow
-    code can use the same model interface.
+    LangChain is the main provider path. This client remains useful as a
+    low-level fallback for endpoint diagnostics or SDK compatibility regressions.
+    It exposes `invoke(prompt)` so existing workflow code can use the same model
+    interface when the fallback is selected explicitly.
     """
 
     def __init__(
@@ -275,6 +301,8 @@ def _build_chat_openai(
     base_url: object | None,
     temperature: float,
     timeout: float,
+    max_completion_tokens: int | None = None,
+    default_headers: dict[str, str] | None = None,
 ) -> object:
     try:
         from langchain_openai import ChatOpenAI as ChatOpenAIClass
@@ -289,7 +317,41 @@ def _build_chat_openai(
     }
     if base_url:
         kwargs["base_url"] = str(base_url)
+    if max_completion_tokens is not None:
+        kwargs["max_completion_tokens"] = max_completion_tokens
+    if default_headers:
+        kwargs["default_headers"] = default_headers
     return ChatOpenAI(**kwargs)
+
+
+def _self_host_default_headers(*, base_url: str | None, user_agent: str) -> dict[str, str] | None:
+    """Return headers needed by OpenAI-compatible self-host endpoints.
+
+    The lumentary self-host endpoint blocks the default OpenAI SDK user-agent
+    (`OpenAI/Python ...`). Overriding only self-host requests keeps official
+    OpenAI teacher calls on SDK defaults while allowing LangChain to be used for
+    student and embedding models.
+    """
+    if not base_url:
+        return None
+    return {"User-Agent": user_agent}
+
+
+def _with_no_think_prefix(chat_model: object) -> object:
+    """Compose a LangChain runnable that prefixes Qwen prompts with `/no_think`."""
+    try:
+        from langchain_core.runnables import RunnableLambda
+    except ImportError:
+        return chat_model
+    return RunnableLambda(_prepare_no_think_prompt) | cast(Any, chat_model)
+
+
+def _prepare_no_think_prompt(prompt: object) -> object:
+    if not isinstance(prompt, str):
+        return prompt
+    if prompt.lstrip().startswith("/no_think"):
+        return prompt
+    return "/no_think\n" + prompt
 
 
 def _post_openai_compatible_json(
