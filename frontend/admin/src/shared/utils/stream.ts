@@ -1,6 +1,7 @@
 "use client";
 
-import { adminHeaders, buildUrl, toApiError } from "./api";
+import { getStoredConfig } from "./config";
+import { toApiError } from "./http";
 import type { LogEvent } from "../types";
 
 type StreamHandlers = {
@@ -10,9 +11,24 @@ type StreamHandlers = {
   signal?: AbortSignal;
 };
 
+/**
+ * Stream real-time logs for a specific run via Server-Sent Events (SSE).
+ * Uses native fetch (not Axios) because Axios does not support ReadableStream.
+ */
 export async function streamRunLogs(runId: string, handlers: StreamHandlers) {
-  const response = await fetch(buildUrl(`/admin/runs/${encodeURIComponent(runId)}/logs/stream`), {
-    headers: adminHeaders({ Accept: "text/event-stream" }),
+  const config = getStoredConfig();
+  const baseUrl = config.baseUrl.replace(/\/$/, "");
+  const url = `${baseUrl}/admin/runs/${encodeURIComponent(runId)}/logs/stream`;
+
+  const headers: Record<string, string> = {
+    Accept: "text/event-stream",
+  };
+  if (config.adminApiKey) {
+    headers["X-Admin-API-Key"] = config.adminApiKey;
+  }
+
+  const response = await fetch(url, {
+    headers,
     cache: "no-store",
     signal: handlers.signal,
   });
