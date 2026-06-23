@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Activity, Play, RefreshCw } from "lucide-react";
 import { DataTable } from "@/components/ui/DataTable";
@@ -9,12 +9,13 @@ import { JsonPanel } from "@/components/ui/JsonPanel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TableToolbar } from "@/components/ui/TableToolbar";
-import { formatDateTime } from "@/lib/format";
-import type { WorkflowPreset } from "@/lib/types";
-import { workflowPresets, workflowTitle } from "@/lib/workflows";
+import { formatDateTime } from "@/shared/utils/format";
+import type { WorkflowPreset } from "@/shared/types";
+import { workflowPresets, workflowTitle } from "@/shared/constants/workflows";
 import { useCreateRun, useRunsList } from "./hooks/useRuns";
 
 export function RunsPage() {
+  const router = useRouter();
   const [selectedPreset, setSelectedPreset] = useState<WorkflowPreset>(workflowPresets[0]);
   const [configText, setConfigText] = useState(() => JSON.stringify(workflowPresets[0].defaultConfig, null, 2));
   const [configError, setConfigError] = useState<string | null>(null);
@@ -109,9 +110,9 @@ export function RunsPage() {
           />
           {configError ? <p className="mt-3 text-sm font-semibold text-danger">{configError}</p> : null}
           {createRun.data ? (
-            <Link className="mt-4 inline-flex rounded-full border border-primary/30 bg-lime-50 px-4 py-2 text-sm font-bold text-lime-700" href={`/admin/runs/${createRun.data.run.run_id}`}>
+            <div onClick={() => router.push(`/admin/runs/${createRun.data.run.run_id}`)} className="mt-4 inline-flex cursor-pointer rounded-full border border-primary/30 bg-lime-50 px-4 py-2 text-sm font-bold text-lime-700">
               Mở run vừa tạo: {createRun.data.run.run_id}
-            </Link>
+            </div>
           ) : null}
           <div className="mt-5">
             <p className="mb-2 text-xs font-black uppercase text-gray-400">Config preview</p>
@@ -137,9 +138,9 @@ export function RunsPage() {
                 key: "run_id",
                 label: "Run ID",
                 render: (row) => (
-                  <Link className="font-mono text-xs font-bold text-lime-700 hover:text-lime-800" href={`/admin/runs/${row.run_id}`}>
+                  <div onClick={() => router.push(`/admin/runs/${row.run_id}`)} className="font-mono text-xs font-bold text-lime-700 hover:text-lime-800 cursor-pointer">
                     {String(row.run_id)}
-                  </Link>
+                  </div>
                 ),
               },
               {

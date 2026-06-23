@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import clsx from "clsx";
+
 import {
   Activity,
   BarChart3,
@@ -22,19 +21,18 @@ const navItems: { href: string; label: string; short: string; icon: LucideIcon }
   { href: "/admin/reports", label: "Báo cáo", short: "RP", icon: BarChart3 },
   { href: "/admin/database", label: "Database", short: "DB", icon: Database },
   { href: "/admin/outputs", label: "Outputs", short: "OUT", icon: Boxes },
-  { href: "/admin/settings", label: "Thiết lập", short: "SET", icon: Settings },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
 
   return (
     <aside
-      className={clsx(
-        "nav-container liquid-glass-container fixed left-6 z-50 hidden flex-col overflow-hidden rounded-3xl shadow-2xl backdrop-blur-sm transition-all duration-500 ease-out lg:flex",
-        expanded ? "bottom-6 top-6 w-72" : "bottom-24 top-24 w-20",
-      )}
+      className={`nav-container liquid-glass-container fixed left-6 z-50 hidden flex-col overflow-hidden rounded-3xl shadow-2xl backdrop-blur-sm transition-all duration-500 ease-out md:flex ${
+        expanded ? "bottom-6 top-6 w-72" : "bottom-24 top-24 w-20"
+      }`}
       style={{
         background: expanded
           ? "linear-gradient(135deg, rgba(120, 200, 65, 0.15) 0%, rgba(180, 229, 13, 0.1) 50%, rgba(120, 200, 65, 0.08) 100%)"
@@ -59,18 +57,25 @@ export function Sidebar() {
         }}
       />
 
-      <Link
-        href="/admin"
+      <div
+        onClick={() => router.push("/admin")}
         className="profile-section liquid-glass-nav-item group relative flex cursor-pointer items-center border-b border-white/30 p-6 shadow-[inset_0_0_12px_8px_rgba(255,255,255,0.1)] transition-all duration-300"
         style={{
           background: "linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)",
         }}
       >
         <div
-          className={clsx(
-            "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/20 shadow-[inset_0_0_12px_8px_rgba(255,255,255,0.3)] backdrop-blur-md transition-transform duration-300 group-hover:scale-110",
-            !expanded && "mx-auto",
-          )}
+          className="absolute inset-0 rounded-t-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+          style={{
+            background: "linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(120, 200, 65, 0.1) 100%)",
+            backdropFilter: "blur(10px)",
+          }}
+        />
+
+        <div
+          className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/20 shadow-[inset_0_0_12px_8px_rgba(255,255,255,0.3)] backdrop-blur-md transition-transform duration-300 group-hover:scale-110 ${
+            !expanded ? "mx-auto" : ""
+          }`}
         >
           <Bot size={22} className="text-gray-700 drop-shadow-sm" strokeWidth={2.4} />
         </div>
@@ -82,10 +87,10 @@ export function Sidebar() {
             </p>
           </div>
         ) : null}
-      </Link>
+      </div>
 
       <div className="relative flex flex-1 flex-col overflow-hidden px-3 py-6">
-        <div className={clsx("mb-4", expanded ? "px-4" : "text-center")}>
+        <div className={`mb-4 ${expanded ? "px-4" : "text-center"}`}>
           <p className="mb-3 overflow-hidden whitespace-nowrap text-xs font-bold uppercase tracking-normal text-gray-600 drop-shadow-sm">
             {expanded ? "Quản trị workflow" : "FE"}
           </p>
@@ -93,7 +98,15 @@ export function Sidebar() {
 
         {navItems.map((item) => {
           const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
-          return <SidebarNavItem key={item.href} item={item} expanded={expanded} active={active} />;
+          return (
+            <SidebarNavItem
+              key={item.href}
+              item={item}
+              expanded={expanded}
+              active={active}
+              onClick={() => router.push(item.href)}
+            />
+          );
         })}
       </div>
 
@@ -105,6 +118,7 @@ export function Sidebar() {
           item={{ href: "/admin/settings", label: "API settings", short: "API", icon: FileText }}
           expanded={expanded}
           active={pathname.startsWith("/admin/settings")}
+          onClick={() => router.push("/admin/settings")}
         />
       </div>
     </aside>
@@ -115,29 +129,30 @@ function SidebarNavItem({
   item,
   expanded,
   active,
+  onClick,
 }: {
   item: { href: string; label: string; short: string; icon: LucideIcon };
   expanded: boolean;
   active: boolean;
+  onClick: () => void;
 }) {
   const Icon = item.icon;
   return (
-    <Link
-      href={item.href}
+    <div
       title={item.label}
-      className={clsx(
-        "my-1 flex items-center rounded-xl px-4 py-3 transition-all duration-300",
+      onClick={onClick}
+      className={`my-1 flex cursor-pointer items-center rounded-xl px-4 py-3 transition-all duration-300 ${
         active
           ? "bg-white/20 text-gray-900 shadow-[inset_0_0_24px_16px_rgba(255,255,255,0.9)] backdrop-blur-sm"
-          : "text-gray-600 hover:bg-white/10 hover:text-gray-900 hover:shadow-[inset_0_0_18px_12px_rgba(255,255,255,0.7)]",
-      )}
+          : "text-gray-600 hover:bg-white/10 hover:text-gray-900 hover:shadow-[inset_0_0_18px_12px_rgba(255,255,255,0.7)]"
+      }`}
     >
-      <div className={clsx(!expanded && "mx-auto")}>
+      <div className={`${!expanded ? "mx-auto" : ""}`}>
         <Icon size={20} strokeWidth={2.3} className="text-current" />
       </div>
       {expanded ? (
         <span className="ml-3 overflow-hidden whitespace-nowrap text-sm font-bold">{item.label}</span>
       ) : null}
-    </Link>
+    </div>
   );
 }

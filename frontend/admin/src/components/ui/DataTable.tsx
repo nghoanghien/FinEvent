@@ -1,6 +1,5 @@
-import clsx from "clsx";
 import type { ReactNode } from "react";
-import { compactJson } from "@/lib/format";
+import { compactJson } from "@/shared/utils/format";
 
 export type Column<T> = {
   key: string;
@@ -34,10 +33,9 @@ export function DataTable<T extends Record<string, unknown>>({
                 <th
                   key={column.key}
                   scope="col"
-                  className={clsx(
-                    "whitespace-nowrap border-b border-gray-100 px-5 py-4 text-left text-[11px] font-black uppercase text-gray-400",
-                    column.className,
-                  )}
+                  className={`whitespace-nowrap border-b border-gray-100 px-5 py-4 text-left text-[11px] font-black uppercase text-gray-400 ${
+                    column.className || ""
+                  }`}
                 >
                   {column.label}
                 </th>
@@ -51,10 +49,9 @@ export function DataTable<T extends Record<string, unknown>>({
                   {columns.map((column, columnIndex) => (
                     <td key={`${column.key}-${rowIndex}`} className="px-5 py-4">
                       <div
-                        className={clsx(
-                          "h-4 rounded-full shimmer-surface",
-                          columnIndex === 0 ? "w-36" : columnIndex % 2 ? "w-24" : "w-28",
-                        )}
+                        className={`h-4 rounded-full shimmer-surface ${
+                          columnIndex === 0 ? "w-36" : columnIndex % 2 ? "w-24" : "w-28"
+                        }`}
                       />
                     </td>
                   ))}
@@ -65,7 +62,7 @@ export function DataTable<T extends Record<string, unknown>>({
                 <tr
                   key={String(row.id || row.run_id || row.article_id || row.event_id || index)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={clsx("transition-colors", onRowClick && "cursor-pointer hover:bg-lime-50/40")}
+                  className={`transition-colors ${onRowClick ? "cursor-pointer hover:bg-lime-50/40" : ""}`}
                 >
                   {columns.map((column) => (
                     <td key={column.key} className="max-w-[320px] px-5 py-4 text-gray-700">

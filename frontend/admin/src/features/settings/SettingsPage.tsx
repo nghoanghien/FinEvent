@@ -7,7 +7,7 @@ import { ErrorBlock, LoadingBlock } from "@/components/ui/StateBlock";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { JsonPanel } from "@/components/ui/JsonPanel";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { clearStoredAdminKey, configStorageKeys, DEFAULT_API_BASE_URL, getStoredConfig, saveStoredConfig } from "@/lib/config";
+import { clearStoredAdminKey, configStorageKeys, DEFAULT_API_BASE_URL, getStoredConfig, saveStoredConfig } from "@/shared/utils/config";
 import { useSettingsHealth } from "./hooks/useAdminSettings";
 
 export function SettingsPage() {

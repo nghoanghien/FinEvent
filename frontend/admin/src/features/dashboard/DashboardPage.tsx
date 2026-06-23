@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Activity, BarChart3, Boxes, Database, FileText, RefreshCw, Server } from "lucide-react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { DataTable } from "@/components/ui/DataTable";
@@ -8,12 +8,13 @@ import { ErrorBlock, LoadingBlock } from "@/components/ui/StateBlock";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { formatDateTime } from "@/lib/format";
-import type { AdminRun } from "@/lib/types";
-import { workflowTitle } from "@/lib/workflows";
+import { formatDateTime } from "@/shared/utils/format";
+import type { AdminRun } from "@/shared/types";
+import { workflowTitle } from "@/shared/constants/workflows";
 import { useDashboard } from "./hooks/useDashboard";
 
 export function DashboardPage() {
+  const router = useRouter();
   const dashboard = useDashboard();
   const { health, runs, reports, charts, outputs } = dashboard;
 
@@ -36,10 +37,10 @@ export function DashboardPage() {
               <RefreshCw className={`h-4 w-4 ${dashboard.isRefreshing ? "animate-spin" : ""}`} />
               Refresh
             </button>
-            <Link href="/admin/runs" className="eatzy-primary-button">
+            <div onClick={() => router.push("/admin/runs")} className="eatzy-primary-button cursor-pointer">
               <Activity className="h-4 w-4" />
               Chạy workflow
-            </Link>
+            </div>
           </>
         }
       />
@@ -79,9 +80,9 @@ export function DashboardPage() {
               </div>
               <p className="pl-3.5 text-sm font-medium text-gray-400">Theo dõi nhanh các workflow vừa chạy.</p>
             </div>
-            <Link href="/admin/runs" className="eatzy-secondary-button">
+            <div onClick={() => router.push("/admin/runs")} className="eatzy-secondary-button cursor-pointer">
               Xem tất cả
-            </Link>
+            </div>
           </div>
           <div className="p-5 pt-2">
             <DataTable
@@ -168,9 +169,9 @@ export function DashboardPage() {
           </div>
           <div className="mt-5 space-y-3">
             {charts.data?.final_dashboard ? (
-              <Link href="/admin/reports" className="block rounded-2xl border border-primary/25 bg-lime-50 p-4 text-sm font-bold text-lime-800">
+              <div onClick={() => router.push("/admin/reports")} className="block rounded-2xl border border-primary/25 bg-lime-50 p-4 text-sm font-bold text-lime-800 cursor-pointer">
                 Final quality dashboard đã sẵn sàng
-              </Link>
+              </div>
             ) : (
               <div className="rounded-2xl border border-warning/30 bg-orange-50 p-4 text-sm font-semibold text-orange-800">
                 Chưa thấy final dashboard. Chạy workflow evaluation để sinh biểu đồ.

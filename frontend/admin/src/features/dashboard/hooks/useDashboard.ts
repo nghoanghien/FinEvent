@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { adminApi } from "@/lib/admin-api";
+import { adminApi } from "@/shared/utils/api";
 
 export function useDashboard() {
   const health = useQuery({ queryKey: ["admin-health", "dashboard"], queryFn: adminApi.health });

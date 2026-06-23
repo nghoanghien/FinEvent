@@ -7,8 +7,8 @@ import { ErrorBlock, LoadingBlock, EmptyBlock } from "@/components/ui/StateBlock
 import { JsonPanel } from "@/components/ui/JsonPanel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { compactJson, eventCount, formatDateTime, getStructuredPrediction } from "@/lib/format";
-import type { StructuredOutput } from "@/lib/types";
+import { compactJson, eventCount, formatDateTime, getStructuredPrediction } from "@/shared/utils/format";
+import type { StructuredOutput } from "@/shared/types";
 import { useOutputByArticle, useOutputDetail, useOutputsList } from "./hooks/useOutputs";
 
 export function OutputsPage() {

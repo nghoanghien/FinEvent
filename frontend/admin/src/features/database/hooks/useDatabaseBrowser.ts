@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { adminApi } from "@/lib/admin-api";
-import type { DbEntity } from "@/lib/types";
+import { adminApi } from "@/shared/utils/api";
+import type { DbEntity } from "@/shared/types";
 
 export function useDatabaseRows(entity: DbEntity, query: string, offset: number, limit = 50) {
   return useQuery({

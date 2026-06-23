@@ -1,17 +1,18 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Activity, Ban, ChevronLeft, ExternalLink, RefreshCw } from "lucide-react";
 import { ErrorBlock, LoadingBlock } from "@/components/ui/StateBlock";
 import { JsonPanel } from "@/components/ui/JsonPanel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { formatDateTime } from "@/lib/format";
-import { workflowTitle } from "@/lib/workflows";
+import { formatDateTime } from "@/shared/utils/format";
+import { workflowTitle } from "@/shared/constants/workflows";
 import { LiveLogViewer } from "./components/LiveLogViewer";
 import { useCancelRun, useRunDetail } from "./hooks/useRuns";
 
 export function RunDetailPage({ runId }: { runId: string }) {
+  const router = useRouter();
   const run = useRunDetail(runId);
   const cancel = useCancelRun(runId);
 
@@ -30,10 +31,10 @@ export function RunDetailPage({ runId }: { runId: string }) {
         description={`${workflowTitle(run.data.workflow_name)} · ${run.data.run_id}`}
         actions={
           <>
-            <Link href="/admin/runs" className="eatzy-secondary-button">
+            <div onClick={() => router.push("/admin/runs")} className="eatzy-secondary-button cursor-pointer">
               <ChevronLeft className="h-4 w-4" />
               Quay lại
-            </Link>
+            </div>
             <StatusBadge value={run.data.status} />
             <button type="button" onClick={() => run.refetch()} className="eatzy-secondary-button">
               <RefreshCw className={`h-4 w-4 ${run.isFetching ? "animate-spin" : ""}`} />

@@ -9,8 +9,8 @@ import { JsonPanel } from "@/components/ui/JsonPanel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SecureArtifactImage } from "@/components/ui/SecureArtifactImage";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { formatBytes, formatDateTime } from "@/lib/format";
-import type { ChartsResponse, ReportArtifact } from "@/lib/types";
+import { formatBytes, formatDateTime } from "@/shared/utils/format";
+import type { ChartsResponse, ReportArtifact } from "@/shared/types";
 import { useCharts, useReportContent, useReportJsonl, useReports, useReportTable } from "./hooks/useReports";
 
 const kinds = ["all", "markdown", "csv", "jsonl", "image", "svg", "json", "text"];

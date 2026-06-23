@@ -1,4 +1,4 @@
-import type { RunStatus } from "./types";
+import type { RunStatus } from "../types";
 
 export function formatDateTime(value?: string | null) {
   if (!value) return "-";

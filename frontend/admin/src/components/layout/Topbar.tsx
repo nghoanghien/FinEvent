@@ -1,12 +1,13 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Circle, RefreshCw } from "lucide-react";
-import { adminApi } from "@/lib/admin-api";
+import { adminApi } from "@/shared/utils/api";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
 export function Topbar() {
+  const router = useRouter();
   const health = useQuery({
     queryKey: ["admin-health-topbar"],
     queryFn: adminApi.health,
@@ -32,13 +33,13 @@ export function Topbar() {
             <RefreshCw className="h-4 w-4" />
             Refresh
           </button>
-          <Link
-            href="/admin/settings"
-            className="focus-ring hidden h-9 items-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-medium text-white hover:bg-slate-800 sm:inline-flex"
+          <div
+            onClick={() => router.push("/admin/settings")}
+            className="focus-ring hidden h-9 cursor-pointer items-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-medium text-white hover:bg-slate-800 sm:inline-flex"
           >
             <Circle className="h-3 w-3 fill-brand-500 text-brand-500" />
             API settings
-          </Link>
+          </div>
         </div>
       </div>
     </header>

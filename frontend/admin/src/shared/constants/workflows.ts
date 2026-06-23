@@ -1,4 +1,4 @@
-import type { WorkflowPreset } from "./types";
+import type { WorkflowPreset } from "../types";
 
 export const workflowPresets: WorkflowPreset[] = [
   {

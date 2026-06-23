@@ -5,10 +5,10 @@ import { Pause, Play, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ErrorBlock, LoadingBlock } from "@/components/ui/StateBlock";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { adminApi } from "@/lib/admin-api";
-import { formatDateTime } from "@/lib/format";
-import { streamRunLogs } from "@/lib/stream";
-import type { LogEvent } from "@/lib/types";
+import { adminApi } from "@/shared/utils/api";
+import { formatDateTime } from "@/shared/utils/format";
+import { streamRunLogs } from "@/shared/utils/stream";
+import type { LogEvent } from "@/shared/types";
 
 export function LiveLogViewer({ runId, enabled }: { runId: string; enabled: boolean }) {
   const [events, setEvents] = useState<LogEvent[]>([]);

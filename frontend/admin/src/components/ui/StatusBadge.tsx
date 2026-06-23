@@ -1,5 +1,4 @@
-import clsx from "clsx";
-import { statusTone } from "@/lib/format";
+import { statusTone } from "@/shared/utils/format";
 
 type Tone = "success" | "info" | "warning" | "danger" | "neutral";
 
@@ -23,11 +22,7 @@ export function StatusBadge({
   const resolvedTone = tone || (statusTone(value || "") as Tone);
   return (
     <span
-      className={clsx(
-        "inline-flex h-6 items-center rounded-full border px-2.5 text-xs font-medium",
-        toneClass[resolvedTone],
-        className,
-      )}
+      className={`inline-flex h-6 items-center rounded-full border px-2.5 text-xs font-medium ${toneClass[resolvedTone]} ${className || ""}`}
     >
       {value || "unknown"}
     </span>

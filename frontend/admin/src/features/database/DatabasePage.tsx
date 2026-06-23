@@ -7,8 +7,8 @@ import { ErrorBlock, LoadingBlock } from "@/components/ui/StateBlock";
 import { JsonPanel } from "@/components/ui/JsonPanel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { compactJson } from "@/lib/format";
-import type { DbEntity } from "@/lib/types";
+import { compactJson } from "@/shared/utils/format";
+import type { DbEntity } from "@/shared/types";
 import { useDatabaseDetail, useDatabaseRows } from "./hooks/useDatabaseBrowser";
 
 const entities: { id: DbEntity; label: string; description: string }[] = [

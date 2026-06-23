@@ -1,6 +1,6 @@
 import typography from "@tailwindcss/typography";
 import type { Config } from "tailwindcss";
-import { colorRgb, colors } from "./src/lib/design-tokens";
+import { colorRgb, colors } from "./src/shared/constants/design-tokens";
 
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
@@ -8,7 +8,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
-        anton: ["var(--font-anton)", "Arial Narrow", "ui-sans-serif", "system-ui", "sans-serif"],
+        anton: ["var(--font-anton)", "sans-serif"],
       },
       colors: {
         primary: `rgb(${colorRgb.primary} / <alpha-value>)`,

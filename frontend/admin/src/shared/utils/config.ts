@@ -1,6 +1,6 @@
 "use client";
 
-import type { ApiRuntimeConfig } from "./types";
+import type { ApiRuntimeConfig } from "../types";
 
 const API_BASE_KEY = "finevent.admin.apiBaseUrl";
 const API_KEY_KEY = "finevent.admin.apiKey";
@@ -12,8 +12,13 @@ export function getStoredConfig(): ApiRuntimeConfig {
   if (typeof window === "undefined") {
     return { baseUrl: DEFAULT_API_BASE_URL, adminApiKey: "" };
   }
+  const storedBaseUrl = window.localStorage.getItem(API_BASE_KEY);
+  const baseUrl =
+    storedBaseUrl === "http://127.0.0.1:18000" && DEFAULT_API_BASE_URL !== storedBaseUrl
+      ? DEFAULT_API_BASE_URL
+      : storedBaseUrl || DEFAULT_API_BASE_URL;
   return {
-    baseUrl: window.localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE_URL,
+    baseUrl,
     adminApiKey: window.localStorage.getItem(API_KEY_KEY) || "",
   };
 }

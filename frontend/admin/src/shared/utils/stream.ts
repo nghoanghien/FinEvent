@@ -1,7 +1,7 @@
 "use client";
 
-import { adminHeaders, buildUrl } from "./admin-api";
-import type { LogEvent } from "./types";
+import { adminHeaders, buildUrl, toApiError } from "./api";
+import type { LogEvent } from "../types";
 
 type StreamHandlers = {
   onEvent: (event: LogEvent) => void;
@@ -17,7 +17,7 @@ export async function streamRunLogs(runId: string, handlers: StreamHandlers) {
     signal: handlers.signal,
   });
   if (!response.ok || !response.body) {
-    throw new Error(`Log stream failed with HTTP ${response.status}.`);
+    throw await toApiError(response);
   }
   handlers.onOpen?.();
 

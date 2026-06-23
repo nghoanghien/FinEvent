@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { adminApi } from "@/lib/admin-api";
+import { adminApi } from "@/shared/utils/api";
 import { ErrorBlock, LoadingBlock } from "./StateBlock";
 
 export function SecureArtifactImage({ path, alt }: { path: string; alt: string }) {
