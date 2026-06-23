@@ -20,7 +20,7 @@ export function SecureArtifactImage({ path, alt }: { path: string; alt: string }
   }, [query.data]);
 
   if (query.isLoading) return <LoadingBlock label="Đang tải biểu đồ..." />;
-  if (query.error) return <ErrorBlock error={query.error} />;
+  if (query.error) return <ErrorBlock error={query.error} onRetry={() => query.refetch()} />;
   if (!objectUrl) return null;
 
   return (
@@ -28,7 +28,7 @@ export function SecureArtifactImage({ path, alt }: { path: string; alt: string }
     <img
       src={objectUrl}
       alt={alt}
-      className="max-h-[720px] w-full rounded-lg border border-slate-200 object-contain"
+      className="max-h-[720px] w-full rounded-[28px] border border-gray-100 bg-white object-contain shadow-eatzy"
     />
   );
 }

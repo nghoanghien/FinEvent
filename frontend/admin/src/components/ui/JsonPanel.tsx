@@ -1,6 +1,6 @@
 export function JsonPanel({ value }: { value: unknown }) {
   return (
-    <pre className="max-h-[560px] overflow-auto rounded-lg border border-slate-200 bg-slate-950 p-4 text-xs leading-6 text-slate-100">
+    <pre className="max-h-[560px] overflow-auto rounded-[24px] border border-gray-900 bg-gray-950 p-4 text-xs leading-6 text-gray-100 shadow-inner">
       {JSON.stringify(value, null, 2)}
     </pre>
   );

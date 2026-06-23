@@ -1,13 +1,11 @@
 import { Sidebar } from "./Sidebar";
-import { Topbar } from "./Topbar";
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen">
+    <div className="min-h-screen bg-[#F8F9FA]">
       <Sidebar />
-      <div className="min-w-0 flex-1">
-        <Topbar />
-        <main className="px-4 py-6 lg:px-8">{children}</main>
+      <div className="flex min-w-0 flex-col overflow-x-hidden lg:ml-28">
+        <main className="min-w-0 px-4 pb-10 pt-4 lg:px-8">{children}</main>
       </div>
     </div>
   );

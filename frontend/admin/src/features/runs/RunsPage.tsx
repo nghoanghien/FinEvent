@@ -1,45 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Play, RefreshCw } from "lucide-react";
+import { Activity, Play, RefreshCw } from "lucide-react";
 import { DataTable } from "@/components/ui/DataTable";
-import { ErrorBlock, LoadingBlock } from "@/components/ui/StateBlock";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ErrorBlock } from "@/components/ui/StateBlock";
 import { JsonPanel } from "@/components/ui/JsonPanel";
-import { adminApi } from "@/lib/admin-api";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { TableToolbar } from "@/components/ui/TableToolbar";
 import { formatDateTime } from "@/lib/format";
 import type { WorkflowPreset } from "@/lib/types";
 import { workflowPresets, workflowTitle } from "@/lib/workflows";
+import { useCreateRun, useRunsList } from "./hooks/useRuns";
 
 export function RunsPage() {
-  const queryClient = useQueryClient();
   const [selectedPreset, setSelectedPreset] = useState<WorkflowPreset>(workflowPresets[0]);
-  const [configText, setConfigText] = useState(() =>
-    JSON.stringify(workflowPresets[0].defaultConfig, null, 2),
-  );
+  const [configText, setConfigText] = useState(() => JSON.stringify(workflowPresets[0].defaultConfig, null, 2));
   const [configError, setConfigError] = useState<string | null>(null);
 
-  const runs = useQuery({
-    queryKey: ["runs", "list"],
-    queryFn: () => adminApi.listRuns({ limit: 50 }),
-    refetchInterval: 10_000,
-  });
-
-  const createRun = useMutation({
-    mutationFn: async () => {
-      const config = parseConfig(configText);
-      return adminApi.createRun(selectedPreset.id, config);
-    },
-    onSuccess: async () => {
-      setConfigError(null);
-      await queryClient.invalidateQueries({ queryKey: ["runs"] });
-    },
-    onError: (error) => {
-      setConfigError(error instanceof Error ? error.message : String(error));
-    },
-  });
+  const runs = useRunsList(50);
+  const createRun = useCreateRun();
 
   const parsedPreview = useMemo(() => {
     try {
@@ -55,50 +36,67 @@ export function RunsPage() {
     setConfigError(null);
   }
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm font-medium text-brand-700">Workflow runner</p>
-        <h2 className="mt-1 text-2xl font-semibold text-slate-950">Chạy và theo dõi milestone/workflow</h2>
-        <p className="mt-2 max-w-3xl text-sm text-slate-500">
-          UI tạo run qua FastAPI job runner. Mỗi run lưu metadata, step status, expected artifacts và log JSONL.
-        </p>
-      </div>
+  function handleRun() {
+    let config: Record<string, unknown>;
+    try {
+      config = parseConfig(configText);
+      setConfigError(null);
+    } catch (error) {
+      setConfigError(error instanceof Error ? error.message : String(error));
+      return;
+    }
+    createRun.mutate(
+      { workflowName: selectedPreset.id, config },
+      {
+        onError: (error) => setConfigError(error instanceof Error ? error.message : String(error)),
+      },
+    );
+  }
 
-      <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+  return (
+    <div className="eatzy-page space-y-8">
+      <PageHeader
+        eyebrow="Workflow runner"
+        title="PIPELINE RUNNER"
+        icon={Activity}
+        description="Tạo run qua FastAPI job runner. Mỗi run lưu metadata, step status, expected artifacts và log JSONL để UI theo dõi trực tiếp."
+        actions={
+          <button type="button" onClick={() => runs.refetch()} className="eatzy-secondary-button">
+            <RefreshCw className={`h-4 w-4 ${runs.isFetching ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        }
+      />
+
+      <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
         <div className="space-y-3">
           {workflowPresets.map((preset) => (
             <button
               key={preset.id}
               type="button"
               onClick={() => selectPreset(preset)}
-              className={`focus-ring w-full rounded-lg border p-4 text-left transition ${
+              className={`focus-ring w-full rounded-[28px] border p-5 text-left transition-all duration-300 ${
                 selectedPreset.id === preset.id
-                  ? "border-slate-950 bg-white shadow-panel"
-                  : "border-slate-200 bg-white hover:border-slate-300"
+                  ? "border-primary/40 bg-white shadow-[inset_0_0_24px_16px_rgba(255,255,255,0.9),0_12px_35px_rgba(120,200,65,0.12)]"
+                  : "border-gray-100 bg-white hover:-translate-y-0.5 hover:shadow-eatzy-hover"
               }`}
             >
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-slate-950">{preset.title}</h3>
+                <h3 className="font-anton text-xl font-black uppercase text-gray-900">{preset.title}</h3>
                 <StatusBadge value={preset.accent} />
               </div>
-              <p className="mt-2 text-sm text-slate-500">{preset.description}</p>
+              <p className="mt-2 text-sm font-medium text-gray-500">{preset.description}</p>
             </button>
           ))}
         </div>
 
-        <div className="panel p-5">
+        <div className="panel p-8">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-sm font-semibold text-slate-950">{selectedPreset.title}</h3>
-              <p className="mt-1 text-sm text-slate-500">Có thể chỉnh config JSON trước khi chạy.</p>
+              <h3 className="font-anton text-2xl font-black uppercase text-gray-900">{selectedPreset.title}</h3>
+              <p className="mt-1 text-sm font-medium text-gray-400">Có thể chỉnh config JSON trước khi chạy.</p>
             </div>
-            <button
-              type="button"
-              disabled={createRun.isPending}
-              onClick={() => createRun.mutate()}
-              className="focus-ring inline-flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
+            <button type="button" disabled={createRun.isPending} onClick={handleRun} className="eatzy-primary-button disabled:cursor-not-allowed disabled:opacity-60">
               <Play className="h-4 w-4" />
               {createRun.isPending ? "Đang tạo run..." : "Run"}
             </button>
@@ -107,50 +105,39 @@ export function RunsPage() {
             value={configText}
             onChange={(event) => setConfigText(event.target.value)}
             spellCheck={false}
-            className="focus-ring mt-4 min-h-[260px] w-full rounded-lg border border-slate-200 bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100"
+            className="focus-ring mt-5 min-h-[260px] w-full rounded-[24px] border border-gray-900 bg-gray-950 p-4 font-mono text-xs leading-6 text-gray-100"
           />
-          {configError ? <p className="mt-3 text-sm text-red-600">{configError}</p> : null}
+          {configError ? <p className="mt-3 text-sm font-semibold text-danger">{configError}</p> : null}
           {createRun.data ? (
-            <Link
-              className="mt-4 inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700"
-              href={`/admin/runs/${createRun.data.run.run_id}`}
-            >
+            <Link className="mt-4 inline-flex rounded-full border border-primary/30 bg-lime-50 px-4 py-2 text-sm font-bold text-lime-700" href={`/admin/runs/${createRun.data.run.run_id}`}>
               Mở run vừa tạo: {createRun.data.run.run_id}
             </Link>
           ) : null}
-          <div className="mt-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Config preview</p>
+          <div className="mt-5">
+            <p className="mb-2 text-xs font-black uppercase text-gray-400">Config preview</p>
             <JsonPanel value={parsedPreview || { error: "Invalid JSON" }} />
           </div>
         </div>
       </section>
 
-      <section className="panel p-5">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-950">Run history</h3>
-            <p className="mt-1 text-sm text-slate-500">Tự refresh mỗi 10 giây khi đang mở trang.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => runs.refetch()}
-            className="focus-ring inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </button>
-        </div>
-        {runs.isLoading ? <LoadingBlock /> : null}
-        {runs.error ? <ErrorBlock error={runs.error} onRetry={() => runs.refetch()} /> : null}
-        {runs.data ? (
+      <section className="panel overflow-hidden">
+        <TableToolbar
+          title="Run history"
+          description="Tự refresh mỗi 10 giây khi đang mở trang."
+          onRefresh={() => runs.refetch()}
+          isRefreshing={runs.isFetching}
+        />
+        <div className="p-5 pt-2">
+          {runs.error ? <ErrorBlock error={runs.error} onRetry={() => runs.refetch()} /> : null}
           <DataTable
-            rows={runs.data.items as unknown as Record<string, unknown>[]}
+            rows={(runs.data?.items || []) as unknown as Record<string, unknown>[]}
+            isLoading={runs.isLoading}
             columns={[
               {
                 key: "run_id",
                 label: "Run ID",
                 render: (row) => (
-                  <Link className="font-mono text-xs font-medium text-brand-700 hover:text-brand-800" href={`/admin/runs/${row.run_id}`}>
+                  <Link className="font-mono text-xs font-bold text-lime-700 hover:text-lime-800" href={`/admin/runs/${row.run_id}`}>
                     {String(row.run_id)}
                   </Link>
                 ),
@@ -169,7 +156,7 @@ export function RunsPage() {
               },
             ]}
           />
-        ) : null}
+        </div>
       </section>
     </div>
   );
