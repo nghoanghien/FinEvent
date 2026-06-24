@@ -1,8 +1,6 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
-
 import {
   Activity,
   BarChart3,
@@ -11,9 +9,11 @@ import {
   Database,
   FileText,
   LayoutDashboard,
-  Settings,
+  PanelLeftClose,
+  PanelLeft,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useSidebar } from "./SidebarContext";
 
 const navItems: { href: string; label: string; short: string; icon: LucideIcon }[] = [
   { href: "/admin", label: "Tổng quan", short: "OV", icon: LayoutDashboard },
@@ -26,26 +26,27 @@ const navItems: { href: string; label: string; short: string; icon: LucideIcon }
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
+  const { isExpanded, toggleSidebar, isMounted } = useSidebar();
+
+  // Handle server-side rendering state safely
+  const currentExpanded = isMounted ? isExpanded : true;
 
   return (
     <aside
-      className={`nav-container liquid-glass-container fixed left-6 z-50 hidden flex-col overflow-hidden rounded-3xl shadow-2xl backdrop-blur-sm transition-all duration-500 ease-out md:flex ${
-        expanded ? "bottom-6 top-6 w-72" : "bottom-24 top-24 w-20"
+      className={`nav-container liquid-glass-container fixed left-0 top-0 bottom-0 z-50 hidden flex-col rounded-r-3xl border-r border-white/20 shadow-xl backdrop-blur-sm transition-all duration-500 ease-out md:flex ${
+        currentExpanded ? "w-72 overflow-hidden" : "w-20 overflow-visible"
       }`}
       style={{
-        background: expanded
+        background: currentExpanded
           ? "linear-gradient(135deg, rgba(120, 200, 65, 0.15) 0%, rgba(180, 229, 13, 0.1) 50%, rgba(120, 200, 65, 0.08) 100%)"
           : "linear-gradient(135deg, rgba(120, 200, 65, 0.2) 0%, rgba(180, 229, 13, 0.15) 100%)",
-        boxShadow: expanded
-          ? "0 25px 45px rgba(0, 0, 0, 0.15), 0 0 80px rgba(120, 200, 65, 0.1)"
-          : "0 15px 25px -10px rgba(0,0,0,0.12), 0 0 20px -10px rgba(120,200,65,0.08)",
+        boxShadow: currentExpanded
+          ? "0 10px 30px rgba(0, 0, 0, 0.06), 0 0 30px rgba(120, 200, 65, 0.03)"
+          : "0 8px 20px rgba(0, 0, 0, 0.05)",
       }}
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
     >
       <div
-        className="pointer-events-none absolute inset-0 opacity-30 transition-transform duration-700"
+        className="pointer-events-none absolute inset-0 opacity-30 transition-transform duration-700 rounded-r-3xl"
         style={{
           background: `
             radial-gradient(circle at 20% 20%, rgba(120, 200, 65, 0.3) 0%, transparent 50%),
@@ -53,48 +54,55 @@ export function Sidebar() {
             radial-gradient(circle at 40% 60%, rgba(120, 200, 65, 0.1) 0%, transparent 50%)
           `,
           filter: "blur(1px)",
-          transform: expanded ? "scale(1.1) rotate(2deg)" : "scale(1)",
+          transform: currentExpanded ? "scale(1.1) rotate(2deg)" : "scale(1)",
         }}
       />
 
-      <div
-        onClick={() => router.push("/admin")}
-        className="profile-section liquid-glass-nav-item group relative flex cursor-pointer items-center border-b border-white/30 p-6 shadow-[inset_0_0_12px_8px_rgba(255,255,255,0.1)] transition-all duration-300"
-        style={{
-          background: "linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)",
-        }}
-      >
-        <div
-          className="absolute inset-0 rounded-t-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-          style={{
-            background: "linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(120, 200, 65, 0.1) 100%)",
-            backdropFilter: "blur(10px)",
-          }}
-        />
-
-        <div
-          className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/20 shadow-[inset_0_0_12px_8px_rgba(255,255,255,0.3)] backdrop-blur-md transition-transform duration-300 group-hover:scale-110 ${
-            !expanded ? "mx-auto" : ""
-          }`}
-        >
-          <Bot size={22} className="text-gray-700 drop-shadow-sm" strokeWidth={2.4} />
-        </div>
-        {expanded ? (
-          <div className="relative ml-4 min-w-0">
-            <p className="truncate text-sm font-bold tracking-normal text-gray-800 drop-shadow-sm">FinEvent Admin</p>
-            <p className="truncate text-xs font-medium tracking-normal text-gray-600 drop-shadow-sm">
-              NLP/RAG operations
-            </p>
-          </div>
-        ) : null}
+      {/* Header section with branding & toggle button */}
+      <div className="relative flex h-16 items-center justify-between border-b border-white/20 px-5 transition-all duration-300">
+        {currentExpanded ? (
+          <>
+            <div className="flex items-center gap-3 min-w-0 cursor-pointer" onClick={() => router.push("/admin")}>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/20 shadow-[inset_0_0_12px_rgba(255,255,255,0.3)] backdrop-blur-md">
+                <Bot size={20} className="text-gray-700" strokeWidth={2.4} />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-gray-800 tracking-tight leading-tight">FinEvent Admin</p>
+                <p className="truncate text-[10px] font-semibold text-gray-600">NLP/RAG ops</p>
+              </div>
+            </div>
+            <button
+              onClick={toggleSidebar}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-white/20 hover:text-gray-900 transition-colors"
+              title="Thu gọn Sidebar"
+            >
+              <PanelLeftClose size={18} strokeWidth={2} />
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={toggleSidebar}
+            className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-gray-500 hover:bg-white/25 hover:text-gray-900 shadow-sm transition-all duration-300 hover:scale-105"
+            title="Mở rộng Sidebar"
+          >
+            <PanelLeft size={18} strokeWidth={2.4} />
+          </button>
+        )}
       </div>
 
-      <div className="relative flex flex-1 flex-col overflow-hidden px-3 py-6">
-        <div className={`mb-4 ${expanded ? "px-4" : "text-center"}`}>
-          <p className="mb-3 overflow-hidden whitespace-nowrap text-xs font-bold uppercase tracking-normal text-gray-600 drop-shadow-sm">
-            {expanded ? "Quản trị workflow" : "FE"}
-          </p>
-        </div>
+      {/* Nav items list. Using overflow-visible when collapsed to prevent tooltips from being clipped */}
+      <div
+        className={`relative flex flex-1 flex-col px-3 py-6 scrollbar-none transition-all ${
+          currentExpanded ? "overflow-y-auto" : "overflow-visible"
+        }`}
+      >
+        {currentExpanded && (
+          <div className="mb-4 px-4">
+            <p className="mb-1 overflow-hidden whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-gray-500 drop-shadow-sm">
+              Quản trị workflow
+            </p>
+          </div>
+        )}
 
         {navItems.map((item) => {
           const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
@@ -102,7 +110,7 @@ export function Sidebar() {
             <SidebarNavItem
               key={item.href}
               item={item}
-              expanded={expanded}
+              expanded={currentExpanded}
               active={active}
               onClick={() => router.push(item.href)}
             />
@@ -110,16 +118,42 @@ export function Sidebar() {
         })}
       </div>
 
-      <div
-        className="relative border-t border-white/30 p-4"
-        style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)" }}
-      >
+      {/* Settings & Profile Section at the bottom */}
+      <div className="relative mt-auto border-t border-white/20 p-4 transition-all duration-300">
         <SidebarNavItem
           item={{ href: "/admin/settings", label: "API settings", short: "API", icon: FileText }}
-          expanded={expanded}
+          expanded={currentExpanded}
           active={pathname.startsWith("/admin/settings")}
           onClick={() => router.push("/admin/settings")}
         />
+
+        {/* User profile details matching Claude style */}
+        <div
+          onClick={() => router.push("/admin")}
+          className={`group relative mt-4 flex cursor-pointer items-center rounded-2xl p-2 transition-all duration-300 ${
+            currentExpanded
+              ? "hover:bg-white/15 hover:shadow-[inset_0_0_12px_rgba(255,255,255,0.4)]"
+              : "justify-center"
+          }`}
+        >
+          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-800 text-white font-bold text-sm shadow-md transition-transform duration-300 group-hover:scale-105">
+            NH
+          </div>
+
+          {currentExpanded ? (
+            <div className="ml-3 min-w-0 flex-1">
+              <p className="truncate text-xs font-bold text-gray-800 leading-tight">Nguyễn Hoàng Hiên</p>
+              <p className="truncate text-[10px] font-semibold text-gray-500 leading-none mt-0.5">System Admin</p>
+            </div>
+          ) : (
+            /* Custom tooltip on hover for user avatar when collapsed */
+            <div className="pointer-events-none absolute left-full ml-4 z-[60] flex opacity-0 translate-x-2 scale-95 group-hover:opacity-100 group-hover:translate-x-0 group-hover:scale-100 transition-all duration-300 ease-out items-center">
+              <div className="whitespace-nowrap rounded-lg bg-gray-950 px-3 py-1.5 text-xs font-semibold text-white shadow-2xl">
+                Nguyễn Hoàng Hiên (Admin)
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );
@@ -139,9 +173,8 @@ function SidebarNavItem({
   const Icon = item.icon;
   return (
     <div
-      title={item.label}
       onClick={onClick}
-      className={`my-1 flex cursor-pointer items-center rounded-xl px-4 py-3 transition-all duration-300 ${
+      className={`group relative my-1 flex cursor-pointer items-center rounded-xl px-4 py-3 transition-all duration-300 ${
         active
           ? "bg-white/20 text-gray-900 shadow-[inset_0_0_24px_16px_rgba(255,255,255,0.9)] backdrop-blur-sm"
           : "text-gray-600 hover:bg-white/10 hover:text-gray-900 hover:shadow-[inset_0_0_18px_12px_rgba(255,255,255,0.7)]"
@@ -152,7 +185,14 @@ function SidebarNavItem({
       </div>
       {expanded ? (
         <span className="ml-3 overflow-hidden whitespace-nowrap text-sm font-bold">{item.label}</span>
-      ) : null}
+      ) : (
+        /* Custom Tooltip showing item label on hover */
+        <div className="pointer-events-none absolute left-full ml-4 z-[60] flex opacity-0 translate-x-2 scale-95 group-hover:opacity-100 group-hover:translate-x-0 group-hover:scale-100 transition-all duration-300 ease-out items-center">
+          <div className="whitespace-nowrap rounded-lg bg-gray-950 px-3 py-1.5 text-xs font-semibold text-white shadow-2xl">
+            {item.label}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
