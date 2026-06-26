@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Activity,
+  GitBranch,
   BarChart3,
   Bot,
   Boxes,
@@ -17,7 +17,7 @@ import { useSidebar } from "./SidebarContext";
 
 const navItems: { href: string; label: string; short: string; icon: LucideIcon }[] = [
   { href: "/admin", label: "Tổng quan", short: "OV", icon: LayoutDashboard },
-  { href: "/admin/runs", label: "Workflow", short: "WF", icon: Activity },
+  { href: "/admin/runs", label: "Workflow", short: "WF", icon: GitBranch },
   { href: "/admin/reports", label: "Báo cáo", short: "RP", icon: BarChart3 },
   { href: "/admin/database", label: "Database", short: "DB", icon: Database },
   { href: "/admin/outputs", label: "Outputs", short: "OUT", icon: Boxes },

@@ -178,3 +178,27 @@ pre {
     animation: shimmer 2s linear infinite;
   }
 }
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -100%) translateY(-2px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -100%) translateY(-8px) scale(1);
+  }
+}
+
+.animate-tooltip-in {
+  animation: tooltipFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Force not-allowed cursor on blocked React Flow nodes and pointer cursor on their interactive children */
+.react-flow__node.blocked-flow-node {
+  cursor: not-allowed !important;
+}
+.react-flow__node.blocked-flow-node .nodrag {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}

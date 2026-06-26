@@ -1,5 +1,9 @@
 # 03 - Backend Job Runner
 
+## Implementation Update - Milestone Graph
+
+Runner hiện hỗ trợ workflow `milestone_graph` cho graph M00-M08. Dependency, edge labels, node config và command builder nằm trong [05-milestone-graph-runner.md](05-milestone-graph-runner.md) và package `src/finevent/api/workflow_registry/`. Các workflow cũ như `evaluation`, `student_batch_extraction` và `student_batch_with_evaluation` vẫn được giữ để tương thích.
+
 ## Vai trò
 
 Job runner cho phép admin dashboard bấm chạy workflow mà không gọi CLI trực tiếp

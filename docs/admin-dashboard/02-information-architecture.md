@@ -50,10 +50,10 @@ Mục đích: bấm chạy pipeline mà không nhớ CLI.
 
 Các phần:
 
-- Chọn workflow preset.
-- Chọn config cơ bản.
-- Preview command/backend plan trước khi chạy.
-- Nút `Start Run`.
+- Chọn node M00-M08 trên Milestone Graph Composer.
+- Chọn config bằng drawer/modal theo catalog backend.
+- Xem trạng thái dependency ngay trên graph.
+- Nút `Run workflow` mở confirm modal trước khi tạo run.
 - Nút `Dry Run` nếu backend hỗ trợ.
 - Link sang run detail sau khi tạo run.
 
@@ -77,14 +77,14 @@ Bảng runs:
 | Cột | Mô tả |
 | --- | --- |
 | Run ID | Mã run |
-| Workflow | Tên workflow/preset |
+| Workflow | Tên workflow, ví dụ `milestone_graph` |
 | Status | queued/running/success/failed/canceled |
 | Started | Thời gian bắt đầu |
 | Duration | Thời gian chạy |
 | Current Step | Step hiện tại hoặc step lỗi |
 | Success Steps | Số step thành công |
 | Failed Steps | Số step lỗi |
-| Actions | Open, retry, cancel nếu đang chạy |
+| Actions | Open, cancel nếu đang chạy |
 
 Filter:
 
@@ -192,4 +192,3 @@ Hiển thị:
 - student LLM API smoke status;
 - embedding API smoke status;
 - artifact paths tồn tại hay không.
-

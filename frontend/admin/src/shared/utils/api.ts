@@ -45,6 +45,17 @@ export const adminApi = {
   },
 
   /**
+   * Get workflow catalog specs
+   * GET /admin/workflows/catalog
+   */
+  getWorkflowCatalog: () => {
+    return http.get<{ items: any[]; edge_labels?: Record<string, string> }>("/admin/workflows/catalog") as unknown as Promise<{
+      items: any[];
+      edge_labels?: Record<string, string>;
+    }>;
+  },
+
+  /**
    * Create a new workflow run
    * POST /admin/runs
    */

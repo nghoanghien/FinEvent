@@ -8,6 +8,7 @@ import pytest
 pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
+from finevent.api.job_runner import build_workflow_steps  # noqa: E402
 from finevent.api.main import app  # noqa: E402
 
 
@@ -100,6 +101,7 @@ def test_admin_runs_list_and_unknown_workflow(
     client = TestClient(app)
 
     runs = client.get("/admin/runs", headers=_admin_headers())
+    catalog = client.get("/admin/workflows/catalog", headers=_admin_headers())
     invalid = client.post(
         "/admin/runs",
         json={"workflow_name": "unknown_workflow", "config": {}},
@@ -108,8 +110,69 @@ def test_admin_runs_list_and_unknown_workflow(
 
     assert runs.status_code == 200
     assert runs.json()["total"] == 0
+    assert catalog.status_code == 200
+    assert any(item["id"] == "m08_evaluation" for item in catalog.json()["items"])
     assert invalid.status_code == 422
     assert invalid.json()["error_code"] == "UNKNOWN_WORKFLOW"
+
+
+def test_workflow_step_filters_articles_by_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    articles_path = tmp_path / "data" / "processed" / "articles_clean.jsonl"
+    articles_path.parent.mkdir(parents=True)
+    articles_path.write_text(
+        "\n".join(
+            [
+                json.dumps({"article_id": "a1", "source": "cafef"}, ensure_ascii=False),
+                json.dumps({"article_id": "a2", "source": "vietstock"}, ensure_ascii=False),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("FINEVENT_WORKSPACE_ROOT", str(tmp_path))
+
+    steps = build_workflow_steps(
+        "student_batch_extraction",
+        {
+            "articles_path": "data/processed/articles_clean.jsonl",
+            "sources": ["cafef"],
+        },
+        run_id="admin_run_test",
+    )
+
+    filtered_path = tmp_path / steps[0].command[steps[0].command.index("--articles-path") + 1]
+    rows = [json.loads(line) for line in filtered_path.read_text(encoding="utf-8").splitlines()]
+    assert filtered_path == (
+        tmp_path / "runs" / "admin" / "admin_run_test" / "inputs" / "articles_filtered.jsonl"
+    )
+    assert rows == [{"article_id": "a1", "source": "cafef"}]
+
+
+def test_milestone_graph_rejects_missing_dependencies(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_fixture_workspace(tmp_path)
+    monkeypatch.setenv("FINEVENT_WORKSPACE_ROOT", str(tmp_path))
+    monkeypatch.setenv("FINEVENT_ADMIN_API_KEY", "test-admin-key")
+    monkeypatch.delenv("FINEVENT_ADMIN_AUTH_DISABLED", raising=False)
+    client = TestClient(app)
+
+    response = client.post(
+        "/admin/runs",
+        json={
+            "workflow_name": "milestone_graph",
+            "config": {"selected_nodes": ["m08_evaluation"]},
+        },
+        headers=_admin_headers(),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error_code"] == "INVALID_WORKFLOW_CONFIG"
+    assert "requires prerequisite" in response.json()["message"]
 
 
 def test_admin_run_queue_limit_and_startup_reconciliation(

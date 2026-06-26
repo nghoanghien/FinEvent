@@ -1,5 +1,9 @@
 # Backend API Documentation
 
+## Tài liệu mới liên quan workflow graph
+
+- [05-milestone-graph-runner.md](05-milestone-graph-runner.md): API, registry package, dependency validation, edge labels và command mapping cho workflow `milestone_graph`.
+
 Backend API dùng FastAPI để phục vụ Next.js admin dashboard và các thao tác vận
 hành pipeline. Tài liệu này mô tả implementation hiện tại, không chỉ là contract
 ý tưởng.
@@ -12,6 +16,7 @@ hành pipeline. Tài liệu này mô tả implementation hiện tại, không ch
 | [02-endpoints.md](02-endpoints.md) | Danh sách endpoint v1 và input/output chính |
 | [03-job-runner.md](03-job-runner.md) | Cơ chế chạy workflow, logs, cancel và artifact tracking |
 | [04-security-and-artifacts.md](04-security-and-artifacts.md) | Path allowlist, error format, không expose secrets |
+| [05-milestone-graph-runner.md](05-milestone-graph-runner.md) | API và registry cho workflow graph M00-M08 |
 
 ## Module Code Chính
 
@@ -21,6 +26,12 @@ src/finevent/api/
   admin_health.py
   admin_reports.py
   admin_runs.py
+  admin_workflows.py
+  workflow_registry/
+    catalog.py
+    config_helpers.py
+    types.py
+    nodes/
   admin_db.py
   admin_outputs.py
   job_runner.py

@@ -1,5 +1,10 @@
 # FinEvent-VN Documentation
 
+## Tài liệu mới
+
+- [Backend Milestone Graph Runner API](backend-api/05-milestone-graph-runner.md)
+- [Admin Milestone Graph Composer](admin-dashboard/13-milestone-graph-composer.md)
+
 FinEvent-VN là project trích xuất sự kiện tài chính doanh nghiệp từ báo tài chính tiếng Việt. Hướng chính của project là **evidence-grounded NLP pipeline**: dùng retrieval/RAG như tầng truy xuất bằng chứng, còn lõi NLP là phát hiện sự kiện, phân loại taxonomy, slot filling, kiểm định evidence và đánh giá định lượng.
 
 Tài liệu được chia nhỏ để dễ đọc, dễ code và dễ chuyển thành báo cáo SE365.
@@ -16,11 +21,16 @@ docs/
   adr/
     README.md
     0001-database-layer-strategy.md
+  backend-api/
+    README.md
+    01-overview.md
+    ...
+    05-milestone-graph-runner.md
   admin-dashboard/
     README.md
     01-product-scope.md
     ...
-    11-testing-acceptance.md
+    13-milestone-graph-composer.md
   schema/
     event-schema.md
   workflows/
@@ -89,6 +99,13 @@ docs/
 | [README.md](adr/README.md) | Index các quyết định kiến trúc |
 | [0001-database-layer-strategy.md](adr/0001-database-layer-strategy.md) | Chiến lược database layer: Raw SQL, SQLAlchemy Core, Alembic và ORM có chọn lọc |
 
+### Backend API
+
+| File | Vai trò |
+| --- | --- |
+| [README.md](backend-api/README.md) | Index tài liệu FastAPI admin backend |
+| [05-milestone-graph-runner.md](backend-api/05-milestone-graph-runner.md) | API, registry package, edge labels và command mapping cho workflow graph M00-M08 |
+
 ### Admin Dashboard
 
 | File | Vai trò |
@@ -105,6 +122,8 @@ docs/
 | [09-backend-job-design.md](admin-dashboard/09-backend-job-design.md) | Thiết kế job runner, run state và log persistence |
 | [10-frontend-implementation-plan.md](admin-dashboard/10-frontend-implementation-plan.md) | Kế hoạch triển khai Next.js frontend |
 | [11-testing-acceptance.md](admin-dashboard/11-testing-acceptance.md) | Test cases và done criteria |
+| [12-report-charts-visualization.md](admin-dashboard/12-report-charts-visualization.md) | Report charts, visualization và chart artifacts |
+| [13-milestone-graph-composer.md](admin-dashboard/13-milestone-graph-composer.md) | React Flow composer graph M00-M08, dependency, drawer/modal config và confirm run |
 
 ### Schema
 

@@ -25,6 +25,7 @@ from finevent.api.admin_health import router as admin_health_router
 from finevent.api.admin_outputs import router as admin_outputs_router
 from finevent.api.admin_reports import router as admin_reports_router
 from finevent.api.admin_runs import router as admin_runs_router
+from finevent.api.admin_workflows import router as admin_workflows_router
 from finevent.api.auth import admin_auth_middleware
 
 
@@ -65,6 +66,7 @@ app.middleware("http")(admin_auth_middleware)
 app.include_router(admin_health_router)
 app.include_router(admin_reports_router)
 app.include_router(admin_runs_router)
+app.include_router(admin_workflows_router)
 app.include_router(admin_db_router)
 app.include_router(admin_outputs_router)
 

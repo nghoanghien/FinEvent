@@ -42,10 +42,12 @@ def create_admin_run(payload: CreateRunRequest) -> dict[str, Any]:
     try:
         run_state = create_run(payload.workflow_name, payload.config)
     except ValueError as exc:
+        message = str(exc)
+        is_unknown_workflow = message.startswith("Unknown workflow_name")
         raise api_error(
             422,
-            "UNKNOWN_WORKFLOW",
-            str(exc),
+            "UNKNOWN_WORKFLOW" if is_unknown_workflow else "INVALID_WORKFLOW_CONFIG",
+            message,
             details={"workflow_name": payload.workflow_name},
         ) from exc
     except RunQueueFullError as exc:
@@ -55,6 +57,7 @@ def create_admin_run(payload: CreateRunRequest) -> dict[str, Any]:
             str(exc),
         ) from exc
     return {
+        "run": run_state.to_dict(),
         "run_id": run_state.run_id,
         "status": run_state.status,
         "detail_url": f"/admin/runs/{run_state.run_id}",

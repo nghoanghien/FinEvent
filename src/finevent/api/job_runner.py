@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 import threading
 import time
 import uuid
@@ -22,6 +21,8 @@ from typing import Any
 
 from finevent.api.artifacts import artifact_relative_path, get_workspace_root
 from finevent.api.serialization import to_jsonable
+from finevent.api.workflow_registry.catalog import build_workflow_steps
+from finevent.api.workflow_registry.types import WorkflowStep
 
 RUN_STATUSES = {"queued", "running", "success", "failed", "canceled", "interrupted"}
 PROCESS_REGISTRY: dict[str, subprocess.Popen[str]] = {}
@@ -34,15 +35,6 @@ DISPATCHER_THREAD: threading.Thread | None = None
 
 class RunQueueFullError(RuntimeError):
     """Raised when the admin run queue is full."""
-
-
-@dataclass(frozen=True)
-class WorkflowStep:
-    step_id: str
-    milestone: str
-    name: str
-    command: list[str]
-    expected_artifacts: tuple[str, ...] = ()
 
 
 @dataclass
@@ -78,8 +70,8 @@ class RunState:
 
 
 def create_run(workflow_name: str, config: dict[str, Any]) -> RunState:
-    steps = build_workflow_steps(workflow_name, config)
     run_id = f"admin_run_{_utc_compact()}_{uuid.uuid4().hex[:8]}"
+    steps = build_workflow_steps(workflow_name, config, run_id=run_id)
     run_state = RunState(
         run_id=run_id,
         workflow_name=workflow_name,
@@ -274,85 +266,6 @@ def _execute_run_and_release(run_id: str, steps: list[WorkflowStep]) -> None:
         with RUNNER_CONDITION:
             ACTIVE_RUN_IDS.discard(run_id)
             RUNNER_CONDITION.notify_all()
-
-
-def build_workflow_steps(workflow_name: str, config: dict[str, Any]) -> list[WorkflowStep]:
-    python = sys.executable
-    if workflow_name == "evaluation":
-        return [_evaluation_step(python, config)]
-    if workflow_name == "student_batch_extraction":
-        return [_student_batch_step(python, config)]
-    if workflow_name == "student_batch_with_evaluation":
-        return [_student_batch_step(python, config), _evaluation_step(python, config)]
-    raise ValueError(
-        "Unknown workflow_name. Allowed values: evaluation, student_batch_extraction, "
-        "student_batch_with_evaluation."
-    )
-
-
-def _student_batch_step(python: str, config: dict[str, Any]) -> WorkflowStep:
-    output_path = str(config.get("output_path") or "data/extraction/student_predictions.jsonl")
-    command = [
-        python,
-        "-m",
-        "finevent.extraction",
-        "run-batch",
-        "--articles-path",
-        str(config.get("articles_path") or "data/processed/articles_clean.jsonl"),
-        "--output-path",
-        output_path,
-        "--student-provider",
-        str(config.get("student_provider") or "deterministic"),
-        "--retrieval-query-embedding-provider",
-        str(config.get("retrieval_query_embedding_provider") or "hash"),
-        "--pattern-query-embedding-provider",
-        str(config.get("pattern_query_embedding_provider") or "hash"),
-    ]
-    if config.get("limit") is not None:
-        command.extend(["--limit", str(int(config["limit"]))])
-    if config.get("offset") is not None:
-        command.extend(["--offset", str(int(config["offset"]))])
-    if config.get("sync_postgres"):
-        command.append("--sync-postgres")
-    return WorkflowStep(
-        step_id="m06_student_batch_extraction",
-        milestone="M06",
-        name="Student batch extraction",
-        command=command,
-        expected_artifacts=(output_path,),
-    )
-
-
-def _evaluation_step(python: str, config: dict[str, Any]) -> WorkflowStep:
-    output_dir = str(config.get("evaluation_output_dir") or "reports/evaluation")
-    command = [
-        python,
-        "-m",
-        "finevent.evaluation",
-        "run",
-        "--gold-path",
-        str(config.get("gold_path") or "data/labels/events_gold.jsonl"),
-        "--output-dir",
-        output_dir,
-    ]
-    predictions_path = config.get("predictions_path") or config.get("output_path")
-    if predictions_path:
-        command.extend(["--predictions-path", str(predictions_path), "--ignore-runs-dir"])
-    else:
-        command.extend(["--runs-dir", str(config.get("runs_dir") or "runs/extraction")])
-    if config.get("skip_academic_figures"):
-        command.append("--skip-academic-figures")
-    return WorkflowStep(
-        step_id="m08_evaluation",
-        milestone="M08",
-        name="Evaluation and reports",
-        command=command,
-        expected_artifacts=(
-            f"{output_dir}/report_index.md",
-            f"{output_dir}/charts_summary.md",
-            f"{output_dir}/academic_charts_summary.md",
-        ),
-    )
 
 
 def _execute_run(run_id: str, steps: list[WorkflowStep]) -> None:

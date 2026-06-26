@@ -50,5 +50,6 @@ export const workflowPresets: WorkflowPreset[] = [
 ];
 
 export function workflowTitle(id?: string) {
+  if (id === "milestone_graph") return "Milestone Graph";
   return workflowPresets.find((preset) => preset.id === id)?.title || id || "Workflow";
 }

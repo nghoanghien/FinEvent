@@ -1,5 +1,9 @@
 # 09 - Backend Job Design
 
+## Implementation Update - Workflow Registry
+
+Implementation hiện tại không còn map preset trực tiếp trong job runner. `job_runner.py` gọi `build_workflow_steps` từ package `src/finevent/api/workflow_registry/`; từng milestone có node spec riêng trong `workflow_registry/nodes/`. Run state/log vẫn lưu file trong `runs/admin/{run_id}` thay vì DB tables `admin_pipeline_*`.
+
 ## Mục Tiêu
 
 Backend job runner cho phép UI bấm chạy workflow mà vẫn tận dụng CLI hiện có.
@@ -23,7 +27,7 @@ rõ ràng.
 | Field | Type | Mô tả |
 | --- | --- | --- |
 | run_id | text | Primary key |
-| workflow_name | text | Tên preset |
+| workflow_name | text | Tên workflow, ví dụ `milestone_graph` |
 | status | text | queued/running/success/failed/canceled |
 | config_json | jsonb | Config UI gửi |
 | started_at | timestamptz | Start time |
@@ -65,7 +69,7 @@ sau này nâng cấp không đổi frontend nhiều.
 
 ## Command Mapping
 
-Workflow runner map preset sang commands.
+Workflow runner build command từ registry node spec, không nhận command tự do từ frontend.
 
 Ví dụ Student 8B batch extraction:
 

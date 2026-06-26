@@ -23,6 +23,7 @@ API v1 tập trung vào các nhu cầu vận hành thật:
 | `admin_health.py` | `/admin/health` | Kiểm tra API, DB, pgvector, artifact dirs, model env |
 | `admin_reports.py` | `/admin/reports` | Xem Markdown/CSV/JSONL/SVG/PNG reports |
 | `admin_runs.py` | `/admin/runs` | Tạo run, xem run, xem log, stream log, cancel |
+| `admin_workflows.py` | `/admin/workflows` | Trả workflow/node catalog cho Milestone Graph Composer |
 | `admin_db.py` | `/admin/db` | DB browser qua entity allowlist |
 | `admin_outputs.py` | `/admin/outputs` | Xem structured extraction outputs |
 | `main.py` | `/health`, `/dictionary/tickers` | Health cũ và ticker dictionary API |

@@ -1,53 +1,58 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { Activity, Play, RefreshCw } from "lucide-react";
-import { DataTable } from "@/components/ui/DataTable";
+import { useState } from "react";
+import { Activity, Play, Settings } from "lucide-react";
 import { ErrorBlock } from "@/components/ui/StateBlock";
-import { JsonPanel } from "@/components/ui/JsonPanel";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { StatusBadge } from "@/components/ui/StatusBadge";
-import { TableToolbar } from "@/components/ui/TableToolbar";
-import { formatDateTime } from "@/shared/utils/format";
-import type { WorkflowPreset } from "@/shared/types";
-import { workflowPresets, workflowTitle } from "@/shared/constants/workflows";
-import { useCreateRun, useRunsList } from "./hooks/useRuns";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { useCreateRun } from "./hooks/useRuns";
+import { useSidebar } from "@/components/layout/SidebarContext";
+import {
+  useWorkflowComposer,
+  WorkflowGraph,
+  NodeConfigDrawer,
+  ConfigModal,
+  RunConfirmModal,
+} from "./workflow-composer";
 
 export function RunsPage() {
   const router = useRouter();
-  const [selectedPreset, setSelectedPreset] = useState<WorkflowPreset>(workflowPresets[0]);
-  const [configText, setConfigText] = useState(() => JSON.stringify(workflowPresets[0].defaultConfig, null, 2));
-  const [configError, setConfigError] = useState<string | null>(null);
+  const composer = useWorkflowComposer();
+  const {
+    catalog,
+    nodeById,
+    isLoading: isCatalogLoading,
+    composerState,
+    runRequest,
+    handleToggleNode,
+    handleUpdateConfig,
+    handleSetActiveNode,
+    handleSetEditingNode,
+    edgeLabels,
+  } = composer;
 
-  const runs = useRunsList(50);
+  const [configError, setConfigError] = useState<string | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+
+  const { isExpanded } = useSidebar();
   const createRun = useCreateRun();
 
-  const parsedPreview = useMemo(() => {
-    try {
-      return parseConfig(configText);
-    } catch {
-      return null;
-    }
-  }, [configText]);
-
-  function selectPreset(preset: WorkflowPreset) {
-    setSelectedPreset(preset);
-    setConfigText(JSON.stringify(preset.defaultConfig, null, 2));
-    setConfigError(null);
-  }
-
-  function handleRun() {
-    let config: Record<string, unknown>;
-    try {
-      config = parseConfig(configText);
-      setConfigError(null);
-    } catch (error) {
-      setConfigError(error instanceof Error ? error.message : String(error));
+  function handleRunClick() {
+    if (!runRequest.ok) {
+      setConfigError(runRequest.message);
       return;
     }
+    setConfigError(null);
+    setIsConfirmOpen(true);
+  }
+
+  function handleConfirmRun() {
+    setIsConfirmOpen(false);
+    if (!runRequest.ok) return;
     createRun.mutate(
-      { workflowName: selectedPreset.id, config },
+      { workflowName: runRequest.workflowName, config: runRequest.config },
       {
         onError: (error) => setConfigError(error instanceof Error ? error.message : String(error)),
       },
@@ -55,118 +60,127 @@ export function RunsPage() {
   }
 
   return (
-    <div className="eatzy-page space-y-8">
-      <PageHeader
-        eyebrow="Workflow runner"
-        title="PIPELINE RUNNER"
-        icon={Activity}
-        description="Tạo run qua FastAPI job runner. Mỗi run lưu metadata, step status, expected artifacts và log JSONL để UI theo dõi trực tiếp."
-        actions={
-          <button type="button" onClick={() => runs.refetch()} className="eatzy-secondary-button">
-            <RefreshCw className={`h-4 w-4 ${runs.isFetching ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
-        }
-      />
-
-      <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="space-y-3">
-          {workflowPresets.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              onClick={() => selectPreset(preset)}
-              className={`focus-ring w-full rounded-[28px] border p-5 text-left transition-all duration-300 ${
-                selectedPreset.id === preset.id
-                  ? "border-primary/40 bg-white shadow-[inset_0_0_24px_16px_rgba(255,255,255,0.9),0_12px_35px_rgba(120,200,65,0.12)]"
-                  : "border-gray-100 bg-white hover:-translate-y-0.5 hover:shadow-eatzy-hover"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="font-anton text-xl font-black uppercase text-gray-900">{preset.title}</h3>
-                <StatusBadge value={preset.accent} />
-              </div>
-              <p className="mt-2 text-sm font-medium text-gray-500">{preset.description}</p>
-            </button>
-          ))}
-        </div>
-
-        <div className="panel p-8">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h3 className="font-anton text-2xl font-black uppercase text-gray-900">{selectedPreset.title}</h3>
-              <p className="mt-1 text-sm font-medium text-gray-400">Có thể chỉnh config JSON trước khi chạy.</p>
-            </div>
-            <button type="button" disabled={createRun.isPending} onClick={handleRun} className="eatzy-primary-button disabled:cursor-not-allowed disabled:opacity-60">
-              <Play className="h-4 w-4" />
-              {createRun.isPending ? "Đang tạo run..." : "Run"}
-            </button>
-          </div>
-          <textarea
-            value={configText}
-            onChange={(event) => setConfigText(event.target.value)}
-            spellCheck={false}
-            className="focus-ring mt-5 min-h-[260px] w-full rounded-[24px] border border-gray-900 bg-gray-950 p-4 font-mono text-xs leading-6 text-gray-100"
-          />
-          {configError ? <p className="mt-3 text-sm font-semibold text-danger">{configError}</p> : null}
-          {createRun.data ? (
-            <div onClick={() => router.push(`/admin/runs/${createRun.data.run.run_id}`)} className="mt-4 inline-flex cursor-pointer rounded-full border border-primary/30 bg-lime-50 px-4 py-2 text-sm font-bold text-lime-700">
-              Mở run vừa tạo: {createRun.data.run.run_id}
-            </div>
-          ) : null}
-          <div className="mt-5">
-            <p className="mb-2 text-xs font-black uppercase text-gray-400">Config preview</p>
-            <JsonPanel value={parsedPreview || { error: "Invalid JSON" }} />
-          </div>
-        </div>
-      </section>
-
-      <section className="panel overflow-hidden">
-        <TableToolbar
-          title="Run history"
-          description="Tự refresh mỗi 10 giây khi đang mở trang."
-          onRefresh={() => runs.refetch()}
-          isRefreshing={runs.isFetching}
+    <div className="relative overflow-hidden -mx-4 md:-mx-8 -mt-4 -mb-10 h-screen flex flex-col justify-stretch bg-[#F8F9FA]">
+      {/* Individual Fixed PageHeader (No frame wrapper/borders/backgrounds) */}
+      <div
+        className={`fixed top-4 z-30 transition-all duration-500 ease-out left-4 ${isExpanded ? "md:left-[320px]" : "md:left-[112px]"
+          }`}
+      >
+        <PageHeader
+          eyebrow="Workflow runner"
+          title="PIPELINE RUNNER"
+          icon={Activity}
+          minimal={true}
         />
-        <div className="p-5 pt-2">
-          {runs.error ? <ErrorBlock error={runs.error} onRetry={() => runs.refetch()} /> : null}
-          <DataTable
-            rows={(runs.data?.items || []) as unknown as Record<string, unknown>[]}
-            isLoading={runs.isLoading}
-            columns={[
-              {
-                key: "run_id",
-                label: "Run ID",
-                render: (row) => (
-                  <div onClick={() => router.push(`/admin/runs/${row.run_id}`)} className="font-mono text-xs font-bold text-lime-700 hover:text-lime-800 cursor-pointer">
-                    {String(row.run_id)}
-                  </div>
-                ),
-              },
-              {
-                key: "workflow_name",
-                label: "Workflow",
-                render: (row) => workflowTitle(String(row.workflow_name)),
-              },
-              { key: "status", label: "Status", render: (row) => <StatusBadge value={String(row.status)} /> },
-              { key: "created_at", label: "Created", render: (row) => formatDateTime(String(row.created_at)) },
-              {
-                key: "steps",
-                label: "Steps",
-                render: (row) => (Array.isArray(row.steps) ? row.steps.length : 0),
-              },
-            ]}
-          />
+      </div>
+
+      {/* Individual Fixed Warning Message (Top Center, No frame wrapper) */}
+      {!runRequest.ok && runRequest.message ? (
+        <div className="fixed top-6 left-1/2 z-50 -translate-x-1/2 pointer-events-none">
+          <span className="inline-block whitespace-nowrap rounded-full bg-rose-50 border border-rose-100 px-3.5 py-1.5 text-xs font-bold text-rose-600 shadow-sm animate-[fadeInDown_0.2s_ease-out]">
+            {runRequest.message}
+          </span>
         </div>
-      </section>
+      ) : null}
+
+      {/* Individual Fixed Run & Settings controls (No frame wrapper/borders/backgrounds) */}
+      <div className="fixed top-6 right-4 md:right-8 z-30 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+          className={`focus-ring flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-200 ${isDrawerOpen
+            ? "border-slate-800 bg-slate-800 text-white shadow-[inset_0_2px_8px_rgba(0,0,0,0.3)] scale-95"
+            : "border-slate-300 bg-slate-100 text-slate-700 shadow-[0_4px_12px_rgba(15,23,42,0.1)] hover:bg-slate-200 hover:border-slate-400 hover:text-slate-900 hover:shadow-[0_6px_16px_rgba(15,23,42,0.15)]"
+            }`}
+          title="Cấu hình Node"
+        >
+          <Settings className={`h-5 w-5 transition-transform duration-300 ${isDrawerOpen ? "rotate-90" : "rotate-0"}`} />
+        </button>
+
+        <button
+          type="button"
+          disabled={!runRequest.ok || createRun.isPending}
+          onClick={handleRunClick}
+          className="eatzy-primary-button disabled:cursor-not-allowed disabled:opacity-50 shrink-0"
+        >
+          <Play className="h-4 w-4" />
+          {createRun.isPending ? "Đang chạy..." : "Run workflow"}
+        </button>
+      </div>
+
+      {isCatalogLoading ? (
+        <div className="flex-1 flex flex-col gap-4 items-center justify-center bg-[#F8F9FA]">
+          <LoadingSpinner />
+          <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">
+            Đang tải dữ liệu Graph...
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="flex-1 h-full min-h-0 relative z-0">
+            <WorkflowGraph
+              catalog={catalog}
+              selectedNodeIds={composerState.selectedNodeIds}
+              activeNodeId={composerState.activeNodeId}
+              onToggleNode={handleToggleNode}
+              onEditClick={handleSetEditingNode}
+              edgeLabels={edgeLabels}
+            />
+          </div>
+
+          {/* Configuration Drawer */}
+          <NodeConfigDrawer
+            isOpen={isDrawerOpen}
+            onClose={() => setIsDrawerOpen(false)}
+            runRequest={runRequest}
+            composerState={composerState}
+            nodeById={nodeById}
+            onChange={handleUpdateConfig}
+            onSetActiveNode={handleSetActiveNode}
+          />
+
+          {/* Node Settings Modal */}
+          <ConfigModal
+            isOpen={composerState.editingNodeId !== null && composerState.editingNodeId !== undefined}
+            node={composerState.editingNodeId ? nodeById[composerState.editingNodeId] : null}
+            configs={composerState.editingNodeId ? composerState.configs[composerState.editingNodeId] : undefined}
+            onChange={(key, val) => {
+              if (composerState.editingNodeId) {
+                handleUpdateConfig(composerState.editingNodeId, key, val);
+              }
+            }}
+            onClose={() => handleSetEditingNode(null)}
+          />
+
+          {/* Run Confirmation Modal */}
+          {runRequest.ok && (
+            <RunConfirmModal
+              isOpen={isConfirmOpen}
+              workflowName={runRequest.workflowName}
+              selectedNodeIds={composerState.selectedNodeIds}
+              nodeById={nodeById}
+              isPending={createRun.isPending}
+              onConfirm={handleConfirmRun}
+              onClose={() => setIsConfirmOpen(false)}
+            />
+          )}
+        </>
+      )}
+
+      {/* Floating feedback / success notifications */}
+      <div className="fixed bottom-6 left-6 z-30 flex flex-col gap-3 max-w-md pointer-events-auto">
+        {configError ? <ErrorBlock title="Không tạo được run" error={configError} /> : null}
+        {createRun.data ? (
+          <button
+            type="button"
+            onClick={() => router.push(`/admin/runs/${createRun.data.run.run_id}`)}
+            className="eatzy-secondary-button border-primary/30 bg-lime-50 text-lime-800 animate-[fadeInUp_0.3s_ease-out] shadow-lg"
+          >
+            <Play className="h-4 w-4" />
+            Mở run vừa tạo: {createRun.data.run.run_id}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
-}
-
-function parseConfig(value: string) {
-  const parsed = JSON.parse(value) as unknown;
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("Config must be a JSON object.");
-  }
-  return parsed as Record<string, unknown>;
 }

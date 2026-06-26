@@ -7,15 +7,30 @@ export function PageHeader({
   description,
   icon: Icon,
   actions,
+  minimal = false,
 }: {
   eyebrow: string;
   title: string;
   description?: string;
   icon?: LucideIcon;
   actions?: ReactNode;
+  minimal?: boolean;
 }) {
+  if (minimal) {
+    return (
+      <div className="px-2 pt-2 lg:px-0">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-lime-100 px-2.5 py-1 text-[10px] font-bold uppercase text-lime-700">
+            {Icon ? <Icon size={12} strokeWidth={2.4} /> : null}
+            {eyebrow}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="px-2 pt-5 lg:px-0">
+    <div className="px-2 pt-2 lg:px-0">
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
         <div className="min-w-0">
           <div className="mb-2 flex items-center gap-2">

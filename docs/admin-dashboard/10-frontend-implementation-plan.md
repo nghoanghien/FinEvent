@@ -1,5 +1,9 @@
 # 10 - Frontend Implementation Plan
 
+## Implementation Update - Runs Page
+
+Trang `/admin/runs` hiện đã chuyển sang Milestone Graph Composer. Không còn `WorkflowRunner` dạng preset card + JSON textarea. Implementation hiện dùng `@xyflow/react` để render graph, `framer-motion` cho drawer/modal, `useWorkflowCatalog` để hydrate catalog từ backend và `useWorkflowComposer` để quản lý selected nodes/config/run request.
+
 ## Tech Stack
 
 | Thành phần | Công nghệ | Vai trò |
@@ -9,6 +13,8 @@
 | Styling | Tailwind CSS | Layout và utility classes |
 | Components | shadcn/ui | Button, table, tabs, dialog, sheet, badge |
 | Data fetching | TanStack Query | Fetch/cache/refetch API |
+| Workflow graph | @xyflow/react | Render node/edge graph M00-M08 |
+| Motion/modal | framer-motion | Drawer, config modal, confirm modal |
 | Tables | TanStack Table | Sort/filter/pagination |
 | Realtime | EventSource/SSE | Live logs |
 | Charts | Recharts hoặc Tremor | Metrics cards/charts |
@@ -40,7 +46,7 @@ frontend/
       Sidebar.tsx
       StatusBadge.tsx
       MetricCard.tsx
-      WorkflowRunner.tsx
+      WorkflowGraph.tsx
       RunTimeline.tsx
       LiveLogViewer.tsx
       ArtifactList.tsx
@@ -72,13 +78,16 @@ Content:
 
 ### `/admin/runs`
 
-Run history and workflow runner.
+Milestone graph workflow composer.
 
 Content:
 
-- workflow preset cards;
-- run table;
-- filters.
+- React Flow graph M00-M08;
+- fixed PageHeader và Run/Settings actions;
+- node tooltip/settings;
+- config drawer;
+- run confirmation modal;
+- floating action mở run vừa tạo.
 
 ### `/admin/runs/[runId]`
 
@@ -124,21 +133,27 @@ Health and runtime configuration.
 
 ## Component Requirements
 
-### WorkflowRunner
+### Workflow Composer
 
-Props:
+Files:
 
-- workflow presets;
-- default config;
-- submit handler.
+- `workflow-composer/hooks/useWorkflowCatalog.ts`;
+- `workflow-composer/hooks/useWorkflowComposer.ts`;
+- `workflow-composer/components/WorkflowGraph.tsx`;
+- `workflow-composer/components/WorkflowNode.tsx`;
+- `workflow-composer/components/NodeConfigDrawer.tsx`;
+- `workflow-composer/components/ConfigModal.tsx`;
+- `workflow-composer/components/RunConfirmModal.tsx`.
 
 Behavior:
 
-- select preset;
-- edit basic config;
-- show command summary;
-- create run;
-- redirect to run detail.
+- fetch backend catalog from `GET /admin/workflows/catalog`;
+- render node/edge graph;
+- block nodes whose dependencies are missing;
+- click selected node again to turn it off;
+- turn off downstream dependent nodes automatically;
+- build run request with `selected_nodes`, `node_configs` and merged flat config;
+- confirm before calling `POST /admin/runs`.
 
 ### LiveLogViewer
 
@@ -244,4 +259,3 @@ Ví dụ Reports empty:
 - Không truy cập DB trực tiếp.
 - Không parse vector lớn ở client.
 - Không tự sửa artifact file.
-

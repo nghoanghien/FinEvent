@@ -21,7 +21,10 @@
 
 ### Runs
 
+- `GET /admin/workflows/catalog` trả `items` và `edge_labels`.
+- Catalog item có `id`, `milestone`, `depends_on`, `default_config`, `fields`.
 - `POST /admin/runs` tạo run mới.
+- `POST /admin/runs` với `workflow_name = "milestone_graph"` reject khi thiếu dependency.
 - `GET /admin/runs` list run vừa tạo.
 - `GET /admin/runs/{run_id}` trả steps.
 - Cancel run đang chạy đổi status sang `canceled`.
@@ -58,10 +61,14 @@
 
 ### Workflow Runner
 
-- Chọn workflow preset.
-- Chỉnh config cơ bản.
-- Bấm run tạo run mới.
-- Sau khi tạo run redirect sang detail.
+- Graph hydrate từ `GET /admin/workflows/catalog`.
+- Node thiếu dependency ở trạng thái blocked và không bật được.
+- Chọn node hợp lệ làm node sáng lên và highlight edge phù hợp.
+- Click lại node selected sẽ tắt node đó.
+- Tắt node cha sẽ tắt downstream node phụ thuộc.
+- Settings drawer hiển thị config của selected configurable nodes.
+- Run button mở confirm modal trước khi tạo run.
+- Sau khi tạo run hiện action mở run detail.
 
 ### Run Detail
 
@@ -136,7 +143,7 @@ V1 đạt nếu:
 
 - Next.js app chạy local.
 - FastAPI admin endpoints chạy local.
-- UI tạo được một run từ workflow preset.
+- UI tạo được một run từ Milestone Graph Composer.
 - UI stream logs realtime.
 - UI hiển thị run timeline.
 - UI mở được ít nhất 5 report quan trọng.
@@ -169,4 +176,3 @@ Hiển thị tối thiểu:
 - Retrieval MRR.
 - Retrieval nDCG@10.
 - Top error code.
-

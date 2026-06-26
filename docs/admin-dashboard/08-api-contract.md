@@ -1,5 +1,11 @@
 # 08 - API Contract
 
+## Implementation Update - Runs Workflow
+
+Runs API hiện đã có thêm `GET /admin/workflows/catalog` cho Milestone Graph Composer. Endpoint này trả `{ items, edge_labels }`; mỗi item là node spec M00-M08 với `depends_on`, `default_config`, `expected_artifacts` và `fields`. `POST /admin/runs` hỗ trợ `workflow_name = "milestone_graph"` với `config.selected_nodes`; frontend gửi thêm `node_configs` và config phẳng đã merge để backend build CLI args.
+
+Endpoint retry chưa được implement trong API hiện tại; UI hiện hỗ trợ create, detail, logs, stream logs và cancel.
+
 ## Mục Tiêu
 
 FastAPI backend cung cấp API cho Next.js admin dashboard. Frontend không gọi trực
@@ -37,6 +43,29 @@ Không trả secret.
 
 ## Nhóm Runs
 
+### `GET /admin/workflows/catalog`
+
+Response rút gọn:
+
+```json
+{
+  "items": [
+    {
+      "id": "m00_runtime",
+      "milestone": "M00",
+      "title": "Runtime and database",
+      "depends_on": [],
+      "default_config": {},
+      "expected_artifacts": [],
+      "fields": []
+    }
+  ],
+  "edge_labels": {
+    "m00_runtime->m01_ingestion": "Db Connection"
+  }
+}
+```
+
 ### `GET /admin/runs`
 
 Query:
@@ -73,11 +102,17 @@ Body:
 
 ```json
 {
-  "workflow_name": "student_batch_extraction",
+  "workflow_name": "milestone_graph",
   "config": {
-    "limit": 32,
-    "student_provider": "env",
-    "sync_postgres": true
+    "selected_nodes": ["m00_runtime", "m01_ingestion", "m06_extraction"],
+    "node_configs": {
+      "m06_extraction": {
+        "limit": 10,
+        "sources": ["cafef"]
+      }
+    },
+    "limit": 10,
+    "sources": ["cafef"]
   }
 }
 ```
@@ -100,17 +135,9 @@ Trả metadata run, steps, artifacts, summary.
 
 Cancel process nếu đang chạy.
 
-### `POST /admin/runs/{run_id}/retry`
+### Future: `POST /admin/runs/{run_id}/retry`
 
-Retry whole run hoặc retry từ failed step.
-
-Body:
-
-```json
-{
-  "mode": "from_failed_step"
-}
-```
+Chưa có trong implementation hiện tại.
 
 ## Nhóm Logs
 
@@ -236,4 +263,3 @@ Mọi API lỗi nên trả:
 - Mask DSN.
 - Chỉ cho đọc file trong allowlist: `reports/`, `data/`, `runs/`.
 - Không cho path traversal như `../../.env`.
-

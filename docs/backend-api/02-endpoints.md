@@ -74,6 +74,10 @@ Trả chart groups cho UI:
 
 ## Runs
 
+### `GET /admin/workflows/catalog`
+
+Trả catalog node graph backend đang hỗ trợ. Response hiện có `{ "items": [...], "edge_labels": { ... } }`; mỗi item gồm `id`, `milestone`, `title`, `description`, `depends_on`, `default_config`, `expected_artifacts`, `fields`. UI dùng endpoint này để dựng graph M00-M08, form config và label cạnh. Chi tiết contract nằm trong [05-milestone-graph-runner.md](05-milestone-graph-runner.md).
+
 ### `GET /admin/runs`
 
 List workflow runs trong `runs/admin`.
@@ -102,9 +106,12 @@ Tạo workflow run mới.
 
 Workflow được hỗ trợ:
 
+- `milestone_graph`;
 - `evaluation`;
 - `student_batch_extraction`;
 - `student_batch_with_evaluation`.
+
+Với `milestone_graph`, `config` phải có `selected_nodes`. Frontend hiện gửi thêm `node_configs` và config phẳng đã merge; command builder backend đang đọc config phẳng.
 
 Nếu queue đầy, API trả:
 

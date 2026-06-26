@@ -1,5 +1,9 @@
 # 03 - Workflow Runner
 
+## Implementation Update - Milestone Graph Composer
+
+Trang Runs hiện dùng React Flow graph composer để chọn node M00-M08 theo dependency từ backend catalog. Tắt node sẽ tắt downstream node phụ thuộc, config nằm trong drawer/modal, run button mở confirm modal và UI không còn hiển thị raw payload review. Chi tiết implementation frontend nằm trong [13-milestone-graph-composer.md](13-milestone-graph-composer.md).
+
 ## Mục Tiêu
 
 Workflow Runner là màn hình cho phép bấm chạy từng milestone hoặc workflow lớn.
@@ -157,41 +161,47 @@ Output:
 
 ## Controls Trên UI
 
-Mỗi workflow card cần có:
+Implementation hiện tại dùng graph workspace:
 
-- tên workflow;
-- mô tả ngắn;
-- input chính;
-- output chính;
-- estimated cost/risk;
-- nút `Run`;
-- nút `Open last report`;
-- nút `Open latest run`.
+- React Flow graph M00-M08;
+- node selected/available/blocked;
+- edge label từ backend catalog;
+- tooltip mô tả node;
+- settings button trên selected node có config;
+- settings drawer để cấu hình nhiều selected nodes;
+- `Run workflow` button mở confirm modal;
+- floating action mở run vừa tạo.
 
 ## Config Form
 
-Form cơ bản:
+Form hiện tại được sinh từ `fields` trong `GET /admin/workflows/catalog`, không còn textarea JSON thủ công.
+
+Field type:
+
+| Type | Control |
+| --- | --- |
+| `text` | Text input |
+| `number` | Stepper + numeric input |
+| `select` | Select |
+| `checkbox` | Toggle switch |
+| `multi-select` | Pill buttons |
+
+Các field vận hành chính:
 
 | Field | Mặc định | Ghi chú |
 | --- | --- | --- |
 | `max_articles` | 25 hoặc empty | Giới hạn số bài cho test |
-| `embedding_provider` | `langchain_openai` | Dùng endpoint self-host qua LangChain |
-| `embedding_dimension` | 1024 | Theo model hiện tại |
-| `student_provider` | `env` | Gọi student 8B từ `.env` |
+| `embedding_provider` | `hash` | Provider mặc định cho local/dev |
+| `embedding_dimension` | 128 | Dimension mặc định trong node spec hiện tại |
+| `student_provider` | `deterministic` | Có thể đổi sang `env` nếu endpoint model đã cấu hình |
 | `retrieval_config` | `metadata_aware_hybrid` | Config tốt nhất hiện tại |
 | `pattern_count` | 3 | Few-shot patterns |
 | `max_contexts` | 5 | Context cho extraction |
-| `max_prompt_chars` | 11000 | Tránh vượt context 4096 token |
+| `limit` | 10 | Số bài chạy cho M06 |
+| `offset` | 0 | Offset batch M06 |
 | `sync_postgres` | true | Lưu kết quả vào DB |
 
-Advanced config có thể collapse:
-
-- input/output path;
-- teacher model;
-- student model;
-- threshold verification;
-- batch offset/limit;
-- rerank mode.
+Field có `configurable=false` vẫn là một phần backend catalog để UI hiểu contract, nhưng drawer cấu hình nhanh sẽ ẩn các field này.
 
 ## Run Lifecycle
 
@@ -213,13 +223,13 @@ Khi bấm `Run`:
 
 ## Retry Và Cancel
 
-V1 cần:
+Implementation hiện tại cần:
 
 - cancel running run;
-- retry whole run;
-- retry from failed step.
+- xem run detail sau khi tạo run;
+- xem live logs và artifacts.
 
-Không cần retry từng internal command quá nhỏ trong V1.
+Retry whole run hoặc retry from failed step chưa có API/UI ở thời điểm hiện tại.
 
 ## Failure UI
 

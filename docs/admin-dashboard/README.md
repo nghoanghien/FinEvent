@@ -1,5 +1,9 @@
 # Admin Dashboard Documentation
 
+## Tài liệu mới liên quan workflow graph
+
+- [13-milestone-graph-composer.md](13-milestone-graph-composer.md): React Flow composer graph M00-M08, backend catalog hydration, dependency, toggle downstream, drawer/modal config và confirm run.
+
 Thư mục này mô tả thiết kế UI admin cho FinEvent-VN. Mục tiêu của dashboard là
 giúp theo dõi, chạy, debug và trình diễn toàn bộ pipeline M00-M08 một cách trực
 quan, thay vì chỉ xem terminal hoặc mở từng file artifact thủ công.
@@ -22,6 +26,8 @@ tích lỗi.
 9. [Backend Job Design](09-backend-job-design.md) - job runner và lưu trạng thái run.
 10. [Frontend Implementation Plan](10-frontend-implementation-plan.md) - kế hoạch Next.js.
 11. [Testing And Acceptance](11-testing-acceptance.md) - test cases và done criteria.
+12. [Report Charts Visualization](12-report-charts-visualization.md) - biểu đồ hóa report.
+13. [Milestone Graph Composer](13-milestone-graph-composer.md) - React Flow graph chọn node M00-M08, dependency, drawer/modal config và confirm run.
 
 ## Mục Tiêu Chính
 
@@ -75,4 +81,3 @@ Dashboard này nên được xem là milestone mới:
 - **M09 Admin Dashboard & Observability**: vận hành, theo dõi, debug pipeline.
 - Demo app người dùng cuối có thể là M10 hoặc giữ ở `m09-demo-app.md` như demo riêng.
 - M10/M11 về báo cáo/slides có thể dùng chính dashboard này để demo trước hội đồng.
-
