@@ -166,6 +166,8 @@ function validateSelectedConfigs(
       const limit = Number(config.limit);
       const offset = Number(config.offset);
       const maxContexts = Number(config.max_contexts);
+      const patternCount = Number(config.pattern_count);
+      if (!Number.isInteger(patternCount) || patternCount < 1) return "M06: few-shot patterns must be an integer from 1.";
       if (!Number.isInteger(limit) || limit < 1) return "M06: số bài chạy phải là số nguyên từ 1 trở lên.";
       if (!Number.isInteger(offset) || offset < 0) return "M06: offset phải là số nguyên không âm.";
       if (!Number.isInteger(maxContexts) || maxContexts < 1) return "M06: max contexts phải là số nguyên từ 1 trở lên.";

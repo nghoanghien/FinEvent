@@ -131,7 +131,7 @@ function FlowCanvas({
         edges={edges}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.1 }}
+        fitViewOptions={{ padding: 0.02 }}
         zoomOnScroll={false}
         panOnScroll={false}
         preventScrolling={false}

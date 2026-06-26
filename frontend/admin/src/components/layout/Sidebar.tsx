@@ -29,7 +29,7 @@ export function Sidebar() {
   const { isExpanded, toggleSidebar, isMounted } = useSidebar();
 
   // Handle server-side rendering state safely
-  const currentExpanded = isMounted ? isExpanded : true;
+  const currentExpanded = isMounted ? isExpanded : false;
 
   return (
     <aside

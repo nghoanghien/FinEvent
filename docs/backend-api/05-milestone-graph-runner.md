@@ -239,7 +239,7 @@ Edge labels hiện tại:
 | `m03_rag` | `embedding_provider`, `embedding_model`, `embedding_dimension`, `target_words`, `max_words`, `overlap_words`, `sync_postgres` |
 | `m04_retrieval` | `embedding_provider`, `embedding_model`, `embedding_dimension`, `retrieval_metrics_path` |
 | `m05_patterns` | `embedding_provider`, `embedding_model`, `embedding_dimension`, `sync_postgres` |
-| `m06_extraction` | `sources`, `limit`, `offset`, `output_path`, `student_provider`, `embedding_provider`, `embedding_dimension`, `use_retrieval`, `retrieval_config`, `max_contexts`, `use_patterns`, `sync_postgres` |
+| `m06_extraction` | `sources`, `limit`, `offset`, `output_path`, `student_provider`, `embedding_provider`, `embedding_model`, `embedding_dimension`, `use_retrieval`, `retrieval_config`, `max_contexts`, `pattern_count`, `use_patterns`, `sync_postgres` |
 | `m07_verification` | none |
 | `m08_evaluation` | `gold_path`, `evaluation_output_dir`, `skip_academic_figures` |
 

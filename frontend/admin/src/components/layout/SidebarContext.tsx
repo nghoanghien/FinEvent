@@ -12,7 +12,7 @@ interface SidebarContextType {
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [isExpanded, setIsExpandedState] = useState(true);
+  const [isExpanded, setIsExpandedState] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -20,8 +20,8 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     if (storedValue !== null) {
       setIsExpandedState(storedValue === "true");
     } else {
-      // Default to expanded on larger screens (desktop)
-      setIsExpandedState(window.innerWidth >= 768);
+      // Default to collapsed
+      setIsExpandedState(false);
     }
     setIsMounted(true);
   }, []);
@@ -42,7 +42,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   return (
     <SidebarContext.Provider
       value={{
-        isExpanded: isMounted ? isExpanded : true, // Fallback to expanded during SSR
+        isExpanded: isMounted ? isExpanded : false, // Fallback to collapsed during SSR
         setIsExpanded,
         toggleSidebar,
         isMounted,

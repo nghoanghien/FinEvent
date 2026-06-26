@@ -169,6 +169,7 @@ node_spec = WorkflowNodeSpec(
         "output_path": "data/extraction/student_predictions.jsonl",
         "student_provider": "deterministic",
         "embedding_provider": "hash",
+        "embedding_model": "",
         "embedding_dimension": 128,
         "sync_postgres": True,
         "use_retrieval": True,
@@ -224,6 +225,12 @@ node_spec = WorkflowNodeSpec(
             configurable=False,
         ),
         WorkflowFieldSpec(
+            key="embedding_model",
+            label="Query embedding model",
+            type="text",
+            configurable=False,
+        ),
+        WorkflowFieldSpec(
             key="embedding_dimension",
             label="Embedding dimension",
             type="number",
@@ -252,6 +259,15 @@ node_spec = WorkflowNodeSpec(
             description="Nên dùng 8-10 khi strategy multi-event được chọn.",
             min=1.0,
             max=20.0,
+            step=1.0,
+        ),
+        WorkflowFieldSpec(
+            key="pattern_count",
+            label="Few-shot patterns",
+            type="number",
+            description="Number of selected patterns added to the extraction prompt.",
+            min=1.0,
+            max=10.0,
             step=1.0,
         ),
         WorkflowFieldSpec(
