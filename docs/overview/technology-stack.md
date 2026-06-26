@@ -104,7 +104,7 @@ ChromaDB và SQLite chỉ nên dùng khi cần prototype rất nhanh. Nếu đã
 | `pyproject.toml` | Khai báo package metadata, dependency groups và tool config | Source cho `uv pip compile` |
 | `requirements.lock` | Lock Python pip dependencies đã resolve | Dùng với `uv pip sync` để tái lập package set |
 | JSONL | Lưu raw articles, clean articles, labels, predictions, logs | Dễ append, dễ đọc bằng pandas |
-| Raw HTML files | Giữ bản HTML gốc để debug parser | Không dùng cho model trực tiếp |
+| Raw HTML files + manifest | Giữ bản HTML gốc để debug parser và map snapshot sang URL gốc | `data/raw/html_manifest.jsonl` lưu `html_path`, `source_url`, `source`, `downloaded_at`, `status_code` |
 | PostgreSQL | Lưu articles, metadata, chunks, labels, patterns, runs, metrics | Source of truth lâu dài |
 | pgvector | Lưu embedding và query vector trong PostgreSQL | Vector backend mặc định |
 | FAISS | Lưu vector index baseline offline | Cần file metadata mapping riêng |
@@ -159,6 +159,7 @@ ChromaDB và SQLite chỉ nên dùng khi cần prototype rất nhanh. Nếu đã
 data/
   raw/
     articles_raw.jsonl
+    html_manifest.jsonl
     html/
   processed/
     articles_clean.jsonl
@@ -202,6 +203,7 @@ PostgreSQL lưu dữ liệu có cấu trúc, trace thí nghiệm và embedding q
 | `article_id` | TEXT PRIMARY KEY | ID ổn định |
 | `source` | TEXT | cafef, vietstock, fireant |
 | `url` | TEXT | URL gốc |
+| `raw_html_path` | TEXT | Snapshot HTML local, nullable với record cũ |
 | `title` | TEXT | Tiêu đề |
 | `published_at` | TEXT | ISO 8601 |
 | `clean_text_path` | TEXT | Đường dẫn text/jsonl |

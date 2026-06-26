@@ -11,11 +11,12 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from finevent.jsonl import read_jsonl
+from finevent.jsonl import read_jsonl, write_jsonl
 from finevent.logging_utils import utc_now_iso
 from finevent.types import JsonDict
 
 DEFAULT_USER_AGENT = "Mozilla/5.0 FinEvent-VN research data collector/0.1"
+DEFAULT_HTML_MANIFEST_PATH = "data/raw/html_manifest.jsonl"
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,28 @@ class DownloadRecord:
 
 
 @dataclass(frozen=True)
+class HtmlManifestRecord:
+    html_path: str
+    source_url: str
+    source: str
+    downloaded_at: str
+    status_code: int | None
+
+    @classmethod
+    def from_dict(cls, data: JsonDict) -> HtmlManifestRecord:
+        return cls(
+            html_path=str(data["html_path"]),
+            source_url=str(data["source_url"]),
+            source=str(data.get("source") or "unknown"),
+            downloaded_at=str(data.get("downloaded_at") or ""),
+            status_code=int(data["status_code"]) if data.get("status_code") is not None else None,
+        )
+
+    def to_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class FetchedPage:
     candidate: UrlCandidate
     status_code: int | None
@@ -88,6 +111,32 @@ class FetchedPage:
 
 def read_url_candidates(path: str | Path) -> list[UrlCandidate]:
     return [UrlCandidate.from_dict(record) for record in read_jsonl(path)]
+
+
+def html_manifest_key(path: str | Path) -> str:
+    return str(Path(path).resolve())
+
+
+def read_html_manifest(path: str | Path) -> dict[str, HtmlManifestRecord]:
+    records: dict[str, HtmlManifestRecord] = {}
+    for record in read_jsonl(path):
+        manifest_record = HtmlManifestRecord.from_dict(record)
+        records[html_manifest_key(manifest_record.html_path)] = manifest_record
+    return records
+
+
+def upsert_html_manifest(
+    path: str | Path,
+    records: list[HtmlManifestRecord],
+) -> None:
+    if not records:
+        return
+    manifest_path = Path(path)
+    existing = read_html_manifest(manifest_path)
+    for record in records:
+        existing[html_manifest_key(record.html_path)] = record
+    sorted_records = sorted(existing.values(), key=lambda item: item.html_path)
+    write_jsonl(manifest_path, (record.to_dict() for record in sorted_records))
 
 
 def html_filename_for_candidate(candidate: UrlCandidate) -> str:
@@ -161,6 +210,7 @@ def download_url_candidates(
     candidates: list[UrlCandidate],
     *,
     output_html_dir: str | Path,
+    html_manifest_path: str | Path | None = None,
     timeout_seconds: float = 20.0,
     max_records: int | None = None,
     session: Any | None = None,
@@ -168,6 +218,7 @@ def download_url_candidates(
     html_dir = Path(output_html_dir)
     html_dir.mkdir(parents=True, exist_ok=True)
     records: list[DownloadRecord] = []
+    manifest_records: list[HtmlManifestRecord] = []
     for page in fetch_url_candidates(
         candidates,
         timeout_seconds=timeout_seconds,
@@ -185,6 +236,18 @@ def download_url_candidates(
                 html_path=str(html_path),
             )
         )
+        manifest_records.append(
+            HtmlManifestRecord(
+                html_path=str(html_path),
+                source_url=candidate.url,
+                source=candidate.source,
+                downloaded_at=page.downloaded_at,
+                status_code=page.status_code,
+            )
+        )
+
+    if html_manifest_path is not None:
+        upsert_html_manifest(html_manifest_path, manifest_records)
 
     return records
 

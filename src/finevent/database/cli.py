@@ -6,7 +6,7 @@ import argparse
 import json
 from typing import Any
 
-from finevent.database.catalog import MIGRATION_ORDER, table_names
+from finevent.database.catalog import table_names
 from finevent.database.engine import get_database_url, get_sqlalchemy_engine
 from finevent.paths import repo_root
 
@@ -16,7 +16,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("healthcheck", help="Check database connectivity.")
-    subparsers.add_parser("apply-migrations", help="Apply infra/postgres SQL migrations in order.")
+    subparsers.add_parser("apply-migrations", help="Apply Alembic migrations.")
     subparsers.add_parser("verify-pgvector", help="Verify that the vector extension is installed.")
     subparsers.add_parser("summary", help="Print database URL and table/extension summary.")
     return parser
@@ -49,18 +49,21 @@ def healthcheck(engine: Any) -> dict[str, object]:
 
 
 def apply_migrations(engine: Any) -> dict[str, object]:
-    sql_dir = repo_root() / "infra" / "postgres"
-    applied: list[str] = []
-    sql_text = _sqlalchemy_text()
-    with engine.begin() as connection:
-        for migration_name in MIGRATION_ORDER:
-            migration_path = sql_dir / migration_name
-            if not migration_path.exists():
-                raise FileNotFoundError(f"Missing PostgreSQL migration: {migration_path}")
-            for statement in _split_sql_statements(migration_path.read_text(encoding="utf-8")):
-                connection.execute(sql_text(statement))
-            applied.append(migration_name)
-    return {"status": "ok", "applied": applied}
+    try:
+        from alembic import command
+        from alembic.config import Config
+    except ImportError as exc:
+        raise RuntimeError("Install the db extra before running Alembic migrations.") from exc
+
+    config = Config(str(repo_root() / "alembic.ini"))
+    config.attributes["database_url"] = _engine_database_url(engine)
+    command.upgrade(config, "head")
+    return {
+        "status": "ok",
+        "migration_engine": "alembic",
+        "revision": "head",
+        "script_location": "infra/alembic",
+    }
 
 
 def verify_pgvector(engine: Any) -> dict[str, object]:
@@ -118,26 +121,14 @@ def _sqlalchemy_text() -> Any:
     return text
 
 
-def _split_sql_statements(sql: str) -> list[str]:
-    statements: list[str] = []
-    current: list[str] = []
-    in_single_quote = False
-    previous = ""
-    for char in sql:
-        if char == "'" and previous != "\\":
-            in_single_quote = not in_single_quote
-        if char == ";" and not in_single_quote:
-            statement = "".join(current).strip()
-            if statement:
-                statements.append(statement)
-            current = []
-        else:
-            current.append(char)
-        previous = char
-    tail = "".join(current).strip()
-    if tail:
-        statements.append(tail)
-    return statements
+def _engine_database_url(engine: Any) -> str:
+    url = getattr(engine, "url", None)
+    if url is None:
+        return get_database_url()
+    render = getattr(url, "render_as_string", None)
+    if callable(render):
+        return str(render(hide_password=False))
+    return str(url)
 
 
 def _redact_database_url(url: str) -> str:

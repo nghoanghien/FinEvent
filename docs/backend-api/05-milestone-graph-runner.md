@@ -135,7 +135,7 @@ Request tối thiểu cho graph workflow:
 }
 ```
 
-Quan trọng: command builder hiện đọc config phẳng ở `config`, ví dụ `limit`, `sources`, `output_path`. Frontend đang gửi cả config phẳng đã merge và `node_configs`; `node_configs` hữu ích để trace/debug UI, còn config phẳng là phần backend dùng để build CLI args.
+Quan trọng: frontend vẫn gửi cả config phẳng đã merge và `node_configs`. Backend ưu tiên `node_configs.<node_id>` khi build command cho từng node, rồi fallback về config phẳng nếu không có node config riêng. Cách này tránh xung đột key trùng tên, ví dụ M01 `sources` dùng cho crawl còn M06 `sources` dùng cho filter clean articles.
 
 Response thành công:
 
@@ -234,7 +234,7 @@ Edge labels hiện tại:
 
 | Node | Config chính |
 | --- | --- |
-| `m01_ingestion` | `articles_path`, `max_articles`, `max_discovered_urls`, `min_text_chars`, `discover_download`, `sync_postgres` |
+| `m01_ingestion` | `articles_path`, `input_html_dir`, `html_manifest_path`, `sources`, `max_articles`, `max_discovered_urls`, `min_text_chars`, `discover_download`, `reset_html_snapshots`, `sync_postgres` |
 | `m02_labeling` | `max_articles`, `teacher_max_retries`, `generate_prompts`, `run_teacher`, `validate_labels`, `strict_validation`, `sync_postgres` |
 | `m03_rag` | `embedding_provider`, `embedding_model`, `embedding_dimension`, `target_words`, `max_words`, `overlap_words`, `sync_postgres` |
 | `m04_retrieval` | `embedding_provider`, `embedding_model`, `embedding_dimension`, `retrieval_metrics_path` |
@@ -248,6 +248,18 @@ Field có `configurable=false` vẫn được trả trong catalog để UI biế
 `retrieval_config=multi_event_aware_hybrid` là strategy bổ sung cho bài nhiều event
 type. Chi tiết xem
 [`docs/workflows/retrieval/multi-event-aware-retrieval.md`](../workflows/retrieval/multi-event-aware-retrieval.md).
+
+## Source Controls
+
+M01 mặc định bật `discover_download=true` để chạy ingestion là discover/download bài mới rồi parse local HTML. Field `sources` được build thành nhiều flag `--source`, ví dụ:
+
+```text
+python -m finevent.ingestion --discover --source cafef --source vietstock ...
+```
+
+Nếu không truyền `sources`, CLI giữ hành vi cũ và dùng toàn bộ default seed pages. `max_articles` và `max_discovered_urls` chỉ có tác dụng với nhánh `Discover + download`; chúng không filter lại toàn bộ HTML local khi parse.
+
+M01 cũng expose `articles_path`, `input_html_dir` và `html_manifest_path` với `configurable=false` để UI biết rõ target local nhưng không đưa các path chuẩn này vào form cấu hình nhanh. `reset_html_snapshots=true` build thành `--reset-html-snapshots`, chỉ xóa local `*.html` và manifest, không xóa DB/downstream artifacts.
 
 ## Source Filtering
 
@@ -277,6 +289,7 @@ File data gốc không bị sửa.
 | Thiếu `config.selected_nodes` cho `milestone_graph` | `INVALID_WORKFLOW_CONFIG` | Registry raise `milestone_graph requires config.selected_nodes.` |
 | Không có node hợp lệ nào được chọn | `INVALID_WORKFLOW_CONFIG` | Registry raise `Select at least one milestone node.` |
 | Thiếu dependency | `INVALID_WORKFLOW_CONFIG` | Message dạng `M08 requires prerequisite node(s): M04, M07.` |
+| M01 bật `discover_download` nhưng `sources=[]` | `INVALID_WORKFLOW_CONFIG` | Registry raise `M01 discover_download requires at least one source.` |
 | Node được chọn nhưng không sinh step nào | `INVALID_WORKFLOW_CONFIG` | Ví dụ chỉ có node modifier không runnable |
 | Queue đầy | `RUN_QUEUE_FULL` | HTTP 429 |
 | Step subprocess fail | Run status `failed` | Xem `runs/admin/{run_id}/logs/events.jsonl` |

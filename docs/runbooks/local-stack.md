@@ -157,7 +157,7 @@ Chỉ dùng `-RemoveVolumes` khi bạn thật sự muốn xóa dữ liệu local
 
 ## Ghi chú phát triển
 
-- Backend mount `src`, `configs`, `infra/postgres`, `data`, `reports`, `runs` từ máy host vào container để code và artifact local luôn đồng bộ.
+- Backend mount `src`, `configs`, `infra/postgres`, `infra/alembic`, `data`, `reports`, `runs` từ máy host vào container để code, migration và artifact local luôn đồng bộ.
 - Frontend mount `frontend/admin` vào container, nhưng giữ `node_modules` và `.next` trong Docker named volumes để tránh lỗi khác biệt hệ điều hành.
 - Nếu đổi port backend, cập nhật đồng thời `BACKEND_PORT` và `NEXT_PUBLIC_FINEVENT_API_BASE_URL`.
 - Nếu backend migration có lỗi, xem `docker compose logs backend`; API sẽ không healthy cho đến khi migration/pgvector pass.

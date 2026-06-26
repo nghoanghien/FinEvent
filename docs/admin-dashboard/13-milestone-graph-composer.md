@@ -269,7 +269,14 @@ configs[node.id] = { ...node.defaultConfig };
 }
 ```
 
-Phần config phẳng là phần backend đang dùng để build command. `node_configs` giữ lại cấu trúc theo node để debug/trace và có thể dùng cho extension sau này.
+Frontend vẫn gửi cả config phẳng và `node_configs`. Backend ưu tiên `node_configs.<node_id>` khi build command cho từng node, rồi fallback về config phẳng nếu không có node config riêng. Cách này tránh xung đột key trùng tên, ví dụ M01 `sources` dùng cho crawl còn M06 `sources` dùng cho filter clean articles.
+
+M01 expose thêm:
+
+- `discover_download`: mặc định `true` để M01 discover/download bài mới khi chạy;
+- `sources`: multi-select nguồn crawl cho `Discover + download`;
+- `reset_html_snapshots`: checkbox xóa local HTML snapshots và manifest trước khi chạy M01;
+- `articles_path`, `input_html_dir`, `html_manifest_path`: field `configurable=false` để UI biết target local nhưng không đưa các path chuẩn này vào form cấu hình nhanh.
 
 M06 expose `retrieval_config`, `max_contexts` và `pattern_count` từ backend catalog. Strategy
 `multi_event_aware_hybrid` được mô tả tại
@@ -280,6 +287,7 @@ Trước khi `ok=true`, frontend validate:
 - phải chọn ít nhất một node;
 - mọi dependency của selected node phải nằm trong `selectedNodeIds`;
 - M01 `max_articles` phải là số nguyên từ 1;
+- M01 `discover_download=true` phải có ít nhất một `sources`;
 - M06 `limit` phải là số nguyên từ 1;
 - M06 `offset` phải là số nguyên không âm;
 - M06 `max_contexts` phải là số nguyên từ 1;

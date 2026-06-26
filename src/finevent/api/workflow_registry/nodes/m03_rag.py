@@ -107,7 +107,10 @@ node_spec = WorkflowNodeSpec(
     id="m03_rag",
     milestone="M03",
     title="RAG preparation",
-    description="Chunk articles, build embeddings, BM25 and vector artifacts, then sync retrieval data.",
+    description=(
+        "Chunk articles, build embeddings, BM25 and vector artifacts, then sync "
+        "retrieval data."
+    ),
     depends_on=("m01_ingestion",),
     default_config={
         "embedding_provider": "hash",

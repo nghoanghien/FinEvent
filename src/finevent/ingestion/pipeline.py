@@ -5,6 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from finevent.ingestion.download import (
+    DEFAULT_HTML_MANIFEST_PATH,
+    html_manifest_key,
+    read_html_manifest,
+)
 from finevent.ingestion.metadata import (
     DEFAULT_EVENT_KEYWORD_TAXONOMY_PATH,
     DEFAULT_EVENT_KEYWORDS,
@@ -38,6 +43,7 @@ class IngestionResult:
 def run_local_html_ingestion(
     *,
     input_html_dir: str | Path = "data/raw/html",
+    html_manifest_path: str | Path | None = DEFAULT_HTML_MANIFEST_PATH,
     raw_output_path: str | Path = "data/raw/articles_raw.jsonl",
     clean_output_path: str | Path = "data/processed/articles_clean.jsonl",
     report_path: str | Path = "reports/data/data_quality_summary.md",
@@ -50,6 +56,7 @@ def run_local_html_ingestion(
     raw_path = Path(raw_output_path)
     clean_path = Path(clean_output_path)
     report_output_path = Path(report_path)
+    html_manifest = read_html_manifest(html_manifest_path) if html_manifest_path else {}
 
     entries = load_company_dictionary(dictionary_path)
     taxonomy_entries = load_event_keyword_taxonomy(keyword_taxonomy_path)
@@ -62,8 +69,10 @@ def run_local_html_ingestion(
 
     for html_path in sorted(html_dir.glob("*.html")):
         html = html_path.read_text(encoding="utf-8", errors="replace")
-        source = infer_source_from_path(html_path)
-        url = f"file://{html_path.resolve()}"
+        manifest_record = html_manifest.get(html_manifest_key(html_path))
+        source = manifest_record.source if manifest_record else infer_source_from_path(html_path)
+        url = manifest_record.source_url if manifest_record else f"file://{html_path.resolve()}"
+        raw_html_path = str(html_path)
         parsed = parse_article_html(html, source=source, url=url)
         normalized_text = normalize_text(parsed.body_text)
         article_id = stable_article_id(source, url, normalized_text or html_path.stem)
@@ -83,7 +92,7 @@ def run_local_html_ingestion(
                 author=parsed.author,
                 http_status=None,
                 crawl_time=utc_now_iso(),
-                html_path=str(html_path),
+                html_path=raw_html_path,
                 raw_text=normalized_text,
                 parse_status=parse_status,
                 parse_warnings=parse_warnings,
@@ -112,6 +121,7 @@ def run_local_html_ingestion(
                 article_id=article_id,
                 source=source,
                 url=canonical_url(url),
+                raw_html_path=raw_html_path,
                 title=parsed.title,
                 published_at=parsed.published_at,
                 text=normalized_text,
@@ -144,3 +154,21 @@ def run_local_html_ingestion(
         clean_count=len(clean_records),
         duplicate_count=duplicate_count,
     )
+
+
+def reset_html_snapshots(
+    *,
+    input_html_dir: str | Path = "data/raw/html",
+    html_manifest_path: str | Path | None = DEFAULT_HTML_MANIFEST_PATH,
+) -> int:
+    html_dir = Path(input_html_dir)
+    deleted_count = 0
+    if html_dir.exists():
+        for html_path in html_dir.glob("*.html"):
+            html_path.unlink()
+            deleted_count += 1
+    if html_manifest_path is not None:
+        manifest_path = Path(html_manifest_path)
+        if manifest_path.exists():
+            manifest_path.unlink()
+    return deleted_count

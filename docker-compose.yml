@@ -38,7 +38,9 @@ services:
       - "${BACKEND_PORT:-18000}:8000"
     volumes:
       - ./src:/app/src
+      - ./alembic.ini:/app/alembic.ini:ro
       - ./configs:/app/configs:ro
+      - ./infra/alembic:/app/infra/alembic:ro
       - ./infra/postgres:/app/infra/postgres:ro
       - ./data:/app/data
       - ./reports:/app/reports

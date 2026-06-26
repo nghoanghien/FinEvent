@@ -73,10 +73,26 @@ def _build_selected_node_steps(
     context = BuildContext(config=config, selected_node_ids=selected_node_ids, run_id=run_id)
     steps: list[WorkflowStep] = []
     for node_id in selected_node_ids:
-        steps.extend(WORKFLOW_NODE_BY_ID[node_id].build_steps(context))
+        node_context = BuildContext(
+            config=_node_config(config, node_id),
+            selected_node_ids=selected_node_ids,
+            run_id=run_id,
+            python=context.python,
+        )
+        steps.extend(WORKFLOW_NODE_BY_ID[node_id].build_steps(node_context))
     if not steps:
         raise ValueError("Select at least one runnable milestone node.")
     return steps
+
+
+def _node_config(config: dict[str, Any], node_id: WorkflowNodeId) -> dict[str, Any]:
+    node_configs = config.get("node_configs")
+    if not isinstance(node_configs, dict):
+        return config
+    raw_node_config = node_configs.get(node_id)
+    if not isinstance(raw_node_config, dict):
+        return config
+    return {**config, **raw_node_config}
 
 
 def _selected_node_ids(config: dict[str, Any]) -> tuple[WorkflowNodeId, ...]:

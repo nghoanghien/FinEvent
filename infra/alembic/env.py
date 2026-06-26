@@ -19,6 +19,9 @@ target_metadata = metadata
 
 
 def _database_url() -> str:
+    attribute_url = config.attributes.get("database_url")
+    if attribute_url:
+        return str(attribute_url)
     x_args = context.get_x_argument(as_dictionary=True)
     return x_args.get("database_url") or get_database_url()
 

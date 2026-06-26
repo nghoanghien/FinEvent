@@ -8,8 +8,12 @@ import json
 from finevent.db import get_sqlalchemy_engine
 from finevent.ingestion.article_sql import sync_clean_articles_jsonl
 from finevent.ingestion.discovery import SeedPage, default_seed_pages, discover_url_candidates
-from finevent.ingestion.download import download_url_candidates, read_url_candidates
-from finevent.ingestion.pipeline import run_local_html_ingestion
+from finevent.ingestion.download import (
+    DEFAULT_HTML_MANIFEST_PATH,
+    download_url_candidates,
+    read_url_candidates,
+)
+from finevent.ingestion.pipeline import reset_html_snapshots, run_local_html_ingestion
 from finevent.jsonl import read_jsonl, write_jsonl
 
 
@@ -20,6 +24,7 @@ def read_seed_pages(path: str) -> list[SeedPage]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run local HTML ingestion for FinEvent-VN.")
     parser.add_argument("--input-html-dir", default="data/raw/html")
+    parser.add_argument("--html-manifest-path", default=DEFAULT_HTML_MANIFEST_PATH)
     parser.add_argument("--raw-output-path", default="data/raw/articles_raw.jsonl")
     parser.add_argument("--clean-output-path", default="data/processed/articles_clean.jsonl")
     parser.add_argument("--report-path", default="reports/data/data_quality_summary.md")
@@ -32,6 +37,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--url-candidates-path", default=None)
     parser.add_argument("--download", action="store_true")
     parser.add_argument("--discover", action="store_true")
+    parser.add_argument("--source", action="append", dest="sources", default=None)
+    parser.add_argument("--reset-html-snapshots", action="store_true")
     parser.add_argument("--seed-pages-path", default=None)
     parser.add_argument("--discovered-output-path", default="data/raw/discovered_urls.jsonl")
     parser.add_argument("--download-log-path", default="data/raw/download_log.jsonl")
@@ -49,12 +56,19 @@ def main(argv: list[str] | None = None) -> None:
     download_count = 0
     download_error_count = 0
     download_records = []
+    reset_deleted_html_count = 0
+    if args.reset_html_snapshots:
+        reset_deleted_html_count = reset_html_snapshots(
+            input_html_dir=args.input_html_dir,
+            html_manifest_path=args.html_manifest_path,
+        )
     if args.discover:
         seed_pages = (
             read_seed_pages(args.seed_pages_path)
             if args.seed_pages_path
             else default_seed_pages()
         )
+        seed_pages = filter_seed_pages_by_source(seed_pages, args.sources)
         discovery_result = discover_url_candidates(
             seed_pages=seed_pages,
             max_candidates=args.max_discovered_urls,
@@ -68,6 +82,7 @@ def main(argv: list[str] | None = None) -> None:
         download_records = download_url_candidates(
             discovery_result.candidates,
             output_html_dir=args.input_html_dir,
+            html_manifest_path=args.html_manifest_path,
             timeout_seconds=args.request_timeout_seconds,
             max_records=args.max_download_articles,
         )
@@ -81,6 +96,7 @@ def main(argv: list[str] | None = None) -> None:
         download_records = download_url_candidates(
             read_url_candidates(args.url_candidates_path),
             output_html_dir=args.input_html_dir,
+            html_manifest_path=args.html_manifest_path,
             timeout_seconds=args.request_timeout_seconds,
             max_records=args.max_download_articles,
         )
@@ -90,6 +106,7 @@ def main(argv: list[str] | None = None) -> None:
 
     result = run_local_html_ingestion(
         input_html_dir=args.input_html_dir,
+        html_manifest_path=args.html_manifest_path,
         raw_output_path=args.raw_output_path,
         clean_output_path=args.clean_output_path,
         report_path=args.report_path,
@@ -112,6 +129,8 @@ def main(argv: list[str] | None = None) -> None:
                 "raw_count": result.raw_count,
                 "clean_count": result.clean_count,
                 "duplicate_count": result.duplicate_count,
+                "html_manifest_path": args.html_manifest_path,
+                "reset_deleted_html_count": reset_deleted_html_count,
                 "discovery_count": discovery_count,
                 "discovery_error_count": discovery_error_count,
                 "discovered_output_path": args.discovered_output_path if args.discover else None,
@@ -124,6 +143,16 @@ def main(argv: list[str] | None = None) -> None:
             indent=2,
         )
     )
+
+
+def filter_seed_pages_by_source(
+    seed_pages: list[SeedPage],
+    sources: list[str] | None,
+) -> list[SeedPage]:
+    if not sources:
+        return seed_pages
+    selected_sources = {source.strip().lower() for source in sources if source.strip()}
+    return [seed for seed in seed_pages if seed.source.strip().lower() in selected_sources]
 
 
 if __name__ == "__main__":

@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any
 
+from finevent.ingestion.article_sql import _upsert_article
 from finevent.ingestion.dictionary_audit import audit_dictionaries
 from finevent.ingestion.discovery import SeedPage, discover_url_candidates, looks_like_article_url
 from finevent.ingestion.download import (
     UrlCandidate,
+    download_url_candidates,
     fetch_url_candidates,
     html_filename_for_candidate,
+    read_html_manifest,
     read_url_candidates,
 )
 from finevent.ingestion.metadata import (
@@ -19,7 +24,7 @@ from finevent.ingestion.metadata import (
     load_event_keyword_taxonomy,
 )
 from finevent.ingestion.parsers import parse_article_html
-from finevent.ingestion.pipeline import run_local_html_ingestion
+from finevent.ingestion.pipeline import reset_html_snapshots, run_local_html_ingestion
 from finevent.ingestion.text import canonical_url, normalize_text, text_hash
 from finevent.ingestion.ticker_sql import company_entry_to_payload, normalize_alias
 from finevent.jsonl import read_jsonl
@@ -57,6 +62,14 @@ class FakeSession:
         if self.response is not None:
             return self.response
         return FakeResponse(self.html)
+
+
+class FakeSqlConnection:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+
+    def execute(self, statement: str, params: dict[str, Any]) -> None:
+        self.calls.append((statement, params))
 
 
 def test_normalize_and_hash_are_stable() -> None:
@@ -203,6 +216,43 @@ def test_fetch_url_candidates_prefers_detected_vietnamese_encoding() -> None:
     assert pages[0].html == html
 
 
+def test_download_url_candidates_upserts_html_manifest(tmp_path: Path) -> None:
+    candidate = UrlCandidate(
+        url="https://cafef.vn/hpg-khoi-cong-post123.html",
+        source="cafef",
+    )
+    html_dir = tmp_path / "html"
+    manifest_path = tmp_path / "html_manifest.jsonl"
+
+    records = download_url_candidates(
+        [candidate],
+        output_html_dir=html_dir,
+        html_manifest_path=manifest_path,
+        session=FakeSession("<html><body>first</body></html>"),
+        timeout_seconds=1.0,
+    )
+    updated_records = download_url_candidates(
+        [candidate],
+        output_html_dir=html_dir,
+        html_manifest_path=manifest_path,
+        session=FakeSession(
+            "<html><body>second</body></html>",
+            response=FakeResponse("<html><body>second</body></html>", status_code=202),
+        ),
+        timeout_seconds=1.0,
+    )
+
+    manifest = read_html_manifest(manifest_path)
+    manifest_record = next(iter(manifest.values()))
+    assert len(records) == 1
+    assert len(updated_records) == 1
+    assert len(manifest) == 1
+    assert manifest_record.source_url == candidate.url
+    assert manifest_record.source == "cafef"
+    assert manifest_record.status_code == 202
+    assert manifest_record.html_path.endswith(html_filename_for_candidate(candidate))
+
+
 def test_parser_prefers_real_article_body_over_short_article_tag() -> None:
     html = """
     <html>
@@ -235,6 +285,7 @@ def test_run_local_html_ingestion(tmp_path: Path) -> None:
 
     result = run_local_html_ingestion(
         input_html_dir="tests/fixtures/html",
+        html_manifest_path=tmp_path / "missing_manifest.jsonl",
         raw_output_path=raw_path,
         clean_output_path=clean_path,
         report_path=report_path,
@@ -245,7 +296,101 @@ def test_run_local_html_ingestion(tmp_path: Path) -> None:
     assert result.raw_count == 1
     assert result.clean_count == 1
     assert clean_records[0]["tickers_hint"] == ["HPG"]
+    assert clean_records[0]["url"].startswith("file://")
+    assert clean_records[0]["raw_html_path"] == str(Path("tests/fixtures/html/cafef_sample.html"))
     assert clean_records[0]["sector_hints"] == ["materials_steel"]
     assert "khoi cong" in clean_records[0]["event_keywords"]
     assert "EXPANSION" in clean_records[0]["event_type_hints"]
     assert report_path.exists()
+
+
+def test_run_local_html_ingestion_uses_manifest_source_url(tmp_path: Path) -> None:
+    html_dir = tmp_path / "html"
+    html_dir.mkdir()
+    html_path = html_dir / "cafef_sample.html"
+    html_path.write_text(
+        Path("tests/fixtures/html/cafef_sample.html").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    manifest_path = tmp_path / "html_manifest.jsonl"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "html_path": str(html_path),
+                "source_url": "https://cafef.vn/hpg-khoi-cong-post123.html",
+                "source": "cafef",
+                "downloaded_at": "2026-06-26T00:00:00+00:00",
+                "status_code": 200,
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    clean_path = tmp_path / "clean.jsonl"
+    raw_path = tmp_path / "raw.jsonl"
+
+    run_local_html_ingestion(
+        input_html_dir=html_dir,
+        html_manifest_path=manifest_path,
+        raw_output_path=raw_path,
+        clean_output_path=clean_path,
+        report_path=tmp_path / "report.md",
+        min_text_chars=20,
+    )
+
+    raw_record = read_jsonl(raw_path)[0]
+    clean_record = read_jsonl(clean_path)[0]
+    assert raw_record["url"] == "https://cafef.vn/hpg-khoi-cong-post123.html"
+    assert clean_record["url"] == "https://cafef.vn/hpg-khoi-cong-post123.html"
+    assert clean_record["raw_html_path"] == str(html_path)
+
+
+def test_reset_html_snapshots_only_removes_html_and_manifest(tmp_path: Path) -> None:
+    html_dir = tmp_path / "html"
+    html_dir.mkdir()
+    html_file = html_dir / "old.html"
+    non_html_file = html_dir / "keep.txt"
+    manifest_path = tmp_path / "html_manifest.jsonl"
+    raw_path = tmp_path / "articles_raw.jsonl"
+    clean_path = tmp_path / "articles_clean.jsonl"
+    report_path = tmp_path / "data_quality_summary.md"
+    for path in [html_file, non_html_file, manifest_path, raw_path, clean_path, report_path]:
+        path.write_text("keep\n", encoding="utf-8")
+
+    deleted_count = reset_html_snapshots(
+        input_html_dir=html_dir,
+        html_manifest_path=manifest_path,
+    )
+
+    assert deleted_count == 1
+    assert not html_file.exists()
+    assert not manifest_path.exists()
+    assert non_html_file.exists()
+    assert raw_path.exists()
+    assert clean_path.exists()
+    assert report_path.exists()
+
+
+def test_article_sql_upsert_includes_source_url_and_raw_html_path() -> None:
+    connection = FakeSqlConnection()
+
+    _upsert_article(
+        connection,
+        lambda statement: statement,
+        {
+            "article_id": "article_001",
+            "source": "cafef",
+            "url": "https://cafef.vn/hpg-khoi-cong-post123.html",
+            "raw_html_path": "data/raw/html/cafef_abc.html",
+            "title": "HPG khoi cong",
+            "published_at": None,
+            "content_hash": "hash",
+            "language": "vi",
+        },
+    )
+
+    statement, params = connection.calls[0]
+    assert "raw_html_path" in statement
+    assert params["url"] == "https://cafef.vn/hpg-khoi-cong-post123.html"
+    assert params["raw_html_path"] == "data/raw/html/cafef_abc.html"

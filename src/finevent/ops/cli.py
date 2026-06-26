@@ -22,7 +22,7 @@ from finevent.extraction.workflow import (
 from finevent.ingestion.article_sql import sync_clean_articles_jsonl
 from finevent.ingestion.cli import read_seed_pages
 from finevent.ingestion.discovery import default_seed_pages, discover_url_candidates
-from finevent.ingestion.download import download_url_candidates
+from finevent.ingestion.download import DEFAULT_HTML_MANIFEST_PATH, download_url_candidates
 from finevent.ingestion.pipeline import run_local_html_ingestion
 from finevent.ingestion.ticker_sql import sync_ticker_dictionary_csv
 from finevent.jsonl import read_jsonl, write_jsonl
@@ -104,6 +104,7 @@ def run_m00_m08(args: argparse.Namespace) -> dict[str, Any]:
         download_records = download_url_candidates(
             discovery_result.candidates,
             output_html_dir="data/raw/html",
+            html_manifest_path=DEFAULT_HTML_MANIFEST_PATH,
             timeout_seconds=args.request_timeout_seconds,
             max_records=args.max_articles,
         )
@@ -122,6 +123,7 @@ def run_m00_m08(args: argparse.Namespace) -> dict[str, Any]:
 
     ingestion = run_local_html_ingestion(
         input_html_dir="data/raw/html",
+        html_manifest_path=DEFAULT_HTML_MANIFEST_PATH,
         raw_output_path="data/raw/articles_raw.jsonl",
         clean_output_path="data/processed/articles_clean.jsonl",
         report_path="reports/data/data_quality_summary.md",

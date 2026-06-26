@@ -14,7 +14,10 @@ node_spec = WorkflowNodeSpec(
     id="m07_verification",
     milestone="M07",
     title="Verification",
-    description="Enable evidence verification and hallucination reduction inside the extraction run.",
+    description=(
+        "Enable evidence verification and hallucination reduction inside the "
+        "extraction run."
+    ),
     depends_on=("m06_extraction",),
     default_config={},
     expected_artifacts=("runs/extraction",),

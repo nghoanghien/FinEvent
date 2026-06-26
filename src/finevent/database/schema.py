@@ -41,6 +41,7 @@ articles = Table(
     Column("article_id", Text, primary_key=True),
     Column("source", Text, nullable=False),
     Column("url", Text, nullable=False),
+    Column("raw_html_path", Text),
     Column("title", Text),
     Column("published_at", TIMESTAMP(timezone=True)),
     Column("author", Text),

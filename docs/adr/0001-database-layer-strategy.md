@@ -34,7 +34,7 @@ Project chọn chiến lược nâng cấp theo tầng:
 1. Giữ Raw SQL hiện tại cho các workflow batch đã chạy ổn.
 2. Thêm `finevent.database.catalog` làm catalog nhẹ, không phụ thuộc SQLAlchemy.
 3. Thêm `finevent.database.schema` dùng SQLAlchemy Core metadata để làm schema registry trung tâm.
-4. Thêm Alembic skeleton để chuẩn bị quản lý migration dài hạn.
+4. Dùng Alembic làm migration engine khi chạy `finevent-db apply-migrations`.
 5. Chỉ dùng ORM/SQLModel có chọn lọc khi API/backend thật sự cần object relationship rõ ràng.
 
 ## Lý do
@@ -69,14 +69,14 @@ Tích cực:
 
 - Không phá các milestone M01-M06.
 - Pipeline offline vẫn chạy khi chưa cài SQLAlchemy/Alembic.
-- Có đường nâng cấp rõ sang Alembic và repository layer.
+- Có migration history rõ ràng qua Alembic và vẫn giữ đường nâng cấp sang repository layer.
 - Giữ được tính tường minh cho các câu upsert và pgvector.
 
 Đánh đổi:
 
-- Trong ngắn hạn tồn tại song song Raw SQL và SQLAlchemy Core metadata.
-- Cần test để catalog/metadata không lệch migration SQL.
-- Nếu schema thay đổi, người triển khai phải cập nhật cả migration và metadata.
+- Tồn tại song song Raw SQL sync modules và SQLAlchemy Core metadata.
+- `infra/postgres` trở thành baseline SQL lịch sử; migration runtime đi qua Alembic.
+- Nếu schema thay đổi, người triển khai phải cập nhật Alembic revision, SQLAlchemy metadata và catalog.
 
 ## Triển khai hiện tại
 
@@ -93,7 +93,8 @@ alembic.ini
 infra/alembic/
   env.py
   script.py.mako
-  versions/.gitkeep
+  versions/
+    20260627_0001_baseline_schema.py
 ```
 
 Optional dependency:
@@ -115,8 +116,9 @@ C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m pip install -
 ## Nguyên tắc áp dụng về sau
 
 - Raw SQL sync modules hiện tại không refactor ồ ạt nếu chưa có lợi ích rõ.
-- Migration SQL hiện có trong `infra/postgres` vẫn là nguồn triển khai đã ổn định cho M01-M06.
-- Alembic dùng cho các migration mới sau khi schema registry ổn định.
+- `infra/postgres/001-007` là baseline SQL lịch sử cho M01-M07 và được Alembic baseline revision chạy idempotently.
+- Các thay đổi schema mới phải đi qua `infra/alembic/versions/`, không thêm file `00x` mới vào `infra/postgres`.
+- `finevent-db apply-migrations` gọi Alembic `upgrade head`.
 - SQLAlchemy Core metadata phải được giữ khớp với các bảng chính.
 - ORM/SQLModel chỉ thêm khi có use case API/backend cụ thể.
 
@@ -131,6 +133,6 @@ tests/test_database_foundation.py
 Các test cần đảm bảo:
 
 - import `finevent.database` không yêu cầu SQLAlchemy.
-- catalog bao phủ các bảng trong `infra/postgres/001-006`.
-- Alembic skeleton tồn tại.
+- catalog bao phủ các bảng trong baseline SQL.
+- Alembic baseline revision tồn tại.
 - nếu cài SQLAlchemy, Core metadata khớp catalog.

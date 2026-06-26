@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from finevent.api.job_runner import build_workflow_steps  # noqa: E402
 from finevent.api.main import app  # noqa: E402
+from finevent.api.workflow_registry.catalog import workflow_catalog  # noqa: E402
 
 
 def test_admin_report_and_output_endpoints_use_safe_workspace(
@@ -151,6 +152,74 @@ def test_workflow_step_filters_articles_by_source(
     assert rows == [{"article_id": "a1", "source": "cafef"}]
 
 
+def test_m01_catalog_exposes_sources_reset_and_html_targets() -> None:
+    catalog = workflow_catalog()
+    m01 = next(item for item in catalog if item["id"] == "m01_ingestion")
+    fields = {field["key"]: field for field in m01["fields"]}
+
+    assert m01["default_config"]["sources"] == [
+        "cafef",
+        "vietstock",
+        "tinnhanhchungkhoan",
+        "nhadautu",
+    ]
+    assert m01["default_config"]["discover_download"] is True
+    assert m01["default_config"]["reset_html_snapshots"] is False
+    assert fields["sources"]["type"] == "multi-select"
+    assert fields["reset_html_snapshots"]["type"] == "checkbox"
+    assert fields["articles_path"]["configurable"] is False
+    assert fields["input_html_dir"]["configurable"] is False
+    assert fields["html_manifest_path"]["configurable"] is False
+
+
+def test_m01_build_command_passes_sources_reset_and_manifest() -> None:
+    steps = build_workflow_steps(
+        "milestone_graph",
+        {
+            "selected_nodes": ["m00_runtime", "m01_ingestion"],
+            "sources": ["nhadautu"],
+            "node_configs": {
+                "m01_ingestion": {
+                    "discover_download": True,
+                    "sources": ["cafef", "vietstock"],
+                    "reset_html_snapshots": True,
+                    "max_articles": 7,
+                    "max_discovered_urls": 11,
+                    "html_manifest_path": "data/raw/html_manifest.jsonl",
+                }
+            },
+        },
+        run_id="admin_run_test",
+    )
+    m01_step = next(step for step in steps if step.step_id == "m01_data_ingestion")
+    command = m01_step.command
+
+    assert "--html-manifest-path" in command
+    assert "--reset-html-snapshots" in command
+    assert "--discover" in command
+    assert command[command.index("--max-download-articles") + 1] == "7"
+    assert command[command.index("--max-discovered-urls") + 1] == "11"
+    assert _flag_values(command, "--source") == ["cafef", "vietstock"]
+    assert "nhadautu" not in _flag_values(command, "--source")
+
+
+def test_m01_build_command_rejects_discover_without_sources() -> None:
+    with pytest.raises(ValueError, match="at least one source"):
+        build_workflow_steps(
+            "milestone_graph",
+            {
+                "selected_nodes": ["m00_runtime", "m01_ingestion"],
+                "node_configs": {
+                    "m01_ingestion": {
+                        "discover_download": True,
+                        "sources": [],
+                    }
+                },
+            },
+            run_id="admin_run_test",
+        )
+
+
 def test_milestone_graph_rejects_missing_dependencies(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -225,6 +294,10 @@ def test_admin_run_queue_limit_and_startup_reconciliation(
 
 def _admin_headers() -> dict[str, str]:
     return {"X-Admin-API-Key": "test-admin-key"}
+
+
+def _flag_values(command: list[str], flag: str) -> list[str]:
+    return [command[index + 1] for index, item in enumerate(command[:-1]) if item == flag]
 
 
 def _write_fixture_workspace(root: Path) -> None:

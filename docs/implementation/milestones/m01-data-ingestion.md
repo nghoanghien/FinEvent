@@ -24,6 +24,7 @@ data/raw/articles_raw.jsonl
 data/raw/html/
 data/raw/discovered_urls.jsonl
 data/raw/download_log.jsonl
+data/raw/html_manifest.jsonl
 data/processed/articles_clean.jsonl
 PostgreSQL database
 reports/data/data_quality_summary.md
@@ -72,11 +73,14 @@ python -m finevent.ingestion \
   --input-html-dir data/raw/html \
   --discovered-output-path data/raw/discovered_urls.jsonl \
   --download-log-path data/raw/download_log.jsonl \
+  --html-manifest-path data/raw/html_manifest.jsonl \
   --raw-output-path data/raw/articles_raw.jsonl \
   --clean-output-path data/processed/articles_clean.jsonl \
   --report-path reports/data/data_quality_summary.md \
   --max-discovered-urls 80 \
-  --max-download-articles 25
+  --max-download-articles 25 \
+  --source cafef \
+  --source vietstock
 ```
 
 Logic discovery/download này nằm trong code chính của M01, không còn chỉ nằm trong notebook. Notebook `data-augmentation.ipynb` chỉ dùng để chạy thử trên RAM, quan sát chất lượng parser/cleaning nhanh và xuất JSONL sau khi đã kiểm tra ổn.
@@ -85,9 +89,14 @@ Artifact của luồng tự động:
 
 - `data/raw/discovered_urls.jsonl`: danh sách URL ứng viên đã discovery, có `source`, `link_text`, `score`, `seed_url`, `discovered_at`.
 - `data/raw/download_log.jsonl`: log từng lượt download, gồm HTTP status, lỗi nếu có và thời điểm download.
+- `data/raw/html_manifest.jsonl`: manifest tích lũy map `html_path` sang URL gốc (`source_url`), `source`, `downloaded_at`, `status_code`.
 - `data/raw/html/`: HTML snapshot để debug parser và tái lập kết quả.
 
-Các artifact dữ liệu sinh ra trong `data/raw/*.jsonl`, `data/processed/*.jsonl` và `reports/data/*.md` được ignore khỏi git. Dictionary trong `data/dictionaries/` và schema SQL trong `infra/postgres/` được track.
+`download_log.jsonl` là log cho từng run download. `html_manifest.jsonl` là mapping bền vững qua nhiều run; download thành công sẽ upsert theo `html_path`. Khi parse HTML local, M01 dùng manifest để lưu URL gốc vào `article.url`; local snapshot path được lưu riêng ở `raw_html_path`. Nếu HTML không có manifest entry, pipeline fallback về `file://...` như trước và vẫn set `raw_html_path`.
+
+`--reset-html-snapshots` chỉ xóa `*.html` trong `input_html_dir` và file `html_manifest.jsonl` đang chọn. Flag này không xóa PostgreSQL, `articles_clean.jsonl`, reports, chunks, embeddings, patterns hay predictions. Nếu bật reset mà không bật `--discover`/`--download`, M01 sẽ parse thư mục HTML sau khi đã xóa nên raw/clean output có thể rỗng.
+
+Các artifact dữ liệu sinh ra trong `data/raw/*.jsonl`, `data/processed/*.jsonl` và `reports/data/*.md` được ignore khỏi git. Dictionary trong `data/dictionaries/` được track. Schema nền lịch sử nằm trong `infra/postgres/`; migration runtime hiện đi qua Alembic trong `infra/alembic/versions/`.
 
 Pipeline hiện có fallback parser bằng Python stdlib nên vẫn chạy được khi chưa cài dependency ingestion. Khi bắt đầu crawl/parse dữ liệu thật, cài thêm nhóm ingestion:
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 import finevent.database
-from finevent.database.catalog import MIGRATION_ORDER, TABLE_COLUMNS, table_names
+from finevent.database.catalog import BASELINE_SQL_FILES, TABLE_COLUMNS, table_names
 from finevent.database.cli import build_parser
 
 
@@ -23,12 +23,12 @@ def test_database_cli_has_runtime_commands() -> None:
     assert parser.parse_args(["verify-pgvector"]).command == "verify-pgvector"
 
 
-def test_database_catalog_covers_postgres_migration_tables() -> None:
+def test_database_catalog_covers_postgres_baseline_tables() -> None:
     migration_dir = Path("infra/postgres")
     discovered_tables: set[str] = set()
-    for migration_name in MIGRATION_ORDER:
+    for migration_name in BASELINE_SQL_FILES:
         sql_path = migration_dir / migration_name
-        assert sql_path.exists(), f"Missing migration: {migration_name}"
+        assert sql_path.exists(), f"Missing baseline SQL file: {migration_name}"
         sql = sql_path.read_text(encoding="utf-8")
         discovered_tables.update(
             match.group(1)
@@ -75,4 +75,4 @@ def test_alembic_skeleton_exists() -> None:
     assert Path("alembic.ini").exists()
     assert Path("infra/alembic/env.py").exists()
     assert Path("infra/alembic/script.py.mako").exists()
-    assert Path("infra/alembic/versions/.gitkeep").exists()
+    assert Path("infra/alembic/versions/20260627_0001_baseline_schema.py").exists()

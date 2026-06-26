@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS articles (
     article_id TEXT PRIMARY KEY,
     source TEXT NOT NULL,
     url TEXT NOT NULL,
+    raw_html_path TEXT,
     title TEXT,
     published_at TIMESTAMPTZ,
     author TEXT,

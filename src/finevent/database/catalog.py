@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from finevent.types import JsonDict
 
-MIGRATION_ORDER = (
+BASELINE_SQL_FILES = (
     "001_articles.sql",
     "002_ticker_dictionary.sql",
     "003_event_labels.sql",
@@ -24,6 +24,7 @@ TABLE_COLUMNS: dict[str, tuple[str, ...]] = {
         "article_id",
         "source",
         "url",
+        "raw_html_path",
         "title",
         "published_at",
         "author",
@@ -273,5 +274,5 @@ def catalog_summary() -> JsonDict:
     return {
         "table_count": len(TABLE_COLUMNS),
         "tables": {table: list(columns) for table, columns in TABLE_COLUMNS.items()},
-        "migration_order": list(MIGRATION_ORDER),
+        "baseline_sql_files": list(BASELINE_SQL_FILES),
     }

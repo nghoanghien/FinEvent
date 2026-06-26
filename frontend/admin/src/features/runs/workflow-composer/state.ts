@@ -141,7 +141,9 @@ function validateDependencies(
     if (!node) continue;
     const missing = node.dependsOn.filter((dependency) => !selected.has(dependency));
     if (missing.length > 0) {
-      return `${node.milestone} cần chạy sau ${missing.map((id) => nodeById[id]?.milestone || id).join(", ")}.`;
+      return `${node.milestone} cần chạy sau ${missing
+        .map((id) => nodeById[id]?.milestone || id)
+        .join(", ")}.`;
     }
   }
   return null;
@@ -158,6 +160,9 @@ function validateSelectedConfigs(
       if (!Number.isInteger(maxArticles) || maxArticles < 1) {
         return "M01: số bài tải/xử lý phải là số nguyên từ 1 trở lên.";
       }
+      if (config.discover_download === true && selectedStringValues(config.sources).length === 0) {
+        return "M01: Discover + download cần chọn ít nhất một nguồn crawl.";
+      }
     }
   }
   if (selectedNodeIds.includes("m06_extraction")) {
@@ -167,14 +172,29 @@ function validateSelectedConfigs(
       const offset = Number(config.offset);
       const maxContexts = Number(config.max_contexts);
       const patternCount = Number(config.pattern_count);
-      if (!Number.isInteger(patternCount) || patternCount < 1) return "M06: few-shot patterns must be an integer from 1.";
-      if (!Number.isInteger(limit) || limit < 1) return "M06: số bài chạy phải là số nguyên từ 1 trở lên.";
-      if (!Number.isInteger(offset) || offset < 0) return "M06: offset phải là số nguyên không âm.";
-      if (!Number.isInteger(maxContexts) || maxContexts < 1) return "M06: max contexts phải là số nguyên từ 1 trở lên.";
-      if (!String(config.output_path || "").trim()) return "M06: predictions output không được để trống.";
+      if (!Number.isInteger(patternCount) || patternCount < 1) {
+        return "M06: few-shot patterns must be an integer from 1.";
+      }
+      if (!Number.isInteger(limit) || limit < 1) {
+        return "M06: số bài chạy phải là số nguyên từ 1 trở lên.";
+      }
+      if (!Number.isInteger(offset) || offset < 0) {
+        return "M06: offset phải là số nguyên không âm.";
+      }
+      if (!Number.isInteger(maxContexts) || maxContexts < 1) {
+        return "M06: max contexts phải là số nguyên từ 1 trở lên.";
+      }
+      if (!String(config.output_path || "").trim()) {
+        return "M06: predictions output không được để trống.";
+      }
     }
   }
   return null;
+}
+
+function selectedStringValues(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && Boolean(item.trim()));
 }
 
 function dependsOnNode(

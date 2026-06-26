@@ -42,6 +42,7 @@ class CleanArticleRecord:
     article_id: str
     source: str
     url: str
+    raw_html_path: str
     title: str | None
     published_at: str | None
     text: str
