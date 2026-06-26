@@ -64,6 +64,9 @@ Các output này là experiment artifacts, không cần commit.
 
 M04 hiện có các config mặc định:
 
+Chiến lược multi-event được mô tả chi tiết trong
+[`docs/workflows/retrieval/multi-event-aware-retrieval.md`](../../workflows/retrieval/multi-event-aware-retrieval.md).
+
 | Config | Dense | BM25 | Metadata | Recency/source | Rule | LLM | Mục đích |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | `bm25_only` | 0.00 | 1.00 | 0.00 | 0.00 | 0.00 | 0.00 | Lexical baseline |
@@ -72,6 +75,7 @@ M04 hiện có các config mặc định:
 | `metadata_aware_hybrid` | 0.45 | 0.30 | 0.20 | 0.05 | 0.00 | 0.00 | Hybrid có ticker/company/event metadata |
 | `rule_aware_rerank` | 0.40 | 0.25 | 0.20 | 0.05 | 0.10 | 0.00 | Thêm rule rerank deterministic |
 | `llm_reasoning_rerank` | 0.25 | 0.15 | 0.10 | 0.00 | 0.10 | 0.40 | Scaffold cho LLM rerank top candidates |
+| `multi_event_aware_hybrid` | 0.42 | 0.30 | 0.18 | 0.04 | 0.06 | 0.00 | Tách query theo event type và chọn context đa dạng bằng coverage/MMR |
 
 ## Query decomposition
 
@@ -84,6 +88,11 @@ Từ một article, hệ thống tạo nhiều query:
 | `company_event` | Company name + event keywords |
 | `event_type` | Event type/subtype hints + event keywords |
 | `body_fallback` | 80 từ đầu nếu thiếu title/metadata |
+
+Với `multi_event_aware_hybrid`, `query_mode=event_intent` giữ các query legacy ở trên
+và bổ sung query riêng cho từng event type có trong `event_type_hints`. Hệ thống không
+query tất cả event type trong taxonomy, chỉ query các event type được phát hiện từ
+metadata hints của bài đầu vào.
 
 Ví dụ:
 
@@ -215,6 +224,10 @@ Metrics:
 | `mrr` | Rank của relevant chunk đầu tiên |
 | `ndcg_at_5`, `ndcg_at_10` | Ranking quality với binary relevance |
 | `first_relevant_rank` | Rank đầu tiên có evidence đúng |
+| `event_type_coverage_at_5`, `event_type_coverage_at_10` | Tỷ lệ gold event type được cover trong top K |
+| `event_evidence_coverage_at_5`, `event_evidence_coverage_at_10` | Tỷ lệ gold event có evidence chunk nằm trong top K |
+| `unique_event_types_at_5`, `unique_event_types_at_10` | Số event type khác nhau trong top K |
+| `dominance_ratio_at_5`, `dominance_ratio_at_10` | Tỷ lệ event type chiếm nhiều nhất trong top K |
 
 ## Kiểm thử
 
@@ -238,6 +251,8 @@ Test bao phủ:
 - Rule-aware và LLM reasoning rerank giữ relevant event chunk ở top.
 - LLM prompt có candidate schema.
 - Comparison runner ghi logs, metrics CSV và error analysis.
+- Multi-event strategy giữ được context cho event phụ trong fixture có event A áp đảo.
+- Metrics coverage/diversity xuất hiện trong CSV.
 
 ## Smoke result hiện tại
 

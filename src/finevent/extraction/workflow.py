@@ -21,11 +21,11 @@ from finevent.extraction.verification import VerificationConfig, verify_extracti
 from finevent.jsonl import write_jsonl
 from finevent.logging_utils import create_run_id
 from finevent.patterns.models import PatternCandidate
-from finevent.patterns.querying import build_pattern_query_from_article
+from finevent.patterns.querying import build_pattern_queries_from_article
 from finevent.patterns.store import PatternStore
 from finevent.rag.embeddings import build_embedding_client
 from finevent.retrieval.engine import RetrievalEngine, artifacts_exist
-from finevent.retrieval.models import RetrievalCandidate, RetrievalQuery
+from finevent.retrieval.models import DEFAULT_RETRIEVAL_CONFIGS, RetrievalCandidate, RetrievalQuery
 from finevent.retrieval.querying import build_queries_from_article
 from finevent.types import JsonDict, PathLike
 
@@ -160,11 +160,13 @@ def _node_preprocess(
 def _node_query_plan(state: ExtractionWorkflowState) -> JsonDict:
     if not state.article:
         raise ValueError("preprocess must run before query_plan.")
-    queries = build_queries_from_article(state.article)
+    retrieval_config = DEFAULT_RETRIEVAL_CONFIGS.get(state.config.retrieval_config)
+    query_mode = retrieval_config.query_mode if retrieval_config else "legacy"
+    queries = build_queries_from_article(state.article, query_mode=query_mode)
     state.query_plan = [query.to_dict() for query in queries]
     if not queries:
         state.warnings.append("query_plan_empty")
-    return {"query_count": len(queries)}
+    return {"query_count": len(queries), "query_mode": query_mode}
 
 
 def _node_retrieve(
@@ -238,12 +240,24 @@ def _node_select_patterns(
         embeddings_path=artifacts.pattern_embeddings_path,
         query_embedding_client=query_client,
     )
-    query = build_pattern_query_from_article(state.article)
-    candidates = store.select_patterns(query, top_k=state.config.pattern_count)
+    retrieval_config = DEFAULT_RETRIEVAL_CONFIGS.get(state.config.retrieval_config)
+    query_mode = retrieval_config.query_mode if retrieval_config else "legacy"
+    selection_strategy = "coverage" if query_mode == "event_intent" else "score"
+    queries = build_pattern_queries_from_article(state.article, query_mode=query_mode)
+    candidates = store.select_patterns_for_queries(
+        queries,
+        top_k=state.config.pattern_count,
+        selection_strategy=selection_strategy,
+    )
     state.selected_patterns = [candidate.to_dict() for candidate in candidates]
     if not candidates:
         state.warnings.append("pattern_selection_empty")
-    return {"pattern_count": len(candidates)}
+    return {
+        "pattern_count": len(candidates),
+        "pattern_query_count": len(queries),
+        "pattern_query_mode": query_mode,
+        "pattern_selection_strategy": selection_strategy,
+    }
 
 
 def _node_extract(
@@ -397,6 +411,13 @@ def _retrieval_query_from_dict(record: JsonDict) -> RetrievalQuery:
         event_keywords=[str(item) for item in record.get("event_keywords", [])],
         event_type_hints=[str(item) for item in record.get("event_type_hints", [])],
         event_subtype_hints=[str(item) for item in record.get("event_subtype_hints", [])],
+        intent_key=str(record["intent_key"]) if record.get("intent_key") else None,
+        intent_event_type=(
+            str(record["intent_event_type"]) if record.get("intent_event_type") else None
+        ),
+        intent_subtype_hints=[
+            str(item) for item in record.get("intent_subtype_hints", [])
+        ],
     )
 
 

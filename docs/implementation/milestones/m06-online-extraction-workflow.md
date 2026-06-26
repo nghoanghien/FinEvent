@@ -124,6 +124,8 @@ Node `preprocess` nhận input và tạo clean article object:
   - `event_keywords`
   - `event_type_hints`
   - `event_subtype_hints`
+  - `event_keyword_matches` để map keyword/subtype về đúng event type khi dùng
+    multi-event query intent.
 - Gắn warning nếu text quá ngắn, không có event keyword hoặc không có ticker/company hint.
 
 ### Bước 2: Query plan
@@ -134,6 +136,11 @@ Node `query_plan` dùng query decomposition của M04:
 - query theo ticker + event keywords.
 - query theo company + event keywords.
 - query theo event type/subtype.
+
+Nếu `retrieval_config=multi_event_aware_hybrid`, node này dùng `query_mode=event_intent`.
+Khi đó hệ thống vẫn giữ query legacy, rồi bổ sung query riêng cho từng event type
+được phát hiện trong bài. Chi tiết strategy:
+[`docs/workflows/retrieval/multi-event-aware-retrieval.md`](../../workflows/retrieval/multi-event-aware-retrieval.md).
 
 Output là `query_plan` để trace lại vì sao retrieval chọn context đó.
 
@@ -164,6 +171,13 @@ Có thể đổi sang các config M04 như:
 - `metadata_aware_hybrid`
 - `rule_aware_rerank`
 - `llm_reasoning_rerank`
+- `multi_event_aware_hybrid`
+
+`multi_event_aware_hybrid` dùng adaptive budget trong retrieval engine: 5 context cho
+bài single-event, 8 context cho 2 event type và tối đa 10 context cho từ 3 event type.
+Tuy nhiên M06 còn có `max_contexts` là lớp cắt cuối sau retrieval. Vì vậy khi chọn
+strategy multi-event trên Admin UI hoặc CLI, nên đặt `max_contexts` khoảng `8-10`
+nếu muốn giữ đủ context mà engine đã chọn.
 
 ### Bước 4: Pattern selection
 
@@ -181,6 +195,18 @@ Mặc định lấy 3 pattern. Pattern được chọn dựa trên:
 - event type/subtype overlap.
 - keyword overlap.
 - diversity theo event type.
+
+Nếu `retrieval_config=multi_event_aware_hybrid`, M06 đồng bộ pattern selection với
+chunk retrieval:
+
+- pattern query dùng `query_mode=event_intent`;
+- `PatternStore.select_patterns_for_queries(...)` nhận query tổng hợp và query riêng
+  theo từng event type detected;
+- selector `coverage` ưu tiên mỗi event type có pattern đại diện trước khi fill slot
+  còn lại bằng score.
+
+`pattern_count` vẫn là giới hạn cuối. Nếu bài có 4 event type nhưng `pattern_count=3`,
+few-shot block chỉ cover tối đa 3 event type bằng pattern.
 
 ### Bước 5: Prompt extraction
 

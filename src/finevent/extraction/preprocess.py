@@ -161,6 +161,16 @@ def _attach_metadata_hints(
         "tickers_hint": tickers,
         "company_names_hint": company_names,
         "sector_hints": extract_sector_hints(tickers, company_entries),
+        "event_keyword_matches": [
+            {
+                "event_type": match.event_type,
+                "event_subtype": match.event_subtype,
+                "keyword": match.keyword,
+                "polarity_hint": match.polarity_hint,
+                "priority": match.priority,
+            }
+            for match in keyword_matches
+        ],
         "event_keywords": extract_event_keywords(metadata_text, taxonomy_entries=taxonomy_entries),
         "event_type_hints": extract_event_type_hints(keyword_matches),
         "event_subtype_hints": extract_event_subtype_hints(keyword_matches),

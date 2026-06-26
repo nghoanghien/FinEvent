@@ -54,6 +54,7 @@ def run_retrieval_comparison(
         "metadata_aware_hybrid",
         "rule_aware_rerank",
         "llm_reasoning_rerank",
+        "multi_event_aware_hybrid",
     ]
 
     logs: list[JsonDict] = []
@@ -65,6 +66,8 @@ def run_retrieval_comparison(
             metrics = evaluate_results(
                 candidates=candidates,
                 relevant_chunk_ids=eval_case.relevant_chunk_ids,
+                event_types=eval_case.article_event_types,
+                event_relevant_chunk_ids=eval_case.article_event_relevant_chunk_ids,
             )
             metric_row = {
                 "retrieval_config": config_name,

@@ -119,14 +119,18 @@ Request tối thiểu cho graph workflow:
       "m07_verification",
       "m08_evaluation"
     ],
-    "node_configs": {
-      "m06_extraction": {
-        "limit": 10,
-        "sources": ["cafef"]
-      }
-    },
-    "limit": 10,
-    "sources": ["cafef"]
+      "node_configs": {
+        "m06_extraction": {
+          "limit": 10,
+          "sources": ["cafef"],
+          "retrieval_config": "multi_event_aware_hybrid",
+          "max_contexts": 10
+        }
+      },
+      "limit": 10,
+      "sources": ["cafef"],
+      "retrieval_config": "multi_event_aware_hybrid",
+      "max_contexts": 10
   }
 }
 ```
@@ -235,11 +239,15 @@ Edge labels hiện tại:
 | `m03_rag` | `embedding_provider`, `embedding_model`, `embedding_dimension`, `target_words`, `max_words`, `overlap_words`, `sync_postgres` |
 | `m04_retrieval` | `embedding_provider`, `embedding_model`, `embedding_dimension`, `retrieval_metrics_path` |
 | `m05_patterns` | `embedding_provider`, `embedding_model`, `embedding_dimension`, `sync_postgres` |
-| `m06_extraction` | `sources`, `limit`, `offset`, `output_path`, `student_provider`, `embedding_provider`, `embedding_dimension`, `use_retrieval`, `use_patterns`, `sync_postgres` |
+| `m06_extraction` | `sources`, `limit`, `offset`, `output_path`, `student_provider`, `embedding_provider`, `embedding_dimension`, `use_retrieval`, `retrieval_config`, `max_contexts`, `use_patterns`, `sync_postgres` |
 | `m07_verification` | none |
 | `m08_evaluation` | `gold_path`, `evaluation_output_dir`, `skip_academic_figures` |
 
 Field có `configurable=false` vẫn được trả trong catalog để UI biết default/contract, nhưng không nên xem là field vận hành thông thường.
+
+`retrieval_config=multi_event_aware_hybrid` là strategy bổ sung cho bài nhiều event
+type. Chi tiết xem
+[`docs/workflows/retrieval/multi-event-aware-retrieval.md`](../workflows/retrieval/multi-event-aware-retrieval.md).
 
 ## Source Filtering
 

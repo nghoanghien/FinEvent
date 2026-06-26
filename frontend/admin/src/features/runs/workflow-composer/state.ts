@@ -165,8 +165,10 @@ function validateSelectedConfigs(
     if (config) {
       const limit = Number(config.limit);
       const offset = Number(config.offset);
+      const maxContexts = Number(config.max_contexts);
       if (!Number.isInteger(limit) || limit < 1) return "M06: số bài chạy phải là số nguyên từ 1 trở lên.";
       if (!Number.isInteger(offset) || offset < 0) return "M06: offset phải là số nguyên không âm.";
+      if (!Number.isInteger(maxContexts) || maxContexts < 1) return "M06: max contexts phải là số nguyên từ 1 trở lên.";
       if (!String(config.output_path || "").trim()) return "M06: predictions output không được để trống.";
     }
   }

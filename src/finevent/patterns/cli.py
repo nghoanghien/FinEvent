@@ -12,7 +12,7 @@ from finevent.patterns.pattern_sql import sync_pattern_artifacts
 from finevent.patterns.pipeline import run_pattern_library_build
 from finevent.patterns.prompting import render_few_shot_patterns, render_pattern_context_json
 from finevent.patterns.querying import (
-    build_pattern_query_from_article,
+    build_pattern_queries_from_article,
     build_pattern_query_from_raw,
 )
 from finevent.patterns.store import PatternStore
@@ -62,6 +62,16 @@ def build_parser() -> argparse.ArgumentParser:
     article.add_argument("--articles-path", default="data/processed/articles_clean.jsonl")
     article.add_argument("--article-id", required=True)
     article.add_argument("--top-k", type=int, default=3)
+    article.add_argument(
+        "--query-mode",
+        choices=["legacy", "event_intent"],
+        default="legacy",
+    )
+    article.add_argument(
+        "--selection-strategy",
+        choices=["score", "coverage"],
+        default="score",
+    )
 
     render = subparsers.add_parser(
         "render-few-shot",
@@ -128,12 +138,16 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "query-article":
         article = _load_article(args.articles_path, args.article_id)
         store = _store_from_args(args)
-        query = build_pattern_query_from_article(article)
-        candidates = store.select_patterns(query, top_k=args.top_k)
+        queries = build_pattern_queries_from_article(article, query_mode=args.query_mode)
+        candidates = store.select_patterns_for_queries(
+            queries,
+            top_k=args.top_k,
+            selection_strategy=args.selection_strategy,
+        )
         print(
             json.dumps(
                 {
-                    "query": query.to_dict(),
+                    "queries": [query.to_dict() for query in queries],
                     "results": [candidate.to_dict() for candidate in candidates],
                 },
                 ensure_ascii=False,

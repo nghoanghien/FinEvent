@@ -7,9 +7,13 @@ from pathlib import Path
 from finevent.jsonl import read_jsonl
 from finevent.patterns.builder import build_patterns_from_gold
 from finevent.patterns.embeddings import embed_patterns_with_cache
+from finevent.patterns.models import PatternRecord
 from finevent.patterns.pipeline import run_pattern_library_build
 from finevent.patterns.prompting import render_few_shot_patterns
-from finevent.patterns.querying import build_pattern_query_from_article
+from finevent.patterns.querying import (
+    build_pattern_queries_from_article,
+    build_pattern_query_from_article,
+)
 from finevent.patterns.store import PatternStore
 from finevent.rag.embeddings import HashEmbeddingClient
 
@@ -65,6 +69,53 @@ def test_pattern_embedding_cache_and_selection(tmp_path: Path) -> None:
     assert candidates
     assert candidates[0].event_type == "EXPANSION"
     assert candidates[0].ticker == "HPG"
+
+
+def test_pattern_event_intent_queries_group_keywords_by_event_type() -> None:
+    queries = build_pattern_queries_from_article(_multi_event_article(), query_mode="event_intent")
+    intent_queries = [query for query in queries if query.query_type.startswith("event_intent_")]
+
+    assert {query.intent_event_type for query in intent_queries} == {"DIVIDEND_SHAREHOLDER", "MA"}
+    assert any(
+        query.intent_event_type == "DIVIDEND_SHAREHOLDER" and query.event_keywords == ["co tuc"]
+        for query in intent_queries
+    )
+    assert any(
+        query.intent_event_type == "MA" and query.event_keywords == ["mua lai"]
+        for query in intent_queries
+    )
+
+
+def test_pattern_coverage_selection_keeps_minor_event_type(tmp_path: Path) -> None:
+    patterns = [
+        *_pattern_records("MA", count=5),
+        *_pattern_records("DIVIDEND_SHAREHOLDER", count=1),
+    ]
+    embeddings = embed_patterns_with_cache(
+        patterns,
+        client=HashEmbeddingClient(dimension=32),
+        output_path=tmp_path / "pattern_embeddings.jsonl",
+        cache_path=tmp_path / "pattern_embedding_cache.jsonl",
+    )
+    store = PatternStore(
+        patterns=patterns,
+        embeddings_by_pattern={record.pattern_id: record for record in embeddings},
+    )
+    queries = build_pattern_queries_from_article(_multi_event_article(), query_mode="event_intent")
+
+    candidates = store.select_patterns_for_queries(
+        queries,
+        top_k=3,
+        selection_strategy="coverage",
+    )
+
+    assert candidates
+    assert "DIVIDEND_SHAREHOLDER" in {candidate.event_type for candidate in candidates}
+    assert any(
+        "DIVIDEND_SHAREHOLDER" in candidate.score_breakdown.get("matched_intent_event_types", [])
+        for candidate in candidates
+    )
+    assert candidates[0].score_breakdown["selection_strategy"] == "coverage"
 
 
 def test_duplicate_pattern_hash_keeps_unique_embedding_ids(tmp_path: Path) -> None:
@@ -193,6 +244,163 @@ def _no_event_article() -> dict:
         "event_keywords": [],
         "event_type_hints": [],
         "event_subtype_hints": [],
+    }
+
+
+def _multi_event_article() -> dict:
+    return {
+        "article_id": "manual_multi_event",
+        "source": "manual",
+        "url": "manual://multi-event",
+        "title": "Cong ty A mua lai doanh nghiep va chia co tuc",
+        "published_at": "2026-01-15T08:00:00+07:00",
+        "text": (
+            "Cong ty A cong bo mua lai doanh nghiep trong cung nganh. "
+            "Cong ty cung thong qua phuong an chia co tuc bang tien mat."
+        ),
+        "tickers_hint": ["AAA"],
+        "company_names_hint": ["Cong ty A"],
+        "sector_hints": [],
+        "event_keywords": ["co tuc", "mua lai"],
+        "event_type_hints": ["DIVIDEND_SHAREHOLDER", "MA"],
+        "event_subtype_hints": ["ACQUISITION", "CASH_DIVIDEND"],
+        "event_keyword_matches": [
+            {
+                "event_type": "MA",
+                "event_subtype": "ACQUISITION",
+                "keyword": "mua lai",
+                "polarity_hint": "neutral",
+                "priority": 3,
+            },
+            {
+                "event_type": "DIVIDEND_SHAREHOLDER",
+                "event_subtype": "CASH_DIVIDEND",
+                "keyword": "co tuc",
+                "polarity_hint": "positive",
+                "priority": 3,
+            },
+        ],
+    }
+
+
+def _pattern_records(event_type: str, *, count: int):
+    return [
+        _pattern_record_for_type(event_type, index)
+        for index in range(count)
+    ]
+
+
+def _pattern_record_for_type(event_type: str, index: int) -> PatternRecord:
+    keyword = "mua lai" if event_type == "MA" else "co tuc"
+    subtype = "ACQUISITION" if event_type == "MA" else "CASH_DIVIDEND"
+    article_id = f"article_{event_type}_{index}"
+    return PatternRecord(
+        pattern_id=f"pattern_{event_type}_{index}",
+        article_id=article_id,
+        document_label="HAS_EVENT",
+        pattern_kind="event",
+        input_excerpt=f"Cong ty A cong bo {keyword} voi thong tin cu the.",
+        gold_output={
+            "document_label": "HAS_EVENT",
+            "events": [
+                {
+                    "event_id": f"{article_id}_e01",
+                    "ticker": "AAA",
+                    "company_name": "Cong ty A",
+                    "event_type": event_type,
+                    "event_subtype": subtype,
+                    "event_summary": f"Cong ty A cong bo {keyword}.",
+                    "event_arguments": {},
+                    "impact_sentiment": "NEUTRAL",
+                    "evidence_span": f"Cong ty A cong bo {keyword}",
+                    "source_url": f"fixture://{event_type}/{index}",
+                    "published_at": "2026-01-15T08:00:00+07:00",
+                    "confidence": 0.86,
+                }
+            ],
+        },
+        pattern_text=(
+            f"Document label: HAS_EVENT\n"
+            f"Ticker/company: AAA | Cong ty A\n"
+            f"Event type/subtype: {event_type} | {subtype}\n"
+            f"Evidence: Cong ty A cong bo {keyword}"
+        ),
+        source="fixture",
+        url=f"fixture://{event_type}/{index}",
+        published_at="2026-01-15T08:00:00+07:00",
+        teacher_model="fixture_teacher",
+        teacher_prompt_version="m02_teacher_v1",
+        auto_validation_status="PASS",
+        validation_errors=[],
+        event_id=f"{article_id}_e01",
+        event_type=event_type,
+        event_subtype=subtype,
+        ticker="AAA",
+        company_name="Cong ty A",
+        impact_sentiment="NEUTRAL",
+        evidence_span=f"Cong ty A cong bo {keyword}",
+        event_arguments={},
+        explanation_brief=f"Pattern illustrates {event_type}.",
+        metadata={
+            "title": f"Cong ty A {keyword}",
+            "tickers_hint": ["AAA"],
+            "company_names_hint": ["Cong ty A"],
+            "event_keywords": [keyword],
+            "event_type_hints": [event_type],
+            "event_subtype_hints": [subtype],
+        },
+    )
+
+
+def _article_for_type(event_type: str, index: int) -> dict:
+    keyword = "mua lai" if event_type == "MA" else "co tuc"
+    return {
+        "article_id": f"article_{event_type}_{index}",
+        "source": "fixture",
+        "url": f"fixture://{event_type}/{index}",
+        "title": f"Cong ty A {keyword}",
+        "published_at": "2026-01-15T08:00:00+07:00",
+        "text": f"Cong ty A cong bo {keyword} voi thong tin cu the.",
+        "tickers_hint": ["AAA"],
+        "company_names_hint": ["Cong ty A"],
+        "sector_hints": [],
+        "event_keywords": [keyword],
+        "event_type_hints": [event_type],
+        "event_subtype_hints": ["ACQUISITION" if event_type == "MA" else "CASH_DIVIDEND"],
+    }
+
+
+def _gold_record_for_type(event_type: str, index: int) -> dict:
+    subtype = "ACQUISITION" if event_type == "MA" else "CASH_DIVIDEND"
+    keyword = "mua lai" if event_type == "MA" else "co tuc"
+    article_id = f"article_{event_type}_{index}"
+    return {
+        "article_id": article_id,
+        "teacher_model": "fixture_teacher",
+        "prompt_version": "m02_teacher_v1",
+        "validation_status": "PASS",
+        "validation_errors": [],
+        "label": {
+            "article_id": article_id,
+            "document_label": "HAS_EVENT",
+            "events": [
+                {
+                    "event_id": f"{article_id}_e01",
+                    "ticker": "AAA",
+                    "company_name": "Cong ty A",
+                    "event_type": event_type,
+                    "event_subtype": subtype,
+                    "event_summary": f"Cong ty A cong bo {keyword}.",
+                    "event_arguments": {},
+                    "impact_sentiment": "NEUTRAL",
+                    "evidence_span": f"Cong ty A cong bo {keyword}",
+                    "source_url": f"fixture://{event_type}/{index}",
+                    "published_at": "2026-01-15T08:00:00+07:00",
+                    "confidence": 0.86,
+                }
+            ],
+            "warnings": [],
+        },
     }
 
 

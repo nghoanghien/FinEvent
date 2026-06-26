@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 import math
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from finevent.jsonl import read_jsonl
@@ -26,6 +26,8 @@ class RetrievalEvalCase:
     relevant_chunk_ids: set[str]
     evidence_span: str
     event_type: str | None
+    article_event_types: set[str] = field(default_factory=set)
+    article_event_relevant_chunk_ids: dict[str, set[str]] = field(default_factory=dict)
 
 
 def build_eval_cases_from_gold(
@@ -49,9 +51,27 @@ def build_eval_cases_from_gold(
         if not isinstance(label, dict):
             continue
         queries = build_queries_from_gold_label(gold_record)
-        for event_index, event in enumerate(label.get("events", [])):
-            if not isinstance(event, dict):
-                continue
+        article_event_types: set[str] = set()
+        article_event_relevant_chunk_ids: dict[str, set[str]] = {}
+        event_rows = [event for event in label.get("events", []) if isinstance(event, dict)]
+        for event_index, event in enumerate(event_rows):
+            article_id = str(label.get("article_id") or gold_record.get("article_id"))
+            event_id = str(event.get("event_id") or f"{article_id}_event_{event_index:02d}")
+            event_type = str(event.get("event_type") or "").upper()
+            if event_type:
+                article_event_types.add(event_type)
+            event_relevant_chunks = _relevant_chunks_for_event(
+                chunks_by_article.get(article_id, []),
+                evidence_span=str(event.get("evidence_span") or ""),
+            )
+            if not event_relevant_chunks:
+                event_relevant_chunks = {
+                    chunk.chunk_id
+                    for chunk in chunks_by_article.get(article_id, [])
+                    if chunk.chunk_level == "document"
+                }
+            article_event_relevant_chunk_ids[event_id] = event_relevant_chunks
+        for event_index, event in enumerate(event_rows):
             article_id = str(label.get("article_id") or gold_record.get("article_id"))
             event_id = str(event.get("event_id") or f"{article_id}_event_{event_index:02d}")
             evidence_span = str(event.get("evidence_span") or "")
@@ -74,6 +94,8 @@ def build_eval_cases_from_gold(
                     relevant_chunk_ids=relevant_chunk_ids,
                     evidence_span=evidence_span,
                     event_type=event.get("event_type"),
+                    article_event_types=article_event_types,
+                    article_event_relevant_chunk_ids=article_event_relevant_chunk_ids,
                 )
             )
     return cases
@@ -84,6 +106,8 @@ def evaluate_results(
     candidates: list[RetrievalCandidate],
     relevant_chunk_ids: set[str],
     k_values: tuple[int, ...] = (5, 10),
+    event_types: set[str] | None = None,
+    event_relevant_chunk_ids: dict[str, set[str]] | None = None,
 ) -> JsonDict:
     retrieved_ids = [candidate.chunk_id for candidate in candidates]
     relevant_count = len(relevant_chunk_ids)
@@ -94,6 +118,15 @@ def evaluate_results(
         metrics[f"recall_at_{k}"] = hits / relevant_count if relevant_count else 0.0
         metrics[f"precision_at_{k}"] = hits / k if k else 0.0
         metrics[f"ndcg_at_{k}"] = _ndcg_at_k(top_k, relevant_chunk_ids, k)
+        metrics.update(
+            _context_diversity_metrics(
+                candidates[:k],
+                retrieved_ids=top_k,
+                event_types=event_types or set(),
+                event_relevant_chunk_ids=event_relevant_chunk_ids or {},
+                k=k,
+            )
+        )
     metrics["mrr"] = _mrr(retrieved_ids, relevant_chunk_ids)
     metrics["first_relevant_rank"] = _first_relevant_rank(retrieved_ids, relevant_chunk_ids)
     return metrics
@@ -113,6 +146,14 @@ def aggregate_metric_rows(rows: list[JsonDict]) -> list[JsonDict]:
         "mrr",
         "ndcg_at_5",
         "ndcg_at_10",
+        "event_type_coverage_at_5",
+        "event_type_coverage_at_10",
+        "event_evidence_coverage_at_5",
+        "event_evidence_coverage_at_10",
+        "unique_event_types_at_5",
+        "unique_event_types_at_10",
+        "dominance_ratio_at_5",
+        "dominance_ratio_at_10",
     ]
     for config_name, config_rows in sorted(grouped.items()):
         output: JsonDict = {
@@ -199,6 +240,66 @@ def _relevant_chunks_for_event(chunks: list[ChunkRecord], *, evidence_span: str)
         if folded_evidence in folded_text:
             relevant.add(chunk.chunk_id)
     return relevant
+
+
+def _context_diversity_metrics(
+    candidates: list[RetrievalCandidate],
+    *,
+    retrieved_ids: list[str],
+    event_types: set[str],
+    event_relevant_chunk_ids: dict[str, set[str]],
+    k: int,
+) -> JsonDict:
+    candidate_event_types = [
+        _candidate_event_types(candidate, event_types) for candidate in candidates
+    ]
+    covered_event_types = set().union(*candidate_event_types) if candidate_event_types else set()
+    event_type_count = len(event_types)
+    event_evidence_hits = sum(
+        1
+        for relevant_chunk_ids in event_relevant_chunk_ids.values()
+        if set(retrieved_ids) & relevant_chunk_ids
+    )
+    event_counter: dict[str, int] = {}
+    for types_for_candidate in candidate_event_types:
+        for event_type in types_for_candidate:
+            event_counter[event_type] = event_counter.get(event_type, 0) + 1
+    mention_count = sum(event_counter.values())
+    dominance_ratio = max(event_counter.values()) / mention_count if mention_count else 0.0
+    return {
+        f"event_type_coverage_at_{k}": (
+            len(covered_event_types & event_types) / event_type_count if event_type_count else 0.0
+        ),
+        f"event_evidence_coverage_at_{k}": (
+            event_evidence_hits / len(event_relevant_chunk_ids)
+            if event_relevant_chunk_ids
+            else 0.0
+        ),
+        f"unique_event_types_at_{k}": len(covered_event_types),
+        f"dominance_ratio_at_{k}": dominance_ratio,
+    }
+
+
+def _candidate_event_types(
+    candidate: RetrievalCandidate,
+    gold_event_types: set[str],
+) -> set[str]:
+    matched_intent_types = {
+        str(event_type).upper()
+        for event_type in candidate.score_breakdown.get("matched_intent_event_types", [])
+        if event_type
+    }
+    metadata_types = {
+        str(event_type).upper()
+        for event_type in candidate.metadata.get("event_type_hints", [])
+        if event_type
+    }
+    event_types = matched_intent_types or metadata_types
+    if gold_event_types:
+        matched = event_types & gold_event_types
+        if matched:
+            return matched
+    return event_types
 
 
 def _mrr(retrieved_ids: list[str], relevant_chunk_ids: set[str]) -> float:

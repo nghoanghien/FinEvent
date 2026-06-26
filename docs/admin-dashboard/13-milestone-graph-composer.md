@@ -255,15 +255,23 @@ configs[node.id] = { ...node.defaultConfig };
   "node_configs": {
     "m06_extraction": {
       "limit": 10,
-      "sources": ["cafef"]
+      "sources": ["cafef"],
+      "retrieval_config": "multi_event_aware_hybrid",
+      "max_contexts": 10
     }
   },
   "limit": 10,
-  "sources": ["cafef"]
+  "sources": ["cafef"],
+  "retrieval_config": "multi_event_aware_hybrid",
+  "max_contexts": 10
 }
 ```
 
 Phần config phẳng là phần backend đang dùng để build command. `node_configs` giữ lại cấu trúc theo node để debug/trace và có thể dùng cho extension sau này.
+
+M06 expose `retrieval_config` và `max_contexts` từ backend catalog. Strategy
+`multi_event_aware_hybrid` được mô tả tại
+[`docs/workflows/retrieval/multi-event-aware-retrieval.md`](../workflows/retrieval/multi-event-aware-retrieval.md).
 
 Trước khi `ok=true`, frontend validate:
 
@@ -272,6 +280,7 @@ Trước khi `ok=true`, frontend validate:
 - M01 `max_articles` phải là số nguyên từ 1;
 - M06 `limit` phải là số nguyên từ 1;
 - M06 `offset` phải là số nguyên không âm;
+- M06 `max_contexts` phải là số nguyên từ 1;
 - M06 `output_path` không được rỗng.
 
 ## Run Confirmation

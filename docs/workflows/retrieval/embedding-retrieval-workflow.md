@@ -154,6 +154,11 @@ Các sub-query nên tách theo:
 - cùng trigger action
 - cùng dự án/đối tác nếu bài có nêu
 
+Với bài có nhiều event type, strategy `multi_event_aware_hybrid` không query tất cả
+taxonomy enum. Nó chỉ tạo query intent riêng cho các event type đã được phát hiện
+trong `event_type_hints` của bài đầu vào. Chi tiết:
+[`multi-event-aware-retrieval.md`](multi-event-aware-retrieval.md).
+
 ### Bước 5: Hybrid Retrieval
 
 Tính điểm tổng:
@@ -196,6 +201,10 @@ Retrieval nên chạy nhiều tầng:
 | Stage 3 | LLM reasoning rerank hoặc reranker nhỏ | top 3-5 |
 | Stage 4 | Dedup và build context pack | final context |
 
+Với `multi_event_aware_hybrid`, Stage 1 lấy rộng hơn và final context có adaptive
+budget: 5 context cho single-event, 8 context cho 2 event type và tối đa 10 context
+cho từ 3 event type. Online extraction vẫn có `max_contexts` để cắt lớp cuối.
+
 ### Bước 7: Reranking
 
 Sau khi lấy top 20 chunk, rerank để chọn top 3-5 context đưa vào LLM.
@@ -207,6 +216,7 @@ Các phương án thí nghiệm:
 - `llm_filter`: model 8B đọc ngắn từng candidate và trả `relevant/not_relevant`.
 - `rule_aware_rerank`: ưu tiên chunk có event keyword và ticker/company trùng.
 - `llm_reasoning_rerank`: model 8B đọc toàn văn bài ứng viên, chạy một quy trình lập luận có cấu trúc để chấm mức liên quan.
+- `multi_event_aware_hybrid`: tách query theo event type đã detect; chunk dùng coverage/MMR và pattern dùng coverage selection để tránh context/few-shot bị một event áp đảo.
 - `trainable_reranker`: optional reranker nhỏ train trên AI-generated relevance labels nếu có đủ dữ liệu.
 
 #### `llm_reasoning_rerank`

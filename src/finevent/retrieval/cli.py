@@ -96,7 +96,7 @@ def main(argv: list[str] | None = None) -> None:
         config = _config_with_optional_top_k(args.config, args.top_k)
         engine = _engine_from_args(args)
         article = _load_article(args.articles_path, args.article_id)
-        queries = build_queries_from_article(article)
+        queries = build_queries_from_article(article, query_mode=config.query_mode)
         candidates = engine.retrieve(queries, config=config)
         print(
             json.dumps(

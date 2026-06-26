@@ -239,6 +239,63 @@ def test_online_extraction_uses_retrieval_and_patterns(tmp_path: Path) -> None:
     assert "Few-shot patterns:" in state.extraction_prompt
 
 
+def test_online_extraction_multi_event_mode_uses_pattern_coverage(tmp_path: Path) -> None:
+    articles_path = tmp_path / "articles_clean.jsonl"
+    gold_path = tmp_path / "events_gold.jsonl"
+    articles_path.write_text(
+        json.dumps(_event_article(), ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    gold_path.write_text(
+        json.dumps(_event_gold_record(), ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+    rag_result = run_rag_preparation(
+        articles_path=articles_path,
+        chunks_output_path=tmp_path / "chunks.jsonl",
+        retrieval_dir=tmp_path / "retrieval",
+        vector_store_dir=tmp_path / "vector_store",
+        report_path=tmp_path / "rag_summary.md",
+        embedding_dimension=32,
+        target_words=16,
+        max_words=32,
+        overlap_words=4,
+    )
+    pattern_result = run_pattern_library_build(
+        articles_path=articles_path,
+        gold_path=gold_path,
+        patterns_output_path=tmp_path / "patterns.jsonl",
+        rejected_patterns_output_path=tmp_path / "patterns_rejected.jsonl",
+        embeddings_output_path=tmp_path / "pattern_embeddings.jsonl",
+        embedding_cache_path=tmp_path / "pattern_embedding_cache.jsonl",
+        metrics_path=tmp_path / "pattern_metrics.csv",
+        report_path=tmp_path / "pattern_summary.md",
+        embedding_dimension=32,
+    )
+
+    state = run_online_extraction_workflow(
+        {"input_type": "article", "article": _event_article()},
+        config=ExtractionRunConfig(retrieval_config="multi_event_aware_hybrid"),
+        artifacts=ExtractionWorkflowArtifacts(
+            chunks_path=rag_result.chunks_path,
+            bm25_index_path=rag_result.bm25_index_path,
+            retrieval_embeddings_path=rag_result.embeddings_path,
+            patterns_path=pattern_result.patterns_path,
+            pattern_embeddings_path=pattern_result.embeddings_path,
+            logs_dir=tmp_path / "runs",
+        ),
+    )
+    result = build_public_result(state)
+
+    assert result["selected_patterns"]
+    assert result["selected_patterns"][0]["score_breakdown"]["selection_strategy"] == "coverage"
+    pattern_trace = next(
+        trace for trace in result["node_traces"] if trace["node"] == "pattern_selection"
+    )
+    assert pattern_trace["output_summary"]["pattern_query_mode"] == "event_intent"
+
+
 def _event_article() -> dict:
     text = (
         "Tap doan Hoa Phat cong bo khoi cong du an nha may moi tai khu cong nghiep.\n"

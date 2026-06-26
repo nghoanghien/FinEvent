@@ -145,11 +145,29 @@ score = 0.60 * dense_score + 0.30 * metadata_score + 0.10 * rule_score
    - mặc định top 3 pattern.
    - tối đa top 5 pattern.
    - giới hạn số pattern cùng `event_type` để prompt không bị lệch về một class.
+   - với `selection_strategy="coverage"`, chọn pattern tốt nhất cho từng event type
+     đã detect trước, rồi mới fill slot còn lại bằng score.
 6. Render few-shot block:
    - input excerpt.
    - expected output JSON.
    - explanation brief.
    - cảnh báo LLM không được copy factual value nếu input mới không có evidence.
+
+### Multi-event pattern selection
+
+M05 giữ API cũ `select_patterns(query, ...)` cho legacy flow. Để đồng bộ với
+`multi_event_aware_hybrid`, `PatternStore` có thêm `select_patterns_for_queries(...)`.
+
+Flow mới:
+
+1. `build_pattern_queries_from_article(article, query_mode="event_intent")` tạo query
+   tổng hợp và query riêng cho từng event type trong `event_type_hints`.
+2. Mỗi query lấy candidate từ cùng pattern library.
+3. Selector `coverage` ưu tiên cover event type chưa có pattern đại diện.
+4. Nếu thiếu pattern cho event type phụ, hệ thống fill bằng pattern có score cao nhất còn lại.
+
+Chi tiết chung với chunk retrieval nằm ở
+[`docs/workflows/retrieval/multi-event-aware-retrieval.md`](../../workflows/retrieval/multi-event-aware-retrieval.md).
 
 ## PostgreSQL schema
 
@@ -191,6 +209,17 @@ C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.patt
   --query "HPG khoi cong nha may moi mo rong san xuat" `
   --ticker HPG `
   --event-type EXPANSION `
+  --top-k 3
+```
+
+Query article với multi-event pattern coverage:
+
+```powershell
+C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.patterns query-article `
+  --articles-path data\processed\articles_clean.jsonl `
+  --article-id cafef_833adef5f3d9 `
+  --query-mode event_intent `
+  --selection-strategy coverage `
   --top-k 3
 ```
 
@@ -253,6 +282,8 @@ Test coverage M05:
 - Build cả `HAS_EVENT` và `NO_EVENT`.
 - Embedding cache reuse theo `pattern_hash`.
 - Pattern selection trả về đúng event type/ticker.
+- Pattern event-intent query tách keyword theo từng event type detected.
+- Coverage selector giữ pattern cho event phụ khi một event type áp đảo candidate pool.
 - Render few-shot có input excerpt và expected JSON.
 - Full pipeline ghi đủ artifact và metric.
 

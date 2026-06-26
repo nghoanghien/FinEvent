@@ -6,9 +6,12 @@ from finevent.jsonl import read_jsonl, write_jsonl
 from finevent.rag.bm25 import build_bm25_index
 from finevent.rag.chunking import build_corpus_chunks
 from finevent.rag.embeddings import HashEmbeddingClient, embed_chunks_with_cache
+from finevent.rag.models import ChunkRecord
 from finevent.retrieval.engine import RetrievalEngine
+from finevent.retrieval.evaluation import evaluate_results
 from finevent.retrieval.experiments import run_retrieval_comparison
 from finevent.retrieval.llm_rerank import build_llm_reasoning_rerank_prompt
+from finevent.retrieval.models import RetrievalCandidate
 from finevent.retrieval.querying import build_queries_from_article
 
 
@@ -29,6 +32,21 @@ def test_query_decomposition_uses_article_metadata() -> None:
     assert {"title", "ticker_event", "company_event", "event_type"}.issubset(query_types)
     assert any("HPG" in query.text for query in queries)
     assert any(query.event_type_hints == ["EXPANSION"] for query in queries)
+
+
+def test_event_intent_query_mode_creates_one_query_per_event_type() -> None:
+    queries = build_queries_from_article(_multi_event_article(), query_mode="event_intent")
+    intent_queries = [query for query in queries if query.query_type.startswith("event_intent_")]
+
+    assert {query.intent_event_type for query in intent_queries} == {"DIVIDEND", "MA"}
+    assert any(
+        query.intent_event_type == "DIVIDEND" and query.event_keywords == ["co tuc"]
+        for query in intent_queries
+    )
+    assert any(
+        query.intent_event_type == "MA" and query.event_keywords == ["mua lai"]
+        for query in intent_queries
+    )
 
 
 def test_retrieval_strategies_return_score_breakdown(tmp_path: Path) -> None:
@@ -72,6 +90,48 @@ def test_rule_and_llm_rerank_keep_relevant_event_chunk_on_top(tmp_path: Path) ->
     assert llm_candidates[0].score_breakdown["llm_relevance_label"] in {"HIGH", "MEDIUM"}
 
 
+def test_multi_event_aware_hybrid_keeps_minor_event_context(tmp_path: Path) -> None:
+    artifacts = _build_multi_event_retrieval_artifacts(tmp_path)
+    engine = RetrievalEngine.from_artifacts(**artifacts)
+    queries = build_queries_from_article(_multi_event_article(), query_mode="event_intent")
+
+    candidates = engine.retrieve(queries, config="multi_event_aware_hybrid")
+
+    assert candidates
+    assert candidates[0].score_breakdown["selection_strategy"] == "coverage_mmr"
+    assert len(candidates) <= 8
+    assert any(
+        "DIVIDEND" in candidate.metadata.get("event_type_hints", [])
+        for candidate in candidates
+    )
+    assert any(
+        "DIVIDEND" in candidate.score_breakdown.get("matched_intent_event_types", [])
+        for candidate in candidates
+    )
+
+
+def test_retrieval_metrics_include_multi_event_context_coverage() -> None:
+    candidates = [
+        _candidate("ma_context", ["MA"], rank=1),
+        _candidate("dividend_context", ["DIVIDEND"], rank=2),
+    ]
+
+    metrics = evaluate_results(
+        candidates=candidates,
+        relevant_chunk_ids={"ma_context", "dividend_context"},
+        event_types={"MA", "DIVIDEND"},
+        event_relevant_chunk_ids={
+            "event_ma": {"ma_context"},
+            "event_dividend": {"dividend_context"},
+        },
+    )
+
+    assert metrics["event_type_coverage_at_5"] == 1.0
+    assert metrics["event_evidence_coverage_at_5"] == 1.0
+    assert metrics["unique_event_types_at_5"] == 2
+    assert metrics["dominance_ratio_at_5"] == 0.5
+
+
 def test_llm_reasoning_prompt_contains_candidate_schema(tmp_path: Path) -> None:
     artifacts = _build_retrieval_artifacts(tmp_path)
     engine = RetrievalEngine.from_artifacts(**artifacts)
@@ -111,6 +171,7 @@ def test_retrieval_comparison_writes_metrics_and_logs(tmp_path: Path) -> None:
     assert len(logs) == 4
     assert "retrieval_config,case_count" in metrics_text
     assert "metadata_aware_hybrid" in metrics_text
+    assert "event_type_coverage_at_5" in metrics_text
     assert "Retrieval Error Analysis" in error_path.read_text(encoding="utf-8")
 
 
@@ -135,6 +196,98 @@ def _build_retrieval_artifacts(tmp_path: Path) -> dict:
     }
 
 
+def _build_multi_event_retrieval_artifacts(tmp_path: Path) -> dict:
+    chunks = [
+        _chunk(
+            chunk_id=f"ma_context_{index}",
+            article_id=f"ma_article_{index}",
+            text=(
+                "Cong ty A mua lai doanh nghiep muc tieu va thuc hien sap nhap. "
+                "Thuong vu mua lai co gia tri lon."
+            ),
+            event_type_hints=["MA"],
+            chunk_index=index,
+        )
+        for index in range(8)
+    ]
+    chunks.append(
+        _chunk(
+            chunk_id="dividend_context",
+            article_id="dividend_article",
+            text=(
+                "Cong ty A cong bo chia co tuc bang tien mat, ngay dang ky cuoi cung "
+                "va ngay thanh toan cho co dong."
+            ),
+            event_type_hints=["DIVIDEND"],
+            chunk_index=8,
+        )
+    )
+    chunks_path = tmp_path / "multi_chunks.jsonl"
+    bm25_path = tmp_path / "multi_bm25_index.pkl"
+    embeddings_path = tmp_path / "multi_chunk_embeddings.jsonl"
+    cache_path = tmp_path / "multi_embedding_cache.jsonl"
+    write_jsonl(chunks_path, (chunk.to_dict() for chunk in chunks))
+    build_bm25_index(chunks, bm25_path)
+    embed_chunks_with_cache(
+        chunks,
+        client=HashEmbeddingClient(dimension=32),
+        output_path=embeddings_path,
+        cache_path=cache_path,
+    )
+    return {
+        "chunks_path": chunks_path,
+        "bm25_index_path": bm25_path,
+        "embeddings_path": embeddings_path,
+    }
+
+
+def _chunk(
+    *,
+    chunk_id: str,
+    article_id: str,
+    text: str,
+    event_type_hints: list[str],
+    chunk_index: int,
+) -> ChunkRecord:
+    return ChunkRecord(
+        chunk_id=chunk_id,
+        article_id=article_id,
+        chunk_level="paragraph",
+        chunk_index=chunk_index,
+        text=text,
+        title="Cong ty A cong bo nhieu su kien",
+        source="fixture",
+        url=f"fixture://{article_id}",
+        published_at="2026-01-15T08:00:00+07:00",
+        content_hash=f"content_{chunk_id}",
+        chunk_hash=f"hash_{chunk_id}",
+        text_word_count=len(text.split()),
+        tickers_hint=["AAA"],
+        company_names_hint=["Cong ty A"],
+        sector_hints=[],
+        event_keywords=["mua lai"] if event_type_hints == ["MA"] else ["co tuc"],
+        event_type_hints=event_type_hints,
+        event_subtype_hints=[],
+    )
+
+
+def _candidate(chunk_id: str, event_type_hints: list[str], *, rank: int):
+    return RetrievalCandidate(
+        rank=rank,
+        chunk_id=chunk_id,
+        article_id=f"{chunk_id}_article",
+        chunk_level="paragraph",
+        title="Fixture",
+        text=f"{chunk_id} text",
+        source="fixture",
+        url=f"fixture://{chunk_id}",
+        published_at=None,
+        score=1.0 / rank,
+        score_breakdown={},
+        metadata={"event_type_hints": event_type_hints},
+    )
+
+
 def _article() -> dict:
     return {
         "article_id": "cafef_833adef5f3d9",
@@ -155,6 +308,44 @@ def _article() -> dict:
         "event_keywords": ["khoi cong", "mo rong", "nha may moi"],
         "event_type_hints": ["EXPANSION"],
         "event_subtype_hints": ["NEW_FACTORY"],
+        "language": "vi",
+    }
+
+
+def _multi_event_article() -> dict:
+    return {
+        "article_id": "manual_multi_event",
+        "source": "manual",
+        "url": "manual://multi-event",
+        "title": "Cong ty A mua lai doanh nghiep va chia co tuc",
+        "published_at": "2026-01-15T08:00:00+07:00",
+        "text": (
+            "Cong ty A cong bo mua lai mot doanh nghiep trong cung nganh. "
+            "Cong ty cung thong qua phuong an chia co tuc bang tien mat cho co dong."
+        ),
+        "content_hash": "sha256:multi",
+        "tickers_hint": ["AAA"],
+        "company_names_hint": ["Cong ty A"],
+        "sector_hints": [],
+        "event_keywords": ["co tuc", "mua lai"],
+        "event_type_hints": ["DIVIDEND", "MA"],
+        "event_subtype_hints": ["ACQUISITION", "CASH_DIVIDEND"],
+        "event_keyword_matches": [
+            {
+                "event_type": "MA",
+                "event_subtype": "ACQUISITION",
+                "keyword": "mua lai",
+                "polarity_hint": "neutral",
+                "priority": 3,
+            },
+            {
+                "event_type": "DIVIDEND",
+                "event_subtype": "CASH_DIVIDEND",
+                "keyword": "co tuc",
+                "polarity_hint": "positive",
+                "priority": 3,
+            },
+        ],
         "language": "vi",
     }
 

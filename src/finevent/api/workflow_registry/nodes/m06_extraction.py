@@ -19,6 +19,7 @@ from finevent.api.workflow_registry.types import (
     WorkflowNodeSpec,
     WorkflowStep,
 )
+from finevent.retrieval.models import DEFAULT_RETRIEVAL_CONFIGS
 
 embedding_options = [
     {"value": "hash", "label": "hash"},
@@ -33,6 +34,8 @@ article_sources_options = [
     {"value": "tinnhanhchungkhoan", "label": "Tin nhanh CK"},
     {"value": "nhadautu", "label": "Nhà đầu tư"},
 ]
+
+retrieval_config_options = [{"value": name, "label": name} for name in DEFAULT_RETRIEVAL_CONFIGS]
 
 
 def build_steps(context: BuildContext) -> list[WorkflowStep]:
@@ -232,6 +235,24 @@ node_spec = WorkflowNodeSpec(
             key="use_retrieval",
             label="Use retrieval",
             type="checkbox",
+        ),
+        WorkflowFieldSpec(
+            key="retrieval_config",
+            label="Retrieval strategy",
+            type="select",
+            description=(
+                "Chọn multi_event_aware_hybrid khi bài có nhiều event type và cần context đa dạng."
+            ),
+            options=retrieval_config_options,
+        ),
+        WorkflowFieldSpec(
+            key="max_contexts",
+            label="Max contexts",
+            type="number",
+            description="Nên dùng 8-10 khi strategy multi-event được chọn.",
+            min=1.0,
+            max=20.0,
+            step=1.0,
         ),
         WorkflowFieldSpec(
             key="use_patterns",

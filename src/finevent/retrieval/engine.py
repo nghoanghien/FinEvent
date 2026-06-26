@@ -21,6 +21,7 @@ from finevent.retrieval.models import (
     RetrievalConfig,
     RetrievalQuery,
 )
+from finevent.retrieval.selection import select_final_candidates
 from finevent.types import JsonDict, PathLike
 
 GENERIC_MARKET_TERMS = {
@@ -116,7 +117,7 @@ class RetrievalEngine:
                 llm_weight=retrieval_config.llm_weight,
             )
 
-        return candidates[: retrieval_config.top_k_final]
+        return select_final_candidates(candidates, queries, retrieval_config)
 
     def _collect_stage1_scores(
         self,
@@ -145,7 +146,7 @@ class RetrievalEngine:
             normalized_score = result.score / max_score if max_score else 0.0
             state = score_state[result.chunk_id]
             state["bm25_score"] = max(state["bm25_score"], normalized_score * query.weight)
-            state["matched_query_types"].add(query.query_type)
+            _record_query_match(state, query)
 
     def _merge_dense_scores(
         self,
@@ -166,7 +167,7 @@ class RetrievalEngine:
         for chunk_id, score in scored[: config.top_k_stage1]:
             state = score_state[chunk_id]
             state["dense_score"] = max(state["dense_score"], score * query.weight)
-            state["matched_query_types"].add(query.query_type)
+            _record_query_match(state, query)
 
     def _embed_query(self, query: RetrievalQuery) -> list[float]:
         cache_key = f"{self.query_embedding_client.model_name}::{query.text}"
@@ -190,6 +191,7 @@ class RetrievalEngine:
             state = score_state[chunk.chunk_id]
             state["metadata_score"] = max(state["metadata_score"], metadata_score)
             state["rule_score"] = max(state["rule_score"], rule_score)
+            _record_query_match(state, query)
 
     def _candidate_from_scores(
         self,
@@ -209,6 +211,8 @@ class RetrievalEngine:
             + config.rule_weight * rule_score
         )
         matched_query_types = sorted(score_breakdown["matched_query_types"])
+        matched_intent_keys = sorted(score_breakdown["matched_intent_keys"])
+        matched_intent_event_types = sorted(score_breakdown["matched_intent_event_types"])
         breakdown = {
             "dense_score": round(float(score_breakdown["dense_score"]), 6),
             "bm25_score": round(float(score_breakdown["bm25_score"]), 6),
@@ -216,7 +220,10 @@ class RetrievalEngine:
             "recency_score": round(recency_score, 6),
             "rule_score": round(rule_score, 6),
             "matched_query_types": matched_query_types,
+            "matched_intent_keys": matched_intent_keys,
+            "matched_intent_event_types": matched_intent_event_types,
             "retrieval_config": config.name,
+            "query_mode": config.query_mode,
             "query_count": len(queries),
         }
         return RetrievalCandidate(
@@ -270,7 +277,17 @@ def _empty_score_breakdown() -> JsonDict:
         "metadata_score": 0.0,
         "rule_score": 0.0,
         "matched_query_types": set(),
+        "matched_intent_keys": set(),
+        "matched_intent_event_types": set(),
     }
+
+
+def _record_query_match(state: JsonDict, query: RetrievalQuery) -> None:
+    state["matched_query_types"].add(query.query_type)
+    if query.intent_key:
+        state["matched_intent_keys"].add(query.intent_key)
+    if query.intent_event_type:
+        state["matched_intent_event_types"].add(query.intent_event_type.upper())
 
 
 def _metadata_score(query: RetrievalQuery, chunk: ChunkRecord) -> float:

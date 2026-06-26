@@ -12,12 +12,16 @@ class PatternQuery:
     query_id: str
     article_id: str
     text: str
+    query_type: str = "pattern"
     tickers: list[str] = field(default_factory=list)
     company_names: list[str] = field(default_factory=list)
     event_keywords: list[str] = field(default_factory=list)
     event_type_hints: list[str] = field(default_factory=list)
     event_subtype_hints: list[str] = field(default_factory=list)
     document_label_hint: str | None = None
+    intent_key: str | None = None
+    intent_event_type: str | None = None
+    intent_subtype_hints: list[str] = field(default_factory=list)
 
     def to_dict(self) -> JsonDict:
         return asdict(self)
