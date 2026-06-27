@@ -170,6 +170,8 @@ def test_m01_catalog_exposes_sources_reset_and_html_targets() -> None:
     assert fields["articles_path"]["configurable"] is False
     assert fields["input_html_dir"]["configurable"] is False
     assert fields["html_manifest_path"]["configurable"] is False
+    assert fields["min_text_chars"]["label"] == "Số ký tự text tối thiểu"
+    assert "số ký tự sau khi normalize text" in fields["min_text_chars"]["description"]
 
 
 def test_m01_build_command_passes_sources_reset_and_manifest() -> None:
@@ -218,6 +220,24 @@ def test_m01_build_command_rejects_discover_without_sources() -> None:
             },
             run_id="admin_run_test",
         )
+
+
+def test_m02_catalog_defaults_to_strict_validation_and_explains_limits() -> None:
+    catalog = workflow_catalog()
+    m02 = next(item for item in catalog if item["id"] == "m02_labeling")
+    fields = {field["key"]: field for field in m02["fields"]}
+
+    assert m02["default_config"]["strict_validation"] is True
+    assert fields["max_articles"]["label"] == "Số bài teacher xử lý tối đa"
+    assert "retry không tính vào giới hạn" in fields["max_articles"]["description"]
+
+    steps = build_workflow_steps(
+        "milestone_graph",
+        {"selected_nodes": ["m00_runtime", "m01_ingestion", "m02_labeling"]},
+        run_id="admin_run_test",
+    )
+    validate_step = next(step for step in steps if step.step_id == "m02_validate_labels")
+    assert "--strict-validation" in validate_step.command
 
 
 def test_milestone_graph_rejects_missing_dependencies(

@@ -249,6 +249,18 @@ Field có `configurable=false` vẫn được trả trong catalog để UI biế
 type. Chi tiết xem
 [`docs/workflows/retrieval/multi-event-aware-retrieval.md`](../workflows/retrieval/multi-event-aware-retrieval.md).
 
+## M01 Ingestion Controls
+
+`min_text_chars` là số ký tự tối thiểu sau khi normalize text, không phải số từ. HTML parse ra text ngắn hơn ngưỡng này sẽ bị đánh dấu `too_short` trong raw output và không đi vào clean articles.
+
+## M02 Labeling Controls
+
+M02 mặc định chạy full flow: tạo teacher prompts, gọi teacher LLM, validate labels và sync PostgreSQL. `max_articles` là số bài teacher xử lý tối đa: bước generate-prompts tạo tối đa từng đó prompt từ clean articles, bước run-teacher gọi tối đa từng đó prompt. Retry của teacher LLM không tính vào `max_articles`; `teacher_max_retries` chỉ là số lần thử lại cho mỗi prompt đã được chọn.
+
+Các checkbox `generate_prompts`, `run_teacher`, `validate_labels` chủ yếu phục vụ resume/debug. Normal run nên để cả ba bật. Nếu tắt `generate_prompts`, M02 dùng lại `teacher_prompts.jsonl`; nếu tắt `run_teacher`, M02 dùng lại `teacher_outputs.jsonl`; nếu tắt `validate_labels`, M02 không tạo lại gold/rejected labels.
+
+`strict_validation` mặc định bật. Khi bật, chỉ label `PASS` mới vào `events_gold.jsonl`; label có lỗi schema/taxonomy/grounding sẽ vào `events_rejected.jsonl`.
+
 ## Source Controls
 
 M01 mặc định bật `discover_download=true` để chạy ingestion là discover/download bài mới rồi parse local HTML. Field `sources` được build thành nhiều flag `--source`, ví dụ:

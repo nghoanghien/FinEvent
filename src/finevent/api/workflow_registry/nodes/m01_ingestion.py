@@ -164,8 +164,12 @@ node_spec = WorkflowNodeSpec(
         ),
         WorkflowFieldSpec(
             key="min_text_chars",
-            label="Độ dài text tối thiểu",
+            label="Số ký tự text tối thiểu",
             type="number",
+            description=(
+                "Tính bằng số ký tự sau khi normalize text; bài ngắn hơn sẽ bị "
+                "đánh dấu too_short và không vào clean output."
+            ),
             min=0.0,
             step=50.0,
         ),

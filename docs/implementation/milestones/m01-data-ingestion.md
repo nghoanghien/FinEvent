@@ -53,6 +53,8 @@ python -m finevent.ingestion \
   --min-text-chars 20
 ```
 
+`--min-text-chars` tính bằng số ký tự sau khi normalize text, không phải số từ. Bài có text ngắn hơn ngưỡng này sẽ bị đánh dấu `too_short` trong raw output và không được đưa vào `articles_clean.jsonl`.
+
 Nếu đã chuẩn bị `data/raw/url_candidates.jsonl` và đã cài extra ingestion, có thể tải HTML trước rồi parse:
 
 ```bash

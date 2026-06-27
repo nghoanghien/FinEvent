@@ -275,8 +275,11 @@ M01 expose thêm:
 
 - `discover_download`: mặc định `true` để M01 discover/download bài mới khi chạy;
 - `sources`: multi-select nguồn crawl cho `Discover + download`;
+- `min_text_chars`: số ký tự text tối thiểu sau normalize, không phải số từ;
 - `reset_html_snapshots`: checkbox xóa local HTML snapshots và manifest trước khi chạy M01;
 - `articles_path`, `input_html_dir`, `html_manifest_path`: field `configurable=false` để UI biết target local nhưng không đưa các path chuẩn này vào form cấu hình nhanh.
+
+M02 expose `max_articles` là số bài teacher xử lý tối đa, không bao gồm retry. `strict_validation` mặc định `true` để chỉ label `PASS` đi vào gold set; các checkbox generate/call/validate chủ yếu phục vụ resume/debug.
 
 M06 expose `retrieval_config`, `max_contexts` và `pattern_count` từ backend catalog. Strategy
 `multi_event_aware_hybrid` được mô tả tại

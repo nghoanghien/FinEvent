@@ -94,7 +94,7 @@ def build_steps(context: BuildContext) -> list[WorkflowStep]:
             "--report-path",
             str_config(config, "labeling_report_path", "reports/data/labeling_summary.md"),
         ]
-        if bool_config(config, "strict_validation", False):
+        if bool_config(config, "strict_validation", True):
             command.append("--strict-validation")
         steps.append(
             WorkflowStep(
@@ -149,15 +149,19 @@ node_spec = WorkflowNodeSpec(
         "teacher_output_path": "data/labels/teacher_outputs.jsonl",
         "teacher_max_retries": 2,
         "teacher_retry_sleep_seconds": 2.0,
-        "strict_validation": False,
+        "strict_validation": True,
     },
     expected_artifacts=("data/labels/events_gold.jsonl", "reports/data/labeling_summary.md"),
     build_steps=build_steps,
     fields=(
         WorkflowFieldSpec(
             key="max_articles",
-            label="Số prompt/label",
+            label="Số bài teacher xử lý tối đa",
             type="number",
+            description=(
+                "Giới hạn số bài tạo prompt và số prompt gọi teacher; retry không "
+                "tính vào giới hạn này."
+            ),
             min=1.0,
             max=500.0,
             step=1.0,
@@ -184,6 +188,7 @@ node_spec = WorkflowNodeSpec(
             key="teacher_max_retries",
             label="Teacher max retries",
             type="number",
+            description="Số lần thử lại cho mỗi prompt khi teacher LLM lỗi.",
             min=0.0,
             max=10.0,
             step=1.0,
@@ -192,21 +197,28 @@ node_spec = WorkflowNodeSpec(
             key="generate_prompts",
             label="Generate prompts",
             type="checkbox",
+            description="Tạo teacher_prompts.jsonl từ clean articles.",
         ),
         WorkflowFieldSpec(
             key="run_teacher",
             label="Call teacher LLM",
             type="checkbox",
+            description="Gọi teacher LLM trên prompt đã tạo để sinh raw outputs.",
         ),
         WorkflowFieldSpec(
             key="validate_labels",
             label="Validate labels",
             type="checkbox",
+            description=(
+                "Parse teacher outputs, validate schema/taxonomy và tạo "
+                "gold/rejected labels."
+            ),
         ),
         WorkflowFieldSpec(
             key="strict_validation",
             label="Strict validation",
             type="checkbox",
+            description="Chỉ đưa label PASS vào gold; label có lỗi sẽ vào rejected.",
         ),
         WorkflowFieldSpec(
             key="sync_postgres",
