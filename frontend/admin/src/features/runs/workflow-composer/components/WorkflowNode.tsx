@@ -98,12 +98,12 @@ export function WorkflowNode({ data }: { data: WorkflowNodeData }) {
       onClick={handleCardClick}
       style={{ cursor: isBlocked ? "not-allowed" : "pointer" }}
       className={[
-        "relative flex flex-col justify-between rounded-[28px] border-4 p-4 text-left transition-all duration-300 w-[190px] min-h-[120px] select-none shadow-sm group",
+        "relative flex flex-col justify-between rounded-[28px] border-4 p-4 text-left transition-all duration-300 w-[190px] min-h-[120px] select-none group",
         isSelected
           ? "border-lime-200 bg-lime-50/90 shadow-md ring-1 ring-lime-500/10"
           : isBlocked
-            ? "border-gray-200/70 bg-gray-50"
-            : "border-gray-200/80 bg-white hover:border-gray-300 hover:bg-gray-50/50 hover:shadow-md",
+            ? "border-gray-200/70 bg-gray-50 shadow-sm"
+            : "border-gray-200/80 bg-white shadow-md hover:border-gray-300 hover:bg-gray-50/50 hover:shadow-lg",
         isActive && isSelected ? "ring-2 ring-primary ring-offset-2" : "",
       ].join(" ")}
     >
