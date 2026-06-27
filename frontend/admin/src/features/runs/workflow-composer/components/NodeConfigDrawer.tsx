@@ -42,7 +42,7 @@ export function NodeConfigDrawer({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed bottom-0 right-0 top-0 z-[90] flex h-full w-full max-w-md flex-col rounded-l-[32px] border-l border-slate-200 bg-white/95 shadow-2xl backdrop-blur-md !mt-0"
+            className="fixed bottom-0 right-0 top-0 z-[90] flex h-full w-full max-w-lg flex-col rounded-l-[32px] border-l border-slate-200 bg-white/95 shadow-2xl backdrop-blur-md !mt-0"
           >
             {/* Header inside drawer */}
             <div className="flex items-center justify-between border-b border-slate-100 p-6">
