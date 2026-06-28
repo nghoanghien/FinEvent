@@ -16,6 +16,7 @@ class RetrievalSyncResult:
     article_count: int
     chunk_count: int
     embedding_count: int
+    chunk_pattern_count: int
 
 
 def sync_retrieval_artifacts(
@@ -24,10 +25,12 @@ def sync_retrieval_artifacts(
     articles_path: PathLike = "data/processed/articles_clean.jsonl",
     chunks_path: PathLike = "data/processed/chunks.jsonl",
     embeddings_path: PathLike = "data/retrieval/chunk_embeddings.jsonl",
+    chunk_patterns_path: PathLike = "data/processed/chunk_patterns.jsonl",
 ) -> RetrievalSyncResult:
     articles = read_jsonl(articles_path)
     chunks = chunks_from_jsonl(chunks_path)
     embeddings = read_jsonl(embeddings_path)
+    chunk_patterns = read_jsonl(chunk_patterns_path) if _path_exists(chunk_patterns_path) else []
     articles_by_id = {str(article["article_id"]): article for article in articles}
     chunk_article_ids = {chunk.article_id for chunk in chunks}
     sql = _sqlalchemy_text()
@@ -43,11 +46,13 @@ def sync_retrieval_artifacts(
         for embedding in embeddings:
             if embedding.get("status") == "success":
                 _upsert_embedding(connection, sql, embedding)
+        _replace_chunk_patterns(connection, sql, chunk_patterns)
 
     return RetrievalSyncResult(
         article_count=len(chunk_article_ids),
         chunk_count=len(chunks),
         embedding_count=sum(1 for record in embeddings if record.get("status") == "success"),
+        chunk_pattern_count=len(chunk_patterns),
     )
 
 
@@ -146,6 +151,7 @@ def _upsert_chunk(connection: Any, sql: Any, chunk: JsonDict) -> None:
                 event_keywords,
                 event_type_hints,
                 event_subtype_hints,
+                pattern_refs,
                 paragraph_start,
                 paragraph_end,
                 metadata,
@@ -172,6 +178,7 @@ def _upsert_chunk(connection: Any, sql: Any, chunk: JsonDict) -> None:
                 CAST(:event_keywords AS JSONB),
                 CAST(:event_type_hints AS JSONB),
                 CAST(:event_subtype_hints AS JSONB),
+                CAST(:pattern_refs AS JSONB),
                 :paragraph_start,
                 :paragraph_end,
                 CAST(:metadata AS JSONB),
@@ -194,6 +201,7 @@ def _upsert_chunk(connection: Any, sql: Any, chunk: JsonDict) -> None:
                 event_keywords = EXCLUDED.event_keywords,
                 event_type_hints = EXCLUDED.event_type_hints,
                 event_subtype_hints = EXCLUDED.event_subtype_hints,
+                pattern_refs = EXCLUDED.pattern_refs,
                 paragraph_start = EXCLUDED.paragraph_start,
                 paragraph_end = EXCLUDED.paragraph_end,
                 metadata = EXCLUDED.metadata,
@@ -221,6 +229,7 @@ def _upsert_chunk(connection: Any, sql: Any, chunk: JsonDict) -> None:
             "event_keywords": _json(chunk.get("event_keywords", [])),
             "event_type_hints": _json(chunk.get("event_type_hints", [])),
             "event_subtype_hints": _json(chunk.get("event_subtype_hints", [])),
+            "pattern_refs": _json(chunk.get("pattern_refs", [])),
             "paragraph_start": chunk.get("paragraph_start"),
             "paragraph_end": chunk.get("paragraph_end"),
             "metadata": _json(chunk.get("metadata", {})),
@@ -284,6 +293,67 @@ def _upsert_embedding(connection: Any, sql: Any, embedding: JsonDict) -> None:
     )
 
 
+def _replace_chunk_patterns(connection: Any, sql: Any, mappings: list[JsonDict]) -> None:
+    connection.execute(sql("DELETE FROM financial_news_chunk_patterns"))
+    for mapping in mappings:
+        connection.execute(
+            sql(
+                """
+                INSERT INTO financial_news_chunk_patterns (
+                    chunk_id,
+                    article_id,
+                    pattern_id,
+                    event_id,
+                    event_type,
+                    event_subtype,
+                    pattern_kind,
+                    document_label,
+                    match_strategy,
+                    match_score,
+                    pattern_ref
+                )
+                VALUES (
+                    :chunk_id,
+                    :article_id,
+                    :pattern_id,
+                    :event_id,
+                    :event_type,
+                    :event_subtype,
+                    :pattern_kind,
+                    :document_label,
+                    :match_strategy,
+                    :match_score,
+                    CAST(:pattern_ref AS JSONB)
+                )
+                ON CONFLICT (chunk_id, pattern_id)
+                DO UPDATE SET
+                    article_id = EXCLUDED.article_id,
+                    event_id = EXCLUDED.event_id,
+                    event_type = EXCLUDED.event_type,
+                    event_subtype = EXCLUDED.event_subtype,
+                    pattern_kind = EXCLUDED.pattern_kind,
+                    document_label = EXCLUDED.document_label,
+                    match_strategy = EXCLUDED.match_strategy,
+                    match_score = EXCLUDED.match_score,
+                    pattern_ref = EXCLUDED.pattern_ref
+                """
+            ),
+            {
+                "chunk_id": mapping["chunk_id"],
+                "article_id": mapping["article_id"],
+                "pattern_id": mapping["pattern_id"],
+                "event_id": mapping.get("event_id"),
+                "event_type": mapping.get("event_type"),
+                "event_subtype": mapping.get("event_subtype"),
+                "pattern_kind": mapping.get("pattern_kind"),
+                "document_label": mapping.get("document_label"),
+                "match_strategy": mapping.get("match_strategy"),
+                "match_score": mapping.get("match_score") or 0.0,
+                "pattern_ref": _json(mapping),
+            },
+        )
+
+
 def _pgvector_literal(vector: list[float]) -> str:
     return "[" + ",".join(str(float(value)) for value in vector) + "]"
 
@@ -298,3 +368,9 @@ def _sqlalchemy_text() -> Any:
     except ImportError as exc:
         raise RuntimeError("SQLAlchemy is required for PostgreSQL retrieval sync.") from exc
     return text
+
+
+def _path_exists(path: PathLike) -> bool:
+    from pathlib import Path
+
+    return Path(path).exists()

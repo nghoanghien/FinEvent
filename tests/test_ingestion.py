@@ -199,9 +199,9 @@ def test_fetch_url_candidates_prefers_detected_vietnamese_encoding() -> None:
         url="https://example.com/vietnamese.html",
         source="example",
     )
-    html = "<html><body>Doanh nghiệp tăng vốn</body></html>"
+    html = "<html><body>Doanh nghi\u1ec7p t\u0103ng v\u1ed1n</body></html>"
     response = FakeResponse(
-        text="<html><body>Doanh nghiá»‡p tÄƒng vá»‘n</body></html>",
+        text=html.encode("utf-8").decode("ISO-8859-1"),
         content=html.encode("utf-8"),
         encoding="ISO-8859-1",
         apparent_encoding="utf-8",

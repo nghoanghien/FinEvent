@@ -88,7 +88,7 @@ export function TableToolbar({
           <button
             type="button"
             onClick={onRefresh}
-            className="eatzy-icon-button"
+            className="finevent-icon-button"
             title="Refresh"
           >
             <RefreshCw className={`h-5 w-5 ${isRefreshing ? "animate-spin" : ""}`} />

@@ -148,7 +148,7 @@ export function RunConfirmModal({
                 type="button"
                 disabled={isPending}
                 onClick={onConfirm}
-                className="focus-ring eatzy-primary-button h-11 px-6 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                className="focus-ring finevent-primary-button h-11 px-6 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Play className="h-4 w-4" />
                 {isPending ? "Đang chạy..." : "Khởi chạy"}

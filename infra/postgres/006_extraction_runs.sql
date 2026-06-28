@@ -1,3 +1,28 @@
+CREATE TABLE IF NOT EXISTS retrieval_runs (
+    retrieval_run_id TEXT PRIMARY KEY,
+    article_id TEXT,
+    retrieval_config TEXT NOT NULL,
+    query_plan JSONB NOT NULL DEFAULT '[]'::jsonb,
+    metrics JSONB NOT NULL DEFAULT '{}'::jsonb,
+    warnings JSONB NOT NULL DEFAULT '[]'::jsonb,
+    source_path TEXT,
+    output_path TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS retrieval_run_contexts (
+    retrieval_run_id TEXT NOT NULL REFERENCES retrieval_runs(retrieval_run_id) ON DELETE CASCADE,
+    rank INTEGER NOT NULL,
+    chunk_id TEXT NOT NULL,
+    article_id TEXT NOT NULL,
+    score DOUBLE PRECISION NOT NULL DEFAULT 0,
+    score_breakdown JSONB NOT NULL DEFAULT '{}'::jsonb,
+    context JSONB NOT NULL DEFAULT '{}'::jsonb,
+    pattern_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (retrieval_run_id, rank)
+);
+
 CREATE TABLE IF NOT EXISTS extraction_runs (
     run_id TEXT PRIMARY KEY,
     article_id TEXT,
@@ -7,6 +32,8 @@ CREATE TABLE IF NOT EXISTS extraction_runs (
     prompt_version TEXT NOT NULL,
     retrieval_config TEXT,
     pattern_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+    retrieval_run_id TEXT,
+    context_chunk_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
     draft_output JSONB NOT NULL DEFAULT '{}'::jsonb,
     final_output JSONB NOT NULL DEFAULT '{}'::jsonb,
     validation_issues JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -18,6 +45,17 @@ CREATE TABLE IF NOT EXISTS extraction_runs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     completed_at TIMESTAMPTZ
 );
+
+CREATE INDEX IF NOT EXISTS idx_retrieval_runs_article_id
+    ON retrieval_runs(article_id);
+CREATE INDEX IF NOT EXISTS idx_retrieval_runs_config
+    ON retrieval_runs(retrieval_config);
+CREATE INDEX IF NOT EXISTS idx_retrieval_runs_created_at
+    ON retrieval_runs(created_at);
+CREATE INDEX IF NOT EXISTS idx_retrieval_run_contexts_run_id
+    ON retrieval_run_contexts(retrieval_run_id);
+CREATE INDEX IF NOT EXISTS idx_retrieval_run_contexts_chunk_id
+    ON retrieval_run_contexts(chunk_id);
 
 CREATE TABLE IF NOT EXISTS extraction_node_traces (
     trace_id BIGSERIAL PRIMARY KEY,

@@ -1,308 +1,68 @@
-# M05: Pattern Library
+# M05: Node Pattern Đã Ngừng Dùng
 
-## Mục tiêu
+M05 không còn là workflow node đang hoạt động.
 
-M05 tạo thư viện pattern/few-shot examples từ `events_gold.jsonl` để hỗ trợ workflow
-sinh bảng sự kiện ở các milestone sau. Gold labels ở đây là nhãn do AI teacher sinh ra
-và đã qua auto validation từ M02; project không có bước human review lại nhãn. Nếu
-record pass validation tự động thì được chấp nhận làm gold label cho pattern library.
+Thiết kế cũ embed event patterns riêng và chọn pattern bằng cosine similarity trong
+lúc extraction. Luồng đó đã bị bỏ vì tạo hai kênh retrieval độc lập: một kênh cho
+chunks và một kênh cho patterns. Thiết kế hiện tại giữ retrieval grounded trên article
+chunks.
 
-Mục tiêu kỹ thuật:
+Hành vi hiện tại:
 
-- Chuyển mỗi gold event thành một pattern có `input_excerpt`, `gold_output`,
-  `event_type`, `event_subtype`, `evidence_span`, `event_arguments`.
-- Tạo pattern riêng cho `NO_EVENT` để giảm false positive khi bài viết chỉ là nhận định
-  thị trường chung.
-- Embed `pattern_text` và lưu artifact JSONL có thể sync lên PostgreSQL + pgvector.
-- Chọn top pattern theo dense similarity, metadata overlap và rule/diversity rerank.
-- Render selected patterns thành few-shot prompt block dùng được cho LLM extraction.
+- M03 build `data/patterns/patterns.jsonl` từ strict gold labels.
+- M03 gắn mỗi pattern vào chunk phù hợp và ghi `data/processed/chunk_patterns.jsonl`.
+- `financial_news_chunks.pattern_refs` và `financial_news_chunk_patterns` lưu mapping chunk-pattern.
+- M04 retrieve chunks và mang `pattern_refs` theo từng retrieval context.
+- M06 dùng M04 contexts; M06 không chạy vector search riêng hoặc node chọn pattern riêng.
 
-## Input
+Baseline hiện tại không có artifact vector riêng cho patterns và không có bảng DB
+vector riêng cho patterns.
 
-```text
-data/processed/articles_clean.jsonl
-data/labels/events_gold.jsonl
-data/schema/event_taxonomy_v1.json
-```
+## Lý Do Ngừng Node M05
 
-## Output
+M05 cũ làm một việc nghe hợp lý nhưng không phù hợp với flow hiện tại: embed patterns
+riêng rồi retrieve patterns bằng cosine similarity khi extraction. Vấn đề là pattern
+không phải evidence. Pattern chỉ là ví dụ/record được rút ra từ gold label. Nếu chọn
+pattern bằng similarity riêng, prompt có thể nhận một pattern tốt về mặt ngữ nghĩa
+nhưng không gắn với chunk evidence mà M04 đã retrieve.
 
-Runtime artifacts:
-
-```text
-data/patterns/patterns.jsonl
-data/patterns/patterns_rejected.jsonl
-data/patterns/pattern_embeddings.jsonl
-data/patterns/pattern_embedding_cache.jsonl
-reports/evaluation/pattern_metrics.csv
-reports/evaluation/pattern_library_summary.md
-```
-
-Version-controlled files:
+Thiết kế hiện tại buộc pattern đi qua chunk:
 
 ```text
-src/finevent/patterns/
-infra/postgres/005_event_patterns.sql
-tests/test_pattern_library.py
+gold label -> pattern record -> matching chunk -> retrieved context -> M06 prompt
 ```
 
-## Công nghệ
+Như vậy nếu prompt dùng pattern nào thì cũng biết pattern đó đến từ context chunk nào.
 
-| Thành phần | Công nghệ | Vai trò |
+## Artifact Hiện Tại
+
+| Artifact | Sinh ở đâu | Vai trò |
 | --- | --- | --- |
-| Pattern build | Python dataclass + JSONL | Biến gold labels thành pattern records để test offline, debug và sync DB |
-| Auto validation | Taxonomy loader `data/schema/event_taxonomy_v1.json` | Đảm bảo event type/subtype hợp lệ, `HAS_EVENT` có evidence, `NO_EVENT` có `events=[]` |
-| Embedding offline | `HashEmbeddingClient` | Baseline deterministic cho smoke test, CI/local test không cần network |
-| Embedding production | Cloudflare Workers AI qua client M03 | Dùng cùng model embedding với retrieval khi chạy thật |
-| Pattern store | In-memory `PatternStore` | Chọn few-shot patterns bằng dense + metadata + rule score |
-| Storage dài hạn | PostgreSQL + pgvector | Lưu `event_patterns` và `event_pattern_embeddings` để phục vụ app/API lâu dài |
-| CLI | `python -m finevent.patterns` | Chạy build, search, render few-shot, sync PostgreSQL độc lập |
-| Testing | pytest + ruff | Kiểm chứng build, embedding cache, selection, prompt rendering và pipeline artifact |
+| `data/patterns/patterns.jsonl` | M03 | Pattern records hợp lệ từ gold labels |
+| `data/patterns/patterns_rejected.jsonl` | M03 | Pattern bị reject vì thiếu evidence hoặc lỗi validation |
+| `data/processed/chunk_patterns.jsonl` | M03 | Mapping chunk-pattern |
+| `data/processed/chunks.jsonl` | M03 | Chunk records đã có `pattern_refs` |
 
-## Cấu trúc pattern
+M05 không còn sinh artifact riêng. Tài liệu này chỉ giữ lại để giải thích quyết định
+kiến trúc và tránh hiểu nhầm vì tên milestone M05 từng tồn tại.
 
-Một pattern hợp lệ gồm các trường chính:
+## DB Hiện Tại
 
-```json
-{
-  "pattern_id": "pattern_...",
-  "article_id": "...",
-  "document_label": "HAS_EVENT",
-  "pattern_kind": "event",
-  "event_type": "EXPANSION",
-  "event_subtype": "NEW_FACTORY",
-  "ticker": "HPG",
-  "company_name": "Hoa Phat Group",
-  "impact_sentiment": "POSITIVE",
-  "input_excerpt": "...",
-  "gold_output": {
-    "document_label": "HAS_EVENT",
-    "events": []
-  },
-  "pattern_text": "...",
-  "evidence_span": "...",
-  "event_arguments": {},
-  "explanation_brief": "...",
-  "teacher_model": "fixture_teacher",
-  "teacher_prompt_version": "m02_teacher_v1",
-  "auto_validation_status": "PASS",
-  "validation_errors": []
-}
-```
-
-`pattern_text` không embed toàn bộ bài báo. Nó gồm các phần có giá trị cho few-shot:
-
-```text
-Document label
-Title/source
-Ticker/company
-Event type/subtype
-Impact sentiment
-Evidence
-Summary
-Arguments
-```
-
-## Workflow build
-
-1. Đọc `articles_clean.jsonl` và `events_gold.jsonl`.
-2. Map article theo `article_id`.
-3. Với `HAS_EVENT`, tạo một pattern cho từng event trong label.
-4. Với `NO_EVENT`, tạo một pattern không có event để dạy model khi nào không nên sinh bảng.
-5. Validate pattern bằng taxonomy:
-   - `event_type` phải nằm trong taxonomy.
-   - `event_subtype` phải hợp lệ với `event_type`.
-   - `HAS_EVENT` phải có `evidence_span`.
-   - `NO_EVENT` phải có `events=[]`.
-6. Ghi pattern hợp lệ vào `data/patterns/patterns.jsonl`.
-7. Ghi pattern lỗi vào `data/patterns/patterns_rejected.jsonl`.
-8. Embed pattern hợp lệ và cache theo `embedding_model + pattern_hash`.
-9. Đánh giá pattern selection và ghi metrics.
-
-## Workflow search và few-shot selection
-
-Khi workflow extraction cần lấy ví dụ mẫu, M05 chạy:
-
-1. Tạo `PatternQuery` từ bài báo mới hoặc raw query:
-   - title/text preview.
-   - ticker hints.
-   - company hints.
-   - event keywords.
-   - event type/subtype hints.
-2. Embed query text bằng cùng embedding family với pattern store.
-3. Tính điểm cho từng pattern:
-   - `dense_score`: cosine similarity trên vector.
-   - `metadata_score`: ticker/company/event type/event subtype/keyword overlap.
-   - `rule_score`: boost `HAS_EVENT` nếu query có tín hiệu sự kiện, boost `NO_EVENT`
-     nếu query chung chung.
-4. Tính final score:
-
-```text
-score = 0.60 * dense_score + 0.30 * metadata_score + 0.10 * rule_score
-```
-
-5. Diversity rerank:
-   - mặc định top 3 pattern.
-   - tối đa top 5 pattern.
-   - giới hạn số pattern cùng `event_type` để prompt không bị lệch về một class.
-   - với `selection_strategy="coverage"`, chọn pattern tốt nhất cho từng event type
-     đã detect trước, rồi mới fill slot còn lại bằng score.
-6. Render few-shot block:
-   - input excerpt.
-   - expected output JSON.
-   - explanation brief.
-   - cảnh báo LLM không được copy factual value nếu input mới không có evidence.
-
-### Multi-event pattern selection
-
-M05 giữ API cũ `select_patterns(query, ...)` cho legacy flow. Để đồng bộ với
-`multi_event_aware_hybrid`, `PatternStore` có thêm `select_patterns_for_queries(...)`.
-
-Flow mới:
-
-1. `build_pattern_queries_from_article(article, query_mode="event_intent")` tạo query
-   tổng hợp và query riêng cho từng event type trong `event_type_hints`.
-2. Mỗi query lấy candidate từ cùng pattern library.
-3. Selector `coverage` ưu tiên cover event type chưa có pattern đại diện.
-4. Nếu thiếu pattern cho event type phụ, hệ thống fill bằng pattern có score cao nhất còn lại.
-
-Chi tiết chung với chunk retrieval nằm ở
-[`docs/workflows/retrieval/multi-event-aware-retrieval.md`](../../workflows/retrieval/multi-event-aware-retrieval.md).
-
-## PostgreSQL schema
-
-Migration:
-
-```text
-infra/postgres/005_event_patterns.sql
-```
-
-Bảng chính:
-
-- `event_patterns`: lưu pattern text, gold output, metadata, taxonomy label và validation status.
-- `event_pattern_embeddings`: lưu vector embedding theo `pattern_id + embedding_model`.
-
-Index quan trọng:
-
-- `event_type`
-- `event_subtype`
-- `ticker`
-- `document_label`
-- GIN index cho `gold_output` và `metadata`
-
-## CLI
-
-Build pattern library:
-
-```powershell
-$env:PYTHONPATH='src'
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.patterns build `
-  --articles-path data\processed\articles_clean.jsonl `
-  --gold-path data\labels\events_gold.jsonl `
-  --embedding-dimension 128
-```
-
-Search pattern:
-
-```powershell
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.patterns search `
-  --query "HPG khoi cong nha may moi mo rong san xuat" `
-  --ticker HPG `
-  --event-type EXPANSION `
-  --top-k 3
-```
-
-Query article với multi-event pattern coverage:
-
-```powershell
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.patterns query-article `
-  --articles-path data\processed\articles_clean.jsonl `
-  --article-id cafef_833adef5f3d9 `
-  --query-mode event_intent `
-  --selection-strategy coverage `
-  --top-k 3
-```
-
-Nếu `patterns.jsonl` được embed bằng Cloudflare, search/render cũng phải dùng cùng
-embedding provider:
-
-```powershell
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.patterns search `
-  --query "HPG khoi cong nha may moi mo rong san xuat" `
-  --ticker HPG `
-  --event-type EXPANSION `
-  --query-embedding-provider cloudflare `
-  --query-embedding-model "@cf/baai/bge-m3" `
-  --query-embedding-dimension 1024
-```
-
-Render few-shot prompt:
-
-```powershell
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.patterns render-few-shot `
-  --query "HPG khoi cong nha may moi mo rong san xuat" `
-  --ticker HPG `
-  --event-type EXPANSION `
-  --top-k 3
-```
-
-Sync PostgreSQL:
-
-```powershell
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.patterns sync-postgres
-```
-
-## Metrics
-
-`reports/evaluation/pattern_metrics.csv` hiện có các metric:
-
-| Metric | Ý nghĩa |
+| Bảng/cột | Nội dung |
 | --- | --- |
-| `pattern_count` | Số pattern hợp lệ được đưa vào library |
-| `event_pattern_count` | Số pattern có sự kiện |
-| `no_event_pattern_count` | Số pattern `NO_EVENT` |
-| `event_type_coverage` | Số event type có pattern đại diện |
-| `event_subtype_coverage` | Số event subtype có pattern đại diện |
-| `avg_selected_patterns` | Số pattern trung bình được trả về khi search |
-| `mrr` | Rank của pattern đúng trong self-query smoke evaluation |
-| `same_type_recall_at_3/5` | Top K có pattern cùng event type hay không |
-| `same_subtype_recall_at_3/5` | Top K có pattern cùng event subtype hay không |
+| `event_patterns` | Pattern records từ gold labels |
+| `financial_news_chunks.pattern_refs` | Pattern refs gắn trực tiếp trên chunk |
+| `financial_news_chunk_patterns` | Mapping normalized giữa chunk và pattern |
 
-## Test
+Không có bảng vector riêng cho patterns trong baseline hiện tại.
 
-```powershell
-$env:PYTHONPATH='src'
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m pytest tests\test_pattern_library.py
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m ruff check src\finevent\patterns tests\test_pattern_library.py
-```
+## Tác Động Đến Graph
 
-Test coverage M05:
+- Frontend không còn node `m05_patterns`.
+- Backend registry không import `m05_patterns`.
+- M03 phụ thuộc M02 để lấy gold labels và build patterns.
+- M04 phụ thuộc M03 vì cần chunks đã có `pattern_refs`.
+- M06 phụ thuộc M04 vì chỉ lấy matched patterns thông qua retrieval contexts.
 
-- Build pattern từ AI gold labels, không human review.
-- Build cả `HAS_EVENT` và `NO_EVENT`.
-- Embedding cache reuse theo `pattern_hash`.
-- Pattern selection trả về đúng event type/ticker.
-- Pattern event-intent query tách keyword theo từng event type detected.
-- Coverage selector giữ pattern cho event phụ khi một event type áp đảo candidate pool.
-- Render few-shot có input excerpt và expected JSON.
-- Full pipeline ghi đủ artifact và metric.
-
-## Done Criteria
-
-- `python -m finevent.patterns build` chạy thành công.
-- `data/patterns/patterns.jsonl` có pattern hợp lệ.
-- `data/patterns/pattern_embeddings.jsonl` có embedding tương ứng.
-- `reports/evaluation/pattern_metrics.csv` có metric aggregate.
-- `python -m finevent.patterns search` trả về pattern phù hợp.
-- `python -m finevent.patterns render-few-shot` render prompt block đúng format.
-- `pytest` và scoped `ruff` pass.
-
-## Ghi chú mở rộng
-
-Khi dataset lớn hơn, cần bổ sung:
-
-- Ít nhất 50 pattern pass validation.
-- Pattern cho tối thiểu 6 event type.
-- Pattern cho các class hiếm như `LEGAL_RISK`, `DEBT_CREDIT`, `MARKET_LISTING`.
-- Thực nghiệm few-shot lift: zero-shot extraction vs pattern-augmented extraction.
-- Ablation: dense only vs metadata-aware vs diversity rerank.
+Nếu sau này cần thêm pattern analytics, nên thêm vào M03/M08 hoặc report riêng, không
+khôi phục một retrieval channel độc lập cho patterns.

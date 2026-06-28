@@ -14,7 +14,14 @@ from finevent.ingestion.text import normalize_text
 from finevent.schema.taxonomy import EventTaxonomy, load_event_taxonomy
 from finevent.types import JsonDict
 
-TOP_LEVEL_KEYS = {"article_id", "document_label", "events", "warnings", "model_info"}
+TOP_LEVEL_KEYS = {
+    "article_id",
+    "document_label",
+    "label_reason",
+    "events",
+    "warnings",
+    "model_info",
+}
 EVENT_KEYS = {
     "event_id",
     "ticker",
@@ -22,6 +29,7 @@ EVENT_KEYS = {
     "event_type",
     "event_subtype",
     "event_summary",
+    "event_reason",
     "event_arguments",
     "impact_sentiment",
     "evidence_span",
@@ -131,6 +139,7 @@ def validate_label_document(
                 f"document_label must be one of {sorted(taxonomy.document_labels)}.",
             )
         )
+    _check_required_string(normalized, "label_reason", "$", issues)
 
     events = normalized.get("events")
     if not isinstance(events, list):
@@ -308,6 +317,7 @@ def _validate_event(
     _check_nullable_string(event, "ticker", path, issues)
     _check_nullable_string(event, "company_name", path, issues)
     _check_required_string(event, "event_summary", path, issues)
+    _check_required_string(event, "event_reason", path, issues)
     _check_required_string(event, "evidence_span", path, issues)
     _check_required_string(event, "source_url", path, issues)
     _check_nullable_string(event, "published_at", path, issues)

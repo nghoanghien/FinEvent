@@ -101,7 +101,7 @@ Ví dụ các config ablation:
 | `dense_only` | Chỉ semantic retrieval |
 | `hybrid` | BM25 + dense retrieval |
 | `hybrid_rerank` | Hybrid + reranking |
-| `hybrid_patterns` | Hybrid + pattern library |
+| `hybrid_context_patterns` | Hybrid retrieval + chunk-attached pattern refs |
 | `workflow_full` | Retrieval + rerank + patterns + verification |
 
 Mỗi prediction record cần có `config_name` để M08 nhóm metric.

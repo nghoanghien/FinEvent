@@ -1,134 +1,176 @@
-# M04: Retrieval and Reranking Experiments
+# M04: Retrieval Online Và Reranking
 
-## Mục tiêu
+M04 tạo retrieval contexts cho online extraction. Nó dùng artifacts offline từ M03 và
+ghi context records sẵn sàng cho M06. M04 không còn chỉ là bước so sánh strategy
+riêng lẻ; nhiệm vụ chính trong graph là tạo context pack chính thức cho M06. Luồng
+so sánh nhiều retrieval recipe vẫn còn qua command `finevent.retrieval compare`, còn
+M06 không còn tự retrieve chunk nữa.
 
-Milestone này xây dựng lớp retrieval/reranking trên artifacts của M03 để chọn context tốt nhất cho extraction. Trọng tâm là Advanced RAG cho bài toán NLP trích xuất sự kiện:
+## Vai Trò Trong Project
 
-- Không chỉ semantic search.
-- Có BM25 lexical retrieval.
-- Có dense retrieval từ embedding artifacts.
-- Có hybrid scoring.
-- Có metadata-aware scoring.
-- Có rule-aware rerank.
-- Có LLM reasoning rerank prompt/scaffold.
-- Có retrieval logs và metrics định lượng.
+M03 là bước chuẩn bị offline: chunks, embeddings, BM25 index và `pattern_refs` gắn
+trên chunk.
 
-## Vai trò trong project
+M04 là lớp online retrieval:
 
-M04 là bước quyết định chất lượng context trước khi đưa vào model 8B ở M06:
+1. Load clean articles.
+2. Build retrieval queries riêng cho từng article.
+3. Retrieve candidate chunks từ BM25/dense/hybrid signals.
+4. Rerank và chọn final context pack.
+5. Mang `pattern_refs` của từng chunk vào context metadata.
+6. Ghi retrieval contexts, logs và metrics.
 
-- Nếu retrieval sai, extraction có thể sinh bảng đúng format nhưng sai evidence.
-- Nếu retrieval chỉ dựa dense search, hệ thống dễ lấy bài giống chủ đề nhưng khác sự kiện.
-- Nếu retrieval chỉ dựa keyword, hệ thống dễ bỏ sót cách diễn đạt khác.
-- Vì vậy M04 so sánh nhiều strategy và ghi rõ score breakdown để biết thành phần nào thật sự giúp tăng độ chính xác.
+M06 đọc output của M04 và tập trung vào extraction/verification. Cách tách này giúp
+retrieval và extraction có thể test riêng.
+
+## Vì Sao M04 Được Gộp Thành Online Retrieval
+
+Trước đây retrieval xuất hiện ở hai nơi: M04 đánh giá strategy, còn M06 lại có logic
+retrieve riêng trong extraction workflow. Cách đó gây ra ba vấn đề:
+
+- metric ở M04 không chắc phản ánh đúng context mà M06 thật sự dùng;
+- khó debug vì retrieval logs và extraction traces có thể lệch nhau;
+- pattern selection dễ bị tách khỏi chunk evidence.
+
+Thiết kế hiện tại đưa retrieval runtime về M04. M04 sinh context pack chính thức,
+M06 chỉ tiêu thụ context pack đó. Nhờ vậy:
+
+- retrieval quality được đo đúng trên artifact sẽ đi vào extraction;
+- M06 prompt trace có thể truy ngược `retrieval_run_id` và `context_chunk_ids`;
+- `multi_event_aware_hybrid` được đánh giá ở retrieval stage, không bị trộn mơ hồ
+  trong extraction stage.
 
 ## Input
 
 ```text
+data/processed/articles_clean.jsonl
 data/processed/chunks.jsonl
 data/retrieval/bm25_index.pkl
 data/retrieval/chunk_embeddings.jsonl
 data/labels/events_gold.jsonl
 ```
 
-Các input này được tạo từ:
-
-- M03: chunks, BM25, embeddings.
-- M02: AI-generated gold labels đã pass auto validation.
+`events_gold.jsonl` là optional cho runtime retrieval nhưng cần cho retrieval metrics.
+Khi có gold labels, M04 đánh giá retrieved chunks có cover gold evidence hay không.
 
 ## Output
 
 ```text
-data/retrieval/retrieval_logs.jsonl
-reports/evaluation/retrieval_metrics.csv
-reports/evaluation/retrieval_error_analysis.md
+data/retrieval/online_contexts.jsonl
+data/retrieval/online_retrieval_logs.jsonl
+reports/evaluation/online_retrieval_metrics.csv
+reports/evaluation/online_retrieval_error_analysis.md
 ```
 
-Các output này là experiment artifacts, không cần commit.
+Nếu bật PostgreSQL sync, M04 còn ghi:
 
-## Công nghệ
+- `retrieval_runs`
+- `retrieval_run_contexts`
 
-| Thành phần | Công nghệ | Dùng để làm gì |
-| --- | --- | --- |
-| Query decomposition | `finevent.retrieval.querying` | Tạo nhiều sub-query theo title, ticker, company, event type |
-| BM25 retrieval | `finevent.rag.bm25` | Lexical baseline bắt keyword sự kiện rõ |
-| Dense retrieval | Embedding artifacts từ M03 | Semantic baseline dựa trên vector similarity |
-| Hybrid scoring | `finevent.retrieval.engine` | Kết hợp dense, BM25, metadata, recency/source |
-| Metadata-aware scoring | ticker/company/event keyword/event type overlap | Ưu tiên context cùng công ty và cùng loại sự kiện |
-| Rule-aware rerank | rule score deterministic | Cộng/trừ điểm theo event keyword, generic market text, evidence-like chunk |
-| LLM reasoning rerank | prompt scaffold + deterministic local judgment | Dùng LLM đọc top candidates và chấm relevance theo logic sự kiện |
-| Evaluation | stdlib CSV/math | Tính Recall@K, Precision@K, MRR, nDCG |
-| CLI | `python -m finevent.retrieval` | Query thủ công, query theo article, compare strategy, render rerank prompt |
+## Luồng Xử Lý Chi Tiết
 
-## Retrieval Configs
+Một run M04 batch đi qua các bước:
 
-M04 hiện có các config mặc định:
+1. Load articles từ `articles_path`.
+2. Apply `limit`/`offset` nếu có.
+3. Load chunks, BM25 index và embeddings từ M03.
+4. Với mỗi article, build query bundle.
+5. Retrieve candidate chunks theo `retrieval_config`.
+6. Chạy strategy selection/coverage để lấy pool rộng hơn cho LLM.
+7. Nếu `llm_rerank_mode` bật, rerank listwise pool đó bằng student LLM.
+8. Ghi một record vào `online_contexts.jsonl`.
+9. Ghi log chi tiết vào `online_retrieval_logs.jsonl`.
+10. Nếu có gold labels, build eval cases và ghi metrics/error analysis.
+11. Nếu bật sync, ghi `retrieval_runs` và `retrieval_run_contexts` vào PostgreSQL.
 
-Chiến lược multi-event được mô tả chi tiết trong
-[`docs/workflows/retrieval/multi-event-aware-retrieval.md`](../../workflows/retrieval/multi-event-aware-retrieval.md).
+M04 không sửa `articles_clean.jsonl` và không ghi predictions. M04 có thể gọi student
+LLM khi `llm_rerank_mode=student_env`; lời gọi này chỉ dùng để rerank retrieval
+contexts, không sinh event extraction.
 
-| Config | Dense | BM25 | Metadata | Recency/source | Rule | LLM | Mục đích |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| `bm25_only` | 0.00 | 1.00 | 0.00 | 0.00 | 0.00 | 0.00 | Lexical baseline |
-| `dense_only` | 1.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | Semantic baseline |
-| `hybrid` | 0.55 | 0.45 | 0.00 | 0.00 | 0.00 | 0.00 | Dense + lexical |
-| `metadata_aware_hybrid` | 0.45 | 0.30 | 0.20 | 0.05 | 0.00 | 0.00 | Hybrid có ticker/company/event metadata |
-| `rule_aware_rerank` | 0.40 | 0.25 | 0.20 | 0.05 | 0.10 | 0.00 | Thêm rule rerank deterministic |
-| `llm_reasoning_rerank` | 0.25 | 0.15 | 0.10 | 0.00 | 0.10 | 0.40 | Scaffold cho LLM rerank top candidates |
-| `multi_event_aware_hybrid` | 0.42 | 0.30 | 0.18 | 0.04 | 0.06 | 0.00 | Tách query theo event type và chọn context đa dạng bằng coverage/MMR |
+## Contract Của Context Record
 
-## Query decomposition
-
-Từ một article, hệ thống tạo nhiều query:
-
-| Query type | Nội dung |
-| --- | --- |
-| `title` | Title gốc của bài |
-| `ticker_event` | Ticker + event keywords + title |
-| `company_event` | Company name + event keywords |
-| `event_type` | Event type/subtype hints + event keywords |
-| `body_fallback` | 80 từ đầu nếu thiếu title/metadata |
-
-Với `multi_event_aware_hybrid`, `query_mode=event_intent` giữ các query legacy ở trên
-và bổ sung query riêng cho từng event type có trong `event_type_hints`. Hệ thống không
-query tất cả event type trong taxonomy, chỉ query các event type được phát hiện từ
-metadata hints của bài đầu vào.
-
-Ví dụ:
-
-```json
-[
-  {
-    "query_type": "ticker_event",
-    "text": "HPG khoi cong mo rong nha may HPG khoi cong du an nha may moi",
-    "weight": 1.0
-  },
-  {
-    "query_type": "event_type",
-    "text": "EXPANSION NEW_FACTORY khoi cong mo rong nha may moi",
-    "weight": 0.65
-  }
-]
-```
-
-## Score breakdown
-
-Mọi candidate đều có score breakdown:
+Mỗi output record là retrieval result cho một cặp article/config:
 
 ```json
 {
-  "dense_score": 0.779751,
-  "bm25_score": 1.0,
-  "metadata_score": 0.75,
-  "recency_score": 0.05,
-  "rule_score": 0.0,
-  "matched_query_types": ["manual"],
+  "retrieval_run_id": "retrieval_article_001_metadata_aware_hybrid",
+  "article_id": "article_001",
   "retrieval_config": "metadata_aware_hybrid",
-  "query_count": 1
+  "query_count": 4,
+  "contexts": [
+    {
+      "rank": 1,
+      "chunk_id": "article_001_p02",
+      "article_id": "article_001",
+      "score": 0.91,
+      "text": "Evidence-bearing chunk text...",
+      "score_breakdown": {
+        "dense_score": 0.82,
+        "bm25_score": 0.76,
+        "metadata_score": 1.0,
+        "rule_score": 0.2
+      },
+      "metadata": {
+        "chunk_level": "paragraph",
+        "tickers": ["HPG"],
+        "event_type_hints": ["CONTRACT"],
+        "pattern_refs": []
+      }
+    }
+  ],
+  "matched_patterns": []
 }
 ```
 
-Điểm cuối:
+`matched_patterns` được suy ra từ retrieved contexts. M04 không query một pattern
+vector index riêng.
+
+Các field quan trọng:
+
+| Field | Ý nghĩa |
+| --- | --- |
+| `retrieval_run_id` | ID ổn định để M06 và DB trace tham chiếu |
+| `article_id` | Article đầu vào của retrieval run |
+| `retrieval_config` | Recipe lấy candidate và tính điểm ban đầu |
+| `contexts` | Danh sách context đã rerank, theo thứ tự rank |
+| `score_breakdown` | Thành phần điểm giúp debug strategy |
+| `metadata.pattern_refs` | Pattern records đã gắn với chunk từ M03 |
+| `matched_patterns` | Danh sách pattern refs dedup từ context pack |
+| `llm_rerank` | Tóm tắt listwise rerank nếu M04 bật LLM reranker |
+
+## Retrieval Strategies
+
+| Strategy | Mục đích |
+| --- | --- |
+| `bm25_only` | Lexical baseline cho trigger words và tên riêng |
+| `dense_only` | Semantic baseline từ M03 chunk embeddings |
+| `hybrid` | Kết hợp dense và BM25 |
+| `metadata_aware_hybrid` | Hybrid cộng thêm ticker/company/event/source/recency metadata |
+| `rule_aware_rerank` | Thêm rule về evidence và penalty cho generic market text |
+| `llm_reasoning_rerank` | Recipe cũ có LLM relevance slot; production hiện dùng listwise rerank qua `llm_rerank_mode` |
+| `multi_event_aware_hybrid` | Thêm event-intent queries và coverage/MMR cho bài nhiều event |
+
+`retrieval_config` không có nghĩa là bỏ logic hybrid để chọn một phương pháp retrieve
+đơn lẻ. Nó là tên của một recipe scoring/rerank:
+
+- `bm25_only` và `dense_only` là baseline để đo từng signal riêng.
+- `hybrid` kết hợp BM25 và dense embedding.
+- `metadata_aware_hybrid` cộng thêm metadata/source/recency.
+- `rule_aware_rerank` cộng thêm rule score deterministic.
+- `llm_reasoning_rerank` giữ slot LLM relevance cho thí nghiệm/ablation.
+- `multi_event_aware_hybrid` vẫn là hybrid, nhưng thêm event-intent queries và
+  coverage/MMR để không bỏ sót event phụ trong cùng bài.
+
+M04 `run-batch` phải chọn một `retrieval_config` vì M06 cần một context pack xác định
+cho mỗi article/config. Nếu muốn đánh giá nhiều recipe cùng lúc, dùng
+`python -m finevent.retrieval compare`; command này vẫn chạy các recipe mặc định và
+ghi `retrieval_logs.jsonl`, `retrieval_metrics.csv`, error analysis. Kết quả compare
+dùng để quyết định recipe production, còn M06 không trộn output của nhiều recipe trong
+cùng một lần extraction.
+
+## Score Breakdown
+
+Mỗi candidate có điểm tổng hợp từ nhiều tín hiệu:
 
 ```text
 score =
@@ -137,165 +179,237 @@ score =
 + metadata_weight * metadata_score
 + recency_weight * recency_score
 + rule_weight * rule_score
-+ llm_weight * llm_relevance_score
 ```
 
-## LLM reasoning rerank
+Không phải strategy nào cũng dùng đủ mọi thành phần. Ví dụ:
 
-M04 chưa gọi API LLM trực tiếp để tránh phụ thuộc model/token trong test. Thay vào đó có:
+- `bm25_only` chỉ dùng BM25.
+- `dense_only` chỉ dùng dense similarity.
+- `metadata_aware_hybrid` dùng dense, BM25, metadata và recency/source.
+- `rule_aware_rerank` thêm rule score deterministic.
+- `llm_reasoning_rerank` thêm slot cho LLM relevance score trong ablation.
 
-- `build_llm_reasoning_rerank_prompt`: render prompt chuẩn để đưa top candidates cho LLM.
-- `apply_llm_reasoning_judgments`: nhận JSON judgments từ LLM và trộn lại điểm.
-- `deterministic_reasoning_judgments`: stand-in rẻ để test/demo local.
+Sau score ban đầu và strategy selection, M04 production còn có thể chạy listwise LLM
+rerank như bước xếp hạng cuối cùng. Khi đó `score_breakdown` có thêm `llm_rank`,
+`llm_relevance_score`, `llm_relevance_label`, `llm_reasoning_summary`,
+`llm_rerank_mode` và `llm_rerank_model`.
 
-Prompt yêu cầu LLM kiểm tra:
+`score_breakdown` phải được giữ trong output để khi retrieval sai có thể biết sai do
+embedding, keyword, metadata hay rule.
 
-- candidate có corporate event cụ thể không.
-- actor/company có cùng hoặc liên quan không.
-- event type/subtype có cùng hoặc liên quan không.
-- evidence span nào chứng minh relevance.
-- candidate có chỉ là tin giá/nhận định thị trường chung không.
-- relevance label: `HIGH`, `MEDIUM`, `LOW`, `IRRELEVANT`.
-- relevance score trong `[0, 1]`.
+## Query Decomposition
 
-Lệnh render prompt:
+M04 build nhiều query view từ article:
 
-```powershell
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.retrieval llm-rerank-prompt `
-  --query "HPG khoi cong nha may" `
-  --top-k 10
+| Query type | Nguồn |
+| --- | --- |
+| `title` | Title bài viết |
+| `ticker_event` | Ticker + event keywords + title |
+| `company_event` | Company names + event keywords |
+| `event_type` | Event type/subtype hints + event keywords |
+| `body_fallback` | Đoạn mở đầu khi title/metadata yếu |
+
+Với `multi_event_aware_hybrid`, M04 build thêm một event-intent query cho mỗi event
+type phát hiện trong `event_type_hints`. Nó không query toàn bộ taxonomy enum.
+
+Ví dụ một article có ticker HPG, event keyword "trúng thầu" và event hint
+`CONTRACT` có thể sinh các query:
+
+```json
+[
+  {
+    "query_type": "title",
+    "text": "HPG trúng thầu dự án cung cấp thép",
+    "weight": 1.0
+  },
+  {
+    "query_type": "ticker_event",
+    "text": "HPG trúng thầu dự án cung cấp thép",
+    "weight": 1.0
+  },
+  {
+    "query_type": "event_type",
+    "text": "CONTRACT trúng thầu hợp đồng dự án",
+    "weight": 0.65
+  }
+]
 ```
 
-## CLI usage
+Query decomposition là cách giảm rủi ro một query duy nhất bỏ sót evidence vì title
+thiếu ticker, bài dùng tên công ty thay mã, hoặc event keyword nằm trong body.
 
-### Query thủ công
+## Reranking
 
-```powershell
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.retrieval query `
-  --query "HPG khoi cong nha may" `
-  --ticker HPG `
-  --event-keyword "khoi cong" `
-  --event-type EXPANSION `
-  --config metadata_aware_hybrid `
-  --top-k 5
+Reranking kết hợp:
+
+- dense similarity;
+- BM25 lexical score;
+- ticker/company/source/event metadata overlap;
+- recency/source signal;
+- deterministic rule score;
+- optional listwise LLM rerank bằng student model ở bước cuối.
+
+Với bài multi-event, strategy selection trước LLM dùng coverage/MMR:
+
+- giữ chunk có score cao;
+- thưởng event intent chưa được cover;
+- giảm near-duplicate chunks;
+- tránh một event type áp đảo pool đưa vào LLM hoặc context cuối khi LLM tắt.
+
+### LLM Listwise Rerank
+
+M04 `run-batch` mặc định dùng `llm_rerank_mode=student_env`, nghĩa là dùng chính
+student model trong `.env` làm reranker. Đây là bước cuối của M04 ranking. Trước đó
+M04 vẫn chạy strategy selection như bình thường; riêng `multi_event_aware_hybrid` vẫn
+chạy coverage/MMR để giữ đa dạng event. Điểm khác là pool trước LLM được giữ rộng hơn,
+tối thiểu bằng `llm_rerank_top_n`, rồi LLM mới lọc/xếp hạng lần cuối trước khi M04 cắt
+xuống `max_contexts`.
+
+Prompt không nhét nguyên toàn bộ bài báo gốc của từng chunk. Mỗi candidate chỉ mang:
+
+- title/source/url/published_at của bài gốc;
+- `article_summary_preview` từ document chunk;
+- chunk text đã cắt bởi `llm_rerank_max_candidate_chars`;
+- tickers/company/event hints, compact `pattern_refs` và `score_breakdown`.
+
+Cách này cho LLM đủ ngữ cảnh về dòng sự kiện và thời điểm mà không làm prompt quá dài.
+Output mong muốn:
+
+```json
+{
+  "ranked_candidate_ids": [5, 2, 12, 1],
+  "judgments": [
+    {
+      "candidate_id": 5,
+      "chunk_id": "article_001_p02",
+      "relevance_score": 0.92,
+      "relevance_label": "HIGH",
+      "evidence_span": "...",
+      "reasoning_summary": "Ứng viên cùng công ty, cùng loại sự kiện và có evidence cụ thể."
+    }
+  ]
+}
 ```
 
-### Query theo article đã ingest
+Parser cũng chấp nhận dạng array ngắn như `[5, 2, 12, 1]`. Không yêu cầu model expose
+chain-of-thought; chỉ lưu `reasoning_summary` ngắn để audit vì sao candidate được đẩy
+lên hoặc hạ xuống.
 
-```powershell
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.retrieval query-article `
-  --articles-path data\processed\articles_clean.jsonl `
-  --article-id cafef_833adef5f3d9 `
-  --config rule_aware_rerank `
-  --top-k 5
-```
+### Multi-Event Selection
 
-### So sánh retrieval strategies
+Với bài nhiều event, context pack không nên bị một event type áp đảo. Strategy
+`multi_event_aware_hybrid` dùng event intent và coverage/MMR để ưu tiên:
 
-```powershell
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.retrieval compare `
-  --gold-path data\labels\events_gold.jsonl `
-  --logs-path data\retrieval\retrieval_logs.jsonl `
-  --metrics-path reports\evaluation\retrieval_metrics.csv `
-  --error-analysis-path reports\evaluation\retrieval_error_analysis.md
-```
+- ít nhất một context cho mỗi event type quan trọng nếu có candidate đủ điểm;
+- đa dạng paragraph/section để tránh duplicate;
+- evidence-bearing chunk thay vì document-level chunk quá chung chung;
+- giới hạn pool theo adaptive budget mở rộng; nếu LLM tắt thì đây cũng là context cuối,
+  nếu LLM bật thì LLM rerank pool đó trước khi M04 cắt theo `max_contexts`.
 
-Có thể giới hạn config:
+## Metrics
 
-```powershell
-python -m finevent.retrieval compare --config bm25_only --config hybrid
-```
+M04 đánh giá retrieval quality bằng gold labels khi có.
 
-## Evaluation
-
-Ground truth trong M04 lấy từ `events_gold.jsonl`:
-
-- Mỗi event tạo một eval case.
-- `evidence_span` được match vào paragraph/section/document chunks cùng `article_id`.
-- Relevant chunks là chunks chứa evidence span.
-- Nếu không match evidence span, fallback về document chunk của article đó để không làm crash run.
-
-Metrics:
+Gold relevance được build bằng cách match từng `evidence_span` vào chunks cùng
+`article_id`. Nếu không match được evidence chunk chính xác, evaluation fallback về
+document chunk của article đó để run không crash.
 
 | Metric | Ý nghĩa |
 | --- | --- |
-| `recall_at_5`, `recall_at_10` | Relevant evidence có nằm trong top K không |
-| `precision_at_5`, `precision_at_10` | Top K có bao nhiêu relevant chunks |
-| `mrr` | Rank của relevant chunk đầu tiên |
-| `ndcg_at_5`, `ndcg_at_10` | Ranking quality với binary relevance |
-| `first_relevant_rank` | Rank đầu tiên có evidence đúng |
-| `event_type_coverage_at_5`, `event_type_coverage_at_10` | Tỷ lệ gold event type được cover trong top K |
-| `event_evidence_coverage_at_5`, `event_evidence_coverage_at_10` | Tỷ lệ gold event có evidence chunk nằm trong top K |
-| `unique_event_types_at_5`, `unique_event_types_at_10` | Số event type khác nhau trong top K |
-| `dominance_ratio_at_5`, `dominance_ratio_at_10` | Tỷ lệ event type chiếm nhiều nhất trong top K |
+| `recall_at_5`, `recall_at_10` | Relevant evidence chunk có nằm trong top K không |
+| `precision_at_5`, `precision_at_10` | Tỷ lệ top K chunks là relevant |
+| `mrr` | Reciprocal rank của relevant chunk đầu tiên |
+| `ndcg_at_5`, `ndcg_at_10` | Chất lượng ranking với binary relevance |
+| `event_type_coverage_at_5/10` | Tỷ lệ gold event type được cover trong top K |
+| `event_evidence_coverage_at_5/10` | Tỷ lệ gold event có evidence trong top K |
+| `unique_event_types_at_5/10` | Số event type xuất hiện trong top K |
+| `dominance_ratio_at_5/10` | Mức một event type áp đảo top K |
 
-## Kiểm thử
+## Error Analysis
 
-Test file:
+`online_retrieval_error_analysis.md` nên trả lời:
 
-```text
-tests/test_retrieval_reranking.py
-```
+- config nào recall thấp;
+- event type nào thường bị miss;
+- miss do không retrieve đúng article hay retrieve đúng article nhưng sai chunk;
+- context có bị generic market text áp đảo không;
+- multi-event strategy có cải thiện event coverage không;
+- top chunks có thiếu `pattern_refs` không.
 
-Chạy:
+File này là tài liệu debug cho M03/M04, không phải báo cáo cuối cùng. Báo cáo cuối
+cùng ở M08 có thể tổng hợp lại metrics.
+
+## PostgreSQL Sync
+
+Khi sync, M04 ghi:
+
+| Bảng | Nội dung |
+| --- | --- |
+| `retrieval_runs` | Một dòng cho mỗi article/config retrieval run |
+| `retrieval_run_contexts` | Các context trong run, gồm rank, chunk, score, context JSON và pattern refs |
+
+M06 sync extraction sẽ lưu `retrieval_run_id` và `context_chunk_ids` để nối extraction
+output về retrieval context. Đây là đường trace chính khi cần giải thích vì sao một
+event được model trích xuất.
+
+## CLI
+
+Chạy online retrieval:
 
 ```powershell
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m pytest tests\test_retrieval_reranking.py
+C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.retrieval run-batch `
+  --articles-path data/processed/articles_clean.jsonl `
+  --chunks-path data/processed/chunks.jsonl `
+  --bm25-index-path data/retrieval/bm25_index.pkl `
+  --embeddings-path data/retrieval/chunk_embeddings.jsonl `
+  --gold-path data/labels/events_gold.jsonl `
+  --output-path data/retrieval/online_contexts.jsonl `
+  --logs-path data/retrieval/online_retrieval_logs.jsonl `
+  --metrics-path reports/evaluation/online_retrieval_metrics.csv `
+  --error-analysis-path reports/evaluation/online_retrieval_error_analysis.md `
+  --config metadata_aware_hybrid `
+  --max-contexts 10 `
+  --llm-rerank-mode student_env `
+  --llm-rerank-top-n 15
 ```
 
-Test bao phủ:
+`student_env` yêu cầu cấu hình `STUDENT_LLM_PROVIDER`, `STUDENT_LLM_MODEL`,
+`STUDENT_LLM_BASE_URL` và `STUDENT_LLM_API_KEY`. Khi smoke test local không muốn gọi
+API, dùng `--llm-rerank-mode deterministic` hoặc `--llm-rerank-mode off`.
 
-- Query decomposition dùng title/ticker/company/event metadata.
-- 4 strategy chính trả đúng format.
-- Score breakdown có dense/BM25/metadata.
-- Rule-aware và LLM reasoning rerank giữ relevant event chunk ở top.
-- LLM prompt có candidate schema.
-- Comparison runner ghi logs, metrics CSV và error analysis.
-- Multi-event strategy giữ được context cho event phụ trong fixture có event A áp đảo.
-- Metrics coverage/diversity xuất hiện trong CSV.
+Sync retrieval runs:
 
-## Smoke result hiện tại
-
-Trên fixture HPG:
-
-```text
-retrieval query "HPG khoi cong nha may"
-rank 1: cafef_833adef5f3d9_paragraph_0000
+```powershell
+C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.retrieval sync-postgres `
+  --retrieval-results-path data/retrieval/online_contexts.jsonl
 ```
 
-Comparison hiện chạy 6 config, 1 eval case:
+Các command ad hoc `query` và `query-article` vẫn còn để debug, nhưng graph run dùng
+`run-batch`.
 
-```text
-bm25_only              Recall@5 = 1.0
-dense_only             Recall@5 = 1.0
-hybrid                 Recall@5 = 1.0
-metadata_aware_hybrid  Recall@5 = 1.0
-rule_aware_rerank      Recall@5 = 1.0
-llm_reasoning_rerank   Recall@5 = 1.0
-```
+## Failure Cases
 
-Vì corpus fixture chỉ có một bài, kết quả này chỉ xác nhận pipeline đúng. Khi có corpus thật, bảng này mới dùng để chọn config production.
-
-## Done Criteria
-
-- Có module `finevent.retrieval`.
-- Có ít nhất 4 retrieval configs để so sánh.
-- Có query decomposition.
-- Có BM25-only, dense-only, hybrid, metadata-aware hybrid.
-- Có rule-aware rerank.
-- Có LLM reasoning rerank prompt/scaffold.
-- Có retrieval logs.
-- Có `retrieval_metrics.csv`.
-- Có `retrieval_error_analysis.md`.
-- Có test M04 pass.
-
-## Lỗi thường gặp
-
-| Lỗi | Cách xử lý |
+| Trường hợp | Hành vi mong muốn |
 | --- | --- |
-| Dense search trả bài giống chủ đề nhưng sai sự kiện | Tăng BM25/event keyword/metadata/rule weight |
-| BM25 bỏ sót diễn đạt khác | Kết hợp dense retrieval |
-| Metadata filter loại nhầm bài | Dùng soft boost, không hard filter sớm |
-| Nhiều chunk trùng nhau | Dedup theo `chunk_hash`, giới hạn số chunk mỗi article |
-| LLM rerank tốn chi phí | Chỉ rerank top 10-20, log token/cost ở milestone sau |
-| Gold evidence không match chunk | Kiểm tra chunking M03 hoặc fallback document chunk để debug |
+| Thiếu chunks | Fail rõ ở M04, vì không có corpus retrieval |
+| Thiếu embeddings | Dense/hybrid strategy không thể chạy đúng, không sinh fake score |
+| Thiếu BM25 index | BM25/hybrid strategy fail rõ |
+| Không có gold labels | Vẫn sinh contexts, metrics có thể rỗng |
+| Không retrieve được context | Ghi context list rỗng và log lại |
+| Context không có pattern refs | Vẫn hợp lệ, M06 chạy với context text nhưng không có matched patterns |
+| Evidence span không match chunk | Evaluation fallback về document chunk cùng article |
+
+## Tiêu Chí Hoàn Tất
+
+- M04 ghi `online_contexts.jsonl` cho selected articles.
+- Mỗi context có `chunk_id`, `article_id`, `rank`, `score`, `text`, metadata và score breakdown.
+- Context metadata mang `pattern_refs` đã gắn trên chunk.
+- Retrieval metrics được ghi khi có gold labels.
+- `retrieval_runs` và `retrieval_run_contexts` sync được mà không cần M06.
+- M06 chạy được từ `retrieval_results_path` mà không tự retrieve.
+
+## Tests
+
+```powershell
+C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m pytest tests/test_retrieval_reranking.py tests/test_online_extraction_workflow.py
+```

@@ -80,7 +80,7 @@ Nhược điểm:
 FinEvent-VN hơn ở chỗ:
 
 - có schema cố định.
-- có pattern library.
+- có pattern refs gắn với retrieved chunks.
 - có retrieval evidence.
 - có verification report.
 - có evaluation/ablation.
@@ -119,7 +119,7 @@ FinEvent-VN hơn ở chỗ:
 | Dense retrieval only | Tác động semantic search |
 | BM25 only | Tác động keyword search |
 | Hybrid retrieval | Tác động kết hợp lexical + semantic |
-| Hybrid + pattern | Tác động few-shot patterns |
+| Hybrid + context pattern refs | Tác động pattern refs gắn với retrieved chunks |
 | Hybrid + verification | Tác động hallucination reduction |
 
 ## Cách trình bày kết quả

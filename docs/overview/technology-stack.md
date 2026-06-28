@@ -32,7 +32,7 @@ Nguyên tắc chọn stack:
 | Workflow runtime | LangGraph | Điều phối online workflow: preprocess -> retrieve -> rerank -> extract -> verify | Có state rõ, dễ trace từng node và hiển thị trên app demo |
 | Batch jobs | Typer CLI trước, Prefect optional khi cần schedule | Chạy crawl, labeling, indexing, evaluation theo batch | Bắt đầu đơn giản, có đường nâng cấp sang orchestration |
 | API backend | FastAPI | Cung cấp API cho extraction workflow, retrieval, evaluation, frontend UI | Chuẩn OpenAPI, tách backend khỏi frontend |
-| LLM integration | LangChain model interfaces | Chuẩn hóa cách gọi teacher LLM, student LLM, rerank LLM, repair LLM | Dùng trực tiếp LangChain, giảm code hạ tầng và dễ đổi provider |
+| LLM integration | LangChain model interfaces | Chuẩn hóa cách gọi teacher LLM, student LLM, listwise rerank LLM, repair LLM | Dùng trực tiếp LangChain, giảm code hạ tầng và dễ đổi provider |
 | Validation | Pydantic hoặc JSON Schema | Kiểm tra output JSON, enum, required fields, evidence fields | Bắt output đúng schema trước khi lưu/evaluate |
 | Experiment tracking | MLflow hoặc artifact logs chuẩn hóa | Lưu run config, metrics, model/prompt/retrieval version | Giúp so sánh thí nghiệm lâu dài |
 | Evaluation | pandas, numpy, scikit-learn, optional `ir-measures`/`ranx` | Tính retrieval metrics, extraction metrics, hallucination metrics, export report | Đủ cho metric định lượng và bảng báo cáo |
@@ -124,7 +124,7 @@ ChromaDB và SQLite chỉ nên dùng khi cần prototype rất nhanh. Nếu đã
 | pgvector similarity search | Dense vector retrieval mặc định | Stage 1/2 retrieval |
 | Metadata-aware scoring | Boost theo ticker, company, source, time | Giảm context sai công ty/sai sự kiện |
 | Rule-aware rerank | Rerank theo event keyword, ticker/company, NO_EVENT signals | Lọc nhanh trước khi gọi LLM |
-| LLM reasoning rerank | LLM đọc candidate và chấm relevance theo logic sự kiện | Lọc top context cuối cùng cho extraction |
+| Listwise LLM rerank | Student LLM đọc top candidates kèm metadata rồi xếp hạng lại | Lọc top context cuối cùng cho extraction |
 
 ### LLM, workflow and prompting
 
@@ -274,7 +274,8 @@ Các bảng gợi ý:
 
 - `article_embeddings`
 - `chunk_embeddings`
-- `pattern_embeddings`
+- `financial_news_chunk_patterns`
+- `retrieval_run_contexts`
 
 Mỗi record embedding cần có:
 
@@ -436,7 +437,7 @@ retrieval:
 
 workflow:
   engine: langgraph
-  enable_llm_reasoning_rerank: true
+  llm_rerank_mode: student_env
   enable_self_verification: true
 
 api:
@@ -459,7 +460,7 @@ extraction:
 | Prefect | Batch crawl/index/evaluation cần schedule và retry UI |
 | MinIO/S3-compatible storage | Artifact lớn, nhiều HTML/log/model output |
 | Fine-tuned embedding | Retrieval Recall@K thấp dù đã hybrid/rerank |
-| Fine-tuned reranker | LLM reasoning rerank quá đắt hoặc chậm |
+| Fine-tuned reranker | Listwise LLM rerank quá đắt hoặc chậm |
 | Component library | UI nhiều màn hình, cần form/table/dialog nhất quán |
 
 ## Nguồn tham khảo chính

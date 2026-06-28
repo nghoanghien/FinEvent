@@ -1,410 +1,268 @@
-# M06: Online Article Extraction Workflow
+# M06: Workflow Extraction Online
 
-## Mục tiêu
+M06 chạy student extraction trên clean articles bằng retrieval contexts do M04 tạo.
 
-M06 xây workflow online từ URL/text/article record đến bảng sự kiện JSON theo schema
-FinEvent-VN. Đây là workflow chính dùng cho demo app, API backend và evaluation
-end-to-end ở các milestone sau.
+## Vai Trò
 
-Trọng tâm của M06 không phải verification sâu. M06 chịu trách nhiệm điều phối các bước:
+M06 là bước extraction online. Đến thời điểm M06 chạy, hệ thống giả định các bước
+offline/online upstream đã chuẩn bị xong:
+
+- M01 có clean articles.
+- M02 có gold labels cho evaluation và pattern building.
+- M03 có chunks, embeddings, BM25 và pattern refs gắn vào chunks.
+- M04 có retrieval contexts chính thức cho từng article/config.
+
+M06 không còn làm retrieval. Điều này quan trọng vì extraction quality và retrieval
+quality cần được đo riêng. Nếu M06 tự retrieve, metric M04 có thể không phản ánh đúng
+context thật sự đi vào prompt.
+
+## Contract Hiện Tại
+
+Input:
+
+- `data/processed/articles_clean.jsonl`
+- `data/retrieval/online_contexts.jsonl`
+
+Output:
+
+- `data/extraction/student_predictions.jsonl`
+- `runs/extraction/<run_id>/prompt.txt`
+- `runs/extraction/<run_id>/draft_output.json`
+- `runs/extraction/<run_id>/verified_output.json`
+- `runs/extraction/<run_id>/verification_report.json`
+- `runs/extraction/<run_id>/result.json`
+
+## Trình Tự Node
+
+1. `preprocess`: normalize article đầu vào và refresh dictionary/taxonomy hints.
+2. `load_retrieval_contexts`: tìm M04 retrieval run khớp article và `retrieval_config`.
+3. `extraction`: build prompt và gọi student model, hoặc deterministic baseline khi chạy smoke local.
+4. `validation_repair`: parse JSON, repair system identifiers, validate schema/taxonomy/grounding.
+5. `verification`: loại unsupported events/arguments khi M07 được chọn.
+6. `logging`: lưu prompt, draft, verified output, verification report và trace.
+
+M06 không build retrieval queries, không retrieve chunks và không chọn patterns. Các
+trách nhiệm đó nằm upstream:
+
+- M03 gắn gold-derived `pattern_refs` vào chunks.
+- M04 retrieve chunks và mang `pattern_refs` trong từng context.
+- M06 đưa matched patterns vào prompt dưới từng retrieved context.
+
+## Cách Load M04 Context
+
+M06 đọc `retrieval_results_path`, mặc định:
 
 ```text
-input article
--> preprocess + metadata hints
--> query rewriting/decomposition
--> retrieval/reranking
--> pattern selection
--> schema-guided extraction prompt
--> parse/repair/validate JSON cơ bản
--> workflow logs
+data/retrieval/online_contexts.jsonl
 ```
 
-Verification chống hallucination sâu như kiểm tra từng argument với evidence, drop field
-không có căn cứ và self-verification bằng LLM nằm ở M07.
+Với mỗi article, M06 tìm record:
 
-## Input
+```text
+record.article_id == article.article_id
+record.retrieval_config == config.retrieval_config
+```
 
-M06 hỗ trợ ba dạng input:
+Nếu không có record đúng `retrieval_config`, M06 fallback sang record đầu tiên cùng
+`article_id`. Fallback này giúp local smoke run không crash khi file retrieval chỉ có
+một config, nhưng production nên giữ M04 và M06 cùng `retrieval_config`.
+
+Ở M06, `retrieval_config` không phải là lệnh chạy retrieval mới. Nó chỉ là khóa để
+chọn context record M04 đã được tạo trước đó. Các quyết định combine BM25/dense,
+metadata, rule/LLM rerank hoặc coverage/MMR đều đã xảy ra ở M04.
+
+Nếu M04 bật `llm_rerank_mode=student_env`, context record mà M06 đọc đã được student
+model rerank listwise trước đó. M06 không gọi lại reranker và không tự đổi thứ tự
+contexts ngoài việc cắt theo `max_contexts`.
+
+Sau khi chọn record, M06 lấy tối đa `max_contexts` context đầu tiên. Pattern refs được
+dedup từ `context.metadata.pattern_refs` để đưa vào debug trace và prompt.
+
+## Config Quan Trọng
+
+| Config | Ý nghĩa |
+| --- | --- |
+| `retrieval_results_path` | JSONL artifact do M04 ghi, mặc định `data/retrieval/online_contexts.jsonl` |
+| `retrieval_config` | Chọn M04 retrieval record khớp khi có nhiều config |
+| `max_contexts` | Giới hạn số M04 contexts đưa vào prompt |
+| `student_provider` | `deterministic` cho local/test hoặc `env` cho student LLM cấu hình trong môi trường |
+| `use_retrieval` | Debug switch; nếu false thì M06 chạy không có M04 contexts |
+| `sync_postgres` | Lưu extraction run metadata, outputs, traces, `retrieval_run_id` và `context_chunk_ids` |
+
+## Source Filtering
+
+M06 có `sources` để lọc clean articles trước khi chạy batch extraction. Đây không phải
+source crawl như M01. Nó chỉ lọc `data/processed/articles_clean.jsonl`.
+
+Khi chạy từ admin graph có `run_id`, registry ghi file tạm:
+
+```text
+runs/admin/{run_id}/inputs/articles_filtered.jsonl
+```
+
+Mục đích là giữ file gốc không đổi. Nếu admin chọn `sources=["cafef"]`, M06 chỉ chạy
+trên clean articles có `record["source"] == "cafef"`.
+
+## Prompting
+
+Prompt dùng grounded prompting và self-verification instructions:
+
+- chỉ output JSON;
+- có `label_reason` cho document label;
+- có `event_reason` cho từng event;
+- giữ private reasoning ở bên trong, chỉ expose concise reasons;
+- mỗi event cần `evidence_span` grounded trong article;
+- retrieved contexts có compact metadata và `matched_patterns`.
+
+Prompt gồm các phần chính:
+
+| Phần | Nội dung |
+| --- | --- |
+| `output_schema` | Shape JSON cần trả |
+| `taxonomy` | Event types/subtypes liên quan |
+| `grounding_rules` | Quy tắc evidence, reason, sentiment, no-event |
+| `reasoning_policy` | Yêu cầu reasoning riêng tư, chỉ xuất reason ngắn |
+| `retrieved_contexts` | Context text, score, metadata, matched patterns |
+| `input_article` | Article cần extract |
+
+M06 không yêu cầu model in chain-of-thought. `label_reason` và `event_reason` là
+summary ngắn, grounded theo evidence. Đây là khác biệt quan trọng: reason là output
+audit được phép lưu, không phải hidden reasoning.
+
+## Output Schema
+
+Student output hợp lệ cần có:
 
 ```json
 {
-  "input_type": "text",
-  "title": "HPG khoi cong du an nha may moi",
-  "value": "Noi dung bai bao...",
-  "source": "manual",
-  "url": "",
-  "published_at": "2026-01-15T08:00:00+07:00"
-}
-```
-
-```json
-{
-  "input_type": "article",
-  "article": {
-    "article_id": "cafef_833adef5f3d9",
-    "title": "HPG khoi cong du an nha may moi",
-    "text": "Noi dung bai bao..."
-  }
-}
-```
-
-```json
-{
-  "input_type": "url",
-  "value": "file://.../cafef_sample.html"
-}
-```
-
-`url` hỗ trợ `file://` để test offline và `http/https` nếu cài dependency `requests`.
-
-## Output
-
-Output public của workflow:
-
-```json
-{
-  "run_id": "extract_...",
-  "article_id": "input_001",
+  "article_id": "article_001",
   "document_label": "HAS_EVENT",
-  "events": [],
-  "retrieval_trace": [],
-  "selected_patterns": [],
-  "validation_issues": [],
-  "workflow_warnings": [],
-  "workflow_errors": [],
-  "node_traces": [],
-  "run_dir": "runs/extraction/extract_..."
+  "label_reason": "Bài viết có sự kiện doanh nghiệp cụ thể được nêu trực tiếp.",
+  "events": [
+    {
+      "event_id": "article_001_e01",
+      "ticker": "HPG",
+      "company_name": "Hoa Phat",
+      "event_type": "CONTRACT",
+      "event_subtype": "BIDDING_WIN",
+      "event_summary": "...",
+      "event_reason": "...",
+      "event_arguments": {},
+      "impact_sentiment": "POSITIVE",
+      "evidence_span": "...",
+      "source_url": "...",
+      "published_at": "...",
+      "confidence": 0.9
+    }
+  ],
+  "warnings": [],
+  "model_info": {}
 }
 ```
 
-## Công nghệ
+Nếu `document_label=NO_EVENT`, `events` phải rỗng và vẫn cần `label_reason`.
 
-| Thành phần | Công nghệ | Vai trò |
-| --- | --- | --- |
-| Workflow state | Python dataclass | Lưu article, query plan, contexts, patterns, prompt, raw output, final output và trace |
-| Workflow runtime | Sequential runner trong code + optional LangGraph extra | Runner hiện tại test offline ổn định; có dependency `workflow` để nâng lên LangGraph |
-| Metadata hints | Module ingestion M01 | Trích ticker/company, event keywords, event type/subtype hints |
-| Retrieval | M04 `RetrievalEngine` | Lấy top context bằng BM25 + dense + metadata-aware/rerank config |
-| Pattern selection | M05 `PatternStore` | Lấy few-shot patterns theo vector + metadata + diversity |
-| Prompting | `build_extraction_prompt` | Ghép schema, taxonomy, contexts, patterns và input article |
-| Student model | Deterministic baseline hoặc LangChain model object | Baseline chạy local/test; model thật gọi qua LangChain, không tự viết adapter provider |
-| Validation/repair | Schema validation M02 | Parse JSON/fenced JSON, fill field thiếu, validate enum/evidence cơ bản |
-| Logging | JSONL + prompt/result files | Mỗi run ghi `prompt.txt`, `result.json`, `trace.jsonl` |
-| Storage dài hạn | PostgreSQL migration `006_extraction_runs.sql` | Lưu extraction run và node traces để app/evaluation truy vấn |
+## Giới Hạn Text
 
-## Module đã triển khai
+M06 có chủ ý trim prompt inputs để student call không vượt context:
 
-```text
-src/finevent/extraction/
-  __init__.py
-  __main__.py
-  cli.py
-  models.py
-  preprocess.py
-  prompting.py
-  run_sql.py
-  student.py
-  validation.py
-  workflow.py
-```
+| Config | Mặc định | Áp dụng cho |
+| --- | ---: | --- |
+| `max_article_chars` | `2200` | Main input article text |
+| `max_context_chars` | `450` | Text của mỗi retrieved context |
+| `max_pattern_output_chars` | `700` | Compact gold pattern output view gắn với context |
+| `max_prompt_chars` | `11000` | Final rendered extraction prompt |
 
-## Workflow chi tiết
+Nếu rendered prompt quá dài, M06 thử lại theo thứ tự:
 
-### Bước 1: Preprocess
+1. toàn bộ selected contexts với giới hạn bình thường;
+2. top 3 contexts với article/context/pattern limits ngắn hơn;
+3. top 1 context với limits ngắn hơn;
+4. không có retrieval contexts, article limit cũng ngắn hơn.
 
-Node `preprocess` nhận input và tạo clean article object:
+Verification có cap riêng: article text được trim ở 4000 ký tự và mỗi retrieved
+context được trim ở 1200 ký tự trong verification prompt.
 
-- Chuẩn hóa title/text.
-- Tạo `article_id` ổn định nếu input chưa có.
-- Với URL/file HTML, parse title/body/date/source bằng parser M01.
-- Gắn metadata hints:
-  - `tickers_hint`
-  - `company_names_hint`
-  - `sector_hints`
-  - `event_keywords`
-  - `event_type_hints`
-  - `event_subtype_hints`
-  - `event_keyword_matches` để map keyword/subtype về đúng event type khi dùng
-    multi-event query intent.
-- Gắn warning nếu text quá ngắn, không có event keyword hoặc không có ticker/company hint.
+## Validation Repair
 
-### Bước 2: Query plan
+Sau khi student trả raw text, M06 chạy validation/repair:
 
-Node `query_plan` dùng query decomposition của M04:
+1. Parse JSON.
+2. Gắn lại `article_id` nếu model thiếu hoặc trả sai.
+3. Chuẩn hóa `document_label`.
+4. Đảm bảo `label_reason` tồn tại.
+5. Đảm bảo mỗi event có `event_reason`.
+6. Validate event type/subtype theo taxonomy.
+7. Validate grounding của `evidence_span`.
+8. Nếu output không thể repair, tạo fallback `UNCERTAIN` hoặc `NO_EVENT` tùy lỗi.
 
-- query theo title.
-- query theo ticker + event keywords.
-- query theo company + event keywords.
-- query theo event type/subtype.
+Repair không được thêm fact mới. Nó chỉ sửa cấu trúc, field thiếu an toàn, hoặc loại
+bỏ phần không hợp lệ.
 
-Nếu `retrieval_config=multi_event_aware_hybrid`, node này dùng `query_mode=event_intent`.
-Khi đó hệ thống vẫn giữ query legacy, rồi bổ sung query riêng cho từng event type
-được phát hiện trong bài. Chi tiết strategy:
-[`docs/workflows/retrieval/multi-event-aware-retrieval.md`](../../workflows/retrieval/multi-event-aware-retrieval.md).
+## Verification Khi Chọn M07
 
-Output là `query_plan` để trace lại vì sao retrieval chọn context đó.
+M07 là modifier của M06. Khi M07 được chọn, M06 không thêm `--disable-verification`,
+và workflow chạy bước verification sau validation repair.
 
-### Bước 3: Retrieve/rerank
+Verification kiểm tra:
 
-Node `retrieve_rerank` gọi `RetrievalEngine` nếu artifact M03/M04 tồn tại:
+- event có evidence trong article không;
+- event argument có được support bởi text không;
+- field như contract value, project, partner có bị bịa không;
+- event không có evidence có nên bị drop không;
+- nếu drop hết events thì document label có cần chuyển thành `NO_EVENT` không.
+
+Verification output gồm:
 
 ```text
-data/processed/chunks.jsonl
-data/retrieval/bm25_index.pkl
-data/retrieval/chunk_embeddings.jsonl
+runs/extraction/<run_id>/verification_report.json
+runs/extraction/<run_id>/verified_output.json
 ```
 
-Nếu thiếu artifact, workflow không crash mà thêm warning `retrieval_artifacts_missing`
-và tiếp tục chạy zero-context. Đây là hành vi cần thiết để debug từng milestone độc lập.
+Mục tiêu của verification là giảm hallucination, không phải làm retrieval hoặc suy ra
+fact mới.
 
-Config mặc định:
+## PostgreSQL Sync
 
-```text
-metadata_aware_hybrid
-```
+Khi `sync_postgres=true`, M06 lưu:
 
-Có thể đổi sang các config M04 như:
+| Bảng | Nội dung |
+| --- | --- |
+| `extraction_runs` | Metadata run, config, output, `retrieval_run_id`, `context_chunk_ids` |
+| `extraction_node_traces` | Trace từng node như preprocess, extraction, validation, verification |
 
-- `bm25_only`
-- `dense_only`
-- `hybrid`
-- `metadata_aware_hybrid`
-- `rule_aware_rerank`
-- `llm_reasoning_rerank`
-- `multi_event_aware_hybrid`
+`retrieval_run_id` và `context_chunk_ids` là cầu nối từ extraction result về M04
+contexts. Nếu một event sai, có thể kiểm tra context nào đã đi vào prompt và score
+breakdown của context đó ở M04.
 
-`multi_event_aware_hybrid` dùng adaptive budget trong retrieval engine: 5 context cho
-bài single-event, 8 context cho 2 event type và tối đa 10 context cho từ 3 event type.
-Tuy nhiên M06 còn có `max_contexts` là lớp cắt cuối sau retrieval. Vì vậy khi chọn
-strategy multi-event trên Admin UI hoặc CLI, nên đặt `max_contexts` khoảng `8-10`
-nếu muốn giữ đủ context mà engine đã chọn.
+## Failure Cases
 
-### Bước 4: Pattern selection
+| Trường hợp | Hành vi |
+| --- | --- |
+| Không tìm thấy retrieval record | M06 có thể chạy không context nếu `use_retrieval=false`; nếu vẫn bật retrieval thì log warning rõ |
+| Context rỗng | Prompt vẫn build được nhưng `retrieved_contexts=[]` |
+| Prompt quá dài | Dùng fallback giảm context/giảm text như bảng giới hạn |
+| Student output không parse được JSON | Validation repair tạo fallback có warning |
+| Event thiếu evidence | Bị validation/verification hạ confidence hoặc loại |
+| Verification drop hết events | Document label chuyển về `NO_EVENT` để tránh mâu thuẫn |
 
-Node `pattern_selection` gọi M05 `PatternStore` nếu artifact pattern tồn tại:
+## Debug Artifacts
 
-```text
-data/patterns/patterns.jsonl
-data/patterns/pattern_embeddings.jsonl
-```
-
-Mặc định lấy 3 pattern. Pattern được chọn dựa trên:
-
-- dense similarity.
-- ticker/company overlap.
-- event type/subtype overlap.
-- keyword overlap.
-- diversity theo event type.
-
-Nếu `retrieval_config=multi_event_aware_hybrid`, M06 đồng bộ pattern selection với
-chunk retrieval:
-
-- pattern query dùng `query_mode=event_intent`;
-- `PatternStore.select_patterns_for_queries(...)` nhận query tổng hợp và query riêng
-  theo từng event type detected;
-- selector `coverage` ưu tiên mỗi event type có pattern đại diện trước khi fill slot
-  còn lại bằng score.
-
-`pattern_count` vẫn là giới hạn cuối. Nếu bài có 4 event type nhưng `pattern_count=3`,
-few-shot block chỉ cover tối đa 3 event type bằng pattern.
-
-### Bước 5: Prompt extraction
-
-Node `extraction` dựng prompt gồm:
-
-1. System instruction.
-2. Output schema rút gọn.
-3. Event taxonomy compact.
-4. Retrieved contexts top K.
-5. Few-shot patterns.
-6. Input article.
-7. Grounding rules.
-
-Quy tắc quan trọng trong prompt:
-
-- Chỉ trả JSON hợp lệ, không markdown.
-- Mỗi event phải có `evidence_span` copy từ bài.
-- Không suy diễn field không có evidence.
-- `impact_sentiment` chỉ là chiều hướng tác động: `POSITIVE`, `NEGATIVE`, `NEUTRAL`, `MIXED`.
-- Nếu bài chỉ là nhận định thị trường chung thì trả `NO_EVENT`.
-
-### Bước 6: Student extraction
-
-M06 có hai đường chạy:
-
-| Chế độ | Cách dùng | Mục đích |
-| --- | --- | --- |
-| Deterministic baseline | Không cần model/API | Test workflow, smoke CLI, demo offline |
-| LangChain model object | Truyền model thật vào runner | Gọi student LLM 7B/8B qua LangChain |
-
-Baseline deterministic không phải mô hình chính. Nó chỉ giúp workflow chạy được khi chưa
-cấu hình LLM thật. Khi triển khai thật, dùng model 7B/8B qua LangChain model interface.
-
-### Bước 7: Validation/repair cơ bản
-
-Node `validation_repair` xử lý:
-
-- Parse JSON object.
-- Parse fenced JSON hoặc text có chứa JSON object.
-- Fill các field bắt buộc còn thiếu:
-  - `article_id`
-  - `document_label`
-  - `events`
-  - `warnings`
-  - `model_info`
-  - `event_id`
-  - `source_url`
-  - `published_at`
-  - `confidence`
-- Validate bằng schema/taxonomy M02.
-
-Nếu parse fail hoàn toàn, workflow trả:
-
-```json
-{
-  "document_label": "UNCERTAIN",
-  "events": [],
-  "warnings": ["model_output_parse_failed"]
-}
-```
-
-### Bước 8: Logging
-
-Mỗi run tạo thư mục:
+Mỗi article run có thư mục:
 
 ```text
 runs/extraction/<run_id>/
   prompt.txt
+  draft_output.json
+  verified_output.json
+  verification_report.json
   result.json
-  trace.jsonl
 ```
 
-`trace.jsonl` ghi từng node:
+Khi debug extraction, nên đọc theo thứ tự:
 
-- node name.
-- status.
-- latency.
-- output summary.
-- warnings/errors phát sinh ở node đó.
-
-## PostgreSQL schema
-
-Migration:
-
-```text
-infra/postgres/006_extraction_runs.sql
-```
-
-Bảng:
-
-- `extraction_runs`: lưu config, model, prompt version, final output, validation issues, warnings/errors.
-- `extraction_node_traces`: lưu trace từng node cho mỗi run.
-
-Helper:
-
-```text
-src/finevent/extraction/run_sql.py
-```
-
-## CLI
-
-Run text:
-
-```powershell
-$env:PYTHONPATH='src'
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.extraction run-text `
-  --title "HPG khoi cong du an nha may moi" `
-  --text "Tap doan Hoa Phat cong bo khoi cong du an nha may moi tai khu cong nghiep." `
-  --source manual
-```
-
-Run article trong `articles_clean.jsonl`:
-
-```powershell
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.extraction run-article `
-  --articles-path data\processed\articles_clean.jsonl `
-  --article-id cafef_833adef5f3d9
-```
-
-Render prompt để debug:
-
-```powershell
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m finevent.extraction render-prompt `
-  --title "HPG khoi cong du an nha may moi" `
-  --text "Tap doan Hoa Phat cong bo khoi cong du an nha may moi tai khu cong nghiep."
-```
-
-Các option quan trọng:
-
-```text
---retrieval-config metadata_aware_hybrid
---pattern-count 3
---max-contexts 5
---disable-retrieval
---disable-patterns
---chunks-path ...
---bm25-index-path ...
---retrieval-embeddings-path ...
---patterns-path ...
---pattern-embeddings-path ...
---logs-dir runs/extraction
---output-path output.json
-```
-
-## Test
-
-```powershell
-$env:PYTHONPATH='src'
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m pytest tests\test_online_extraction_workflow.py
-C:\Users\OWNER\miniconda3\envs\deep-learning-project\python.exe -m ruff check src\finevent\extraction tests\test_online_extraction_workflow.py
-```
-
-Test coverage M06:
-
-- Text có sự kiện chạy được khi tắt retrieval/pattern.
-- Text `NO_EVENT` không sinh event nếu thiếu company/ticker grounding.
-- Repair được markdown-wrapped JSON.
-- Workflow nối được artifact M03 retrieval và M05 pattern trong thư mục tạm.
-- Có `retrieval_trace`, `selected_patterns`, `prompt`, `result.json`, `trace.jsonl`.
-
-## Metrics cần đo ở M08
-
-M06 tạo đủ log để M08 tính:
-
-| Metric | Ý nghĩa |
-| --- | --- |
-| JSON validity rate | Tỷ lệ output parse được |
-| Schema compliance rate | Tỷ lệ output đúng enum/field |
-| Event detection F1 | Có/không có event |
-| Event type macro-F1 | Phân loại event type |
-| Event subtype macro-F1 | Phân loại subtype |
-| Ticker accuracy | Ticker đúng |
-| Slot-level F1 | Argument field đúng |
-| Evidence accuracy | Evidence có nằm trong article/context |
-| Latency per node | Thời gian từng node |
-| Pattern usage rate | Tỷ lệ run có selected patterns |
-| Retrieval empty rate | Tỷ lệ run không lấy được context |
-
-## Done Criteria
-
-- Workflow chạy từ text/article/url input đến output JSON.
-- Có `query_plan`.
-- Có `retrieval_trace` nếu artifact retrieval tồn tại.
-- Có `selected_patterns` nếu artifact pattern tồn tại.
-- Có prompt extraction versioned.
-- Có parse/repair/validation cơ bản.
-- Có run logs theo từng node.
-- CLI `python -m finevent.extraction` chạy được.
-- `pytest` và scoped `ruff` pass.
-
-## Lỗi thường gặp
-
-| Lỗi | Cách xử lý |
-| --- | --- |
-| Thiếu retrieval artifacts | Workflow thêm warning và chạy zero-context |
-| Thiếu pattern artifacts | Workflow thêm warning và chạy không few-shot |
-| Model trả markdown | Repair JSON object trong fenced block |
-| Model trả thiếu field | Fill field bắt buộc rồi validate |
-| Text chung chung nhưng có keyword tài chính | Baseline không sinh event nếu thiếu company/ticker grounding |
-| Prompt quá dài | Giảm `--max-contexts`, giảm `--pattern-count`, hoặc trim article text |
-| Muốn dùng model thật | Truyền LangChain chat model object vào runner thay vì deterministic baseline |
+1. `prompt.txt`: context và instruction có đủ không.
+2. `draft_output.json`: student model sinh gì.
+3. `verification_report.json`: field/event nào bị xem là unsupported.
+4. `verified_output.json`: output cuối sau verification.
+5. `result.json`: trace tổng hợp để nối với DB/API.

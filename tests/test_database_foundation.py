@@ -51,14 +51,18 @@ def test_database_catalog_has_key_relationship_tables() -> None:
         "event_labeling_runs",
         "events_gold",
         "event_patterns",
-        "event_pattern_embeddings",
+        "financial_news_chunk_patterns",
+        "retrieval_runs",
+        "workflow_reports",
         "extraction_runs",
         "extraction_node_traces",
     }
 
     assert required_tables <= set(table_names())
     assert "article_id" in TABLE_COLUMNS["financial_news_chunks"]
-    assert "pattern_id" in TABLE_COLUMNS["event_pattern_embeddings"]
+    assert "pattern_refs" in TABLE_COLUMNS["financial_news_chunks"]
+    assert "pattern_id" in TABLE_COLUMNS["financial_news_chunk_patterns"]
+    assert "content_json" in TABLE_COLUMNS["workflow_reports"]
     assert "run_id" in TABLE_COLUMNS["extraction_node_traces"]
 
 

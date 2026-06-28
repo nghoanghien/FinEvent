@@ -17,6 +17,8 @@ from finevent.api.artifacts import (
     read_text_artifact,
     resolve_artifact_path,
 )
+from finevent.api.report_store import list_workflow_reports
+from finevent.db import get_sqlalchemy_engine
 
 router = APIRouter(prefix="/admin/reports", tags=["admin-reports"])
 
@@ -27,15 +29,25 @@ def list_reports(
     limit: int = Query(default=200, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, Any]:
-    reports = [artifact.to_dict() for artifact in list_report_artifacts()]
-    if kind:
-        reports = [artifact for artifact in reports if artifact["kind"] == kind]
+    reports = _list_reports_from_database(kind=kind)
+    if not reports:
+        reports = [artifact.to_dict() for artifact in list_report_artifacts()]
+        if kind:
+            reports = [artifact for artifact in reports if artifact["kind"] == kind]
     return {
         "items": reports[offset : offset + limit],
         "limit": limit,
         "offset": offset,
         "total": len(reports),
     }
+
+
+def _list_reports_from_database(*, kind: str | None) -> list[dict[str, Any]] | None:
+    try:
+        reports = list_workflow_reports(get_sqlalchemy_engine(), kind=kind)
+    except Exception:  # noqa: BLE001 - filesystem remains the compatibility fallback.
+        return None
+    return reports
 
 
 @router.get("/content")

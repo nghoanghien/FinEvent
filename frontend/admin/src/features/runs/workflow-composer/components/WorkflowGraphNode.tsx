@@ -88,7 +88,7 @@ export function WorkflowGraphNode({
         "relative flex flex-col justify-between rounded-[40px] border bg-white p-5 text-left transition-all duration-300 min-h-[140px]",
         isSelected
           ? "border-primary/50 bg-white shadow-xl shadow-primary/5 ring-1 ring-primary/20 scale-[1.01]"
-          : "border-gray-100 bg-white shadow-md hover:-translate-y-0.5 hover:shadow-eatzy-hover",
+          : "border-gray-100 bg-white shadow-md hover:-translate-y-0.5 hover:shadow-finevent-hover",
         isBlocked ? "cursor-not-allowed bg-gray-50/50 opacity-40 hover:-translate-y-0 hover:shadow-none shadow-none" : "",
         isActive && isSelected ? "ring-2 ring-primary ring-offset-2" : "",
       ].join(" ")}

@@ -24,7 +24,7 @@ export function WorkflowRunSummary({ request, isPending, onRun, nodeById }: Work
           type="button"
           disabled={!request.ok || isPending}
           onClick={onRun}
-          className="eatzy-primary-button disabled:cursor-not-allowed disabled:opacity-50"
+          className="finevent-primary-button disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Play className="h-4 w-4" />
           {isPending ? "Đang tạo run..." : "Run workflow"}

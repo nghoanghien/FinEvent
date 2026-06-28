@@ -45,6 +45,7 @@ def run_deterministic_student_extractor(
             {
                 "article_id": article["article_id"],
                 "document_label": "NO_EVENT",
+                "label_reason": _no_event_reason(event_type, has_company_grounding),
                 "events": [],
                 "warnings": [_no_event_reason(event_type, has_company_grounding)],
                 "model_info": _model_info(model_name, prompt_version, run_id),
@@ -68,6 +69,7 @@ def run_deterministic_student_extractor(
         "event_type": event_type,
         "event_subtype": event_subtype,
         "event_summary": _summary(article, evidence),
+        "event_reason": _event_reason(article, event_type, evidence),
         "event_arguments": _arguments(event_type, article),
         "impact_sentiment": _impact_sentiment(event_type),
         "evidence_span": evidence,
@@ -79,6 +81,10 @@ def run_deterministic_student_extractor(
         {
             "article_id": article["article_id"],
             "document_label": "HAS_EVENT",
+            "label_reason": (
+                "Bai viet co tin hieu doanh nghiep, loai su kien va bang chung "
+                "truc tiep."
+            ),
             "events": [event],
             "warnings": ["deterministic_student_baseline"],
             "model_info": _model_info(model_name, prompt_version, run_id),
@@ -133,6 +139,13 @@ def _summary(article: JsonDict, evidence: str) -> str:
     if title:
         return title
     return evidence[:180]
+
+
+def _event_reason(article: JsonDict, event_type: str, evidence: str) -> str:
+    keywords = ", ".join(str(item) for item in article.get("event_keywords", [])[:3])
+    if keywords:
+        return f"Bằng chứng chứa tín hiệu {keywords} phù hợp với nhóm sự kiện {event_type}."
+    return f"Bằng chứng trong bài hỗ trợ phân loại sự kiện {event_type}: {evidence[:160]}"
 
 
 def _arguments(event_type: str, article: JsonDict) -> JsonDict:

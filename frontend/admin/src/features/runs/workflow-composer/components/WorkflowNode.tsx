@@ -236,7 +236,7 @@ export function WorkflowNode({ data }: { data: WorkflowNodeData }) {
           </div>
         </div>
 
-        {/* Footer controls (Eatzy checkmark toggle styling) */}
+        {/* Footer controls (FinEvent checkmark toggle styling) */}
         <div className="mt-3.5 flex items-center justify-between gap-2">
           <span className={[
             "text-[9px] font-black uppercase truncate max-w-[120px]",

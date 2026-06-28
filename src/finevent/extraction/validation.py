@@ -89,6 +89,7 @@ def _fill_required_fields(
         events = []
         normalized["events"] = events
     normalized.setdefault("document_label", "HAS_EVENT" if events else "NO_EVENT")
+    normalized.setdefault("label_reason", _default_label_reason(normalized["document_label"]))
     normalized.setdefault("warnings", [])
     model_info = normalized.get("model_info")
     if not isinstance(model_info, dict):
@@ -115,6 +116,7 @@ def _fill_required_fields(
         event.setdefault("company_name", None)
         event.setdefault("event_subtype", None)
         event.setdefault("event_summary", "")
+        event.setdefault("event_reason", _default_event_reason(event))
         event.setdefault("event_arguments", {})
         event.setdefault("impact_sentiment", "NEUTRAL")
         event.setdefault("evidence_span", "")
@@ -133,6 +135,7 @@ def _fallback_uncertain_output(
     return {
         "article_id": article.get("article_id"),
         "document_label": "UNCERTAIN",
+        "label_reason": "Model output could not be parsed, so the document label is uncertain.",
         "events": [],
         "warnings": ["model_output_parse_failed"],
         "model_info": {
@@ -141,3 +144,18 @@ def _fallback_uncertain_output(
             "run_id": run_id,
         },
     }
+
+
+def _default_label_reason(document_label: object) -> str:
+    if document_label == "HAS_EVENT":
+        return "Model output contains at least one candidate event."
+    if document_label == "NO_EVENT":
+        return "Model output contains no grounded reportable event."
+    return "Model output is uncertain or incomplete."
+
+
+def _default_event_reason(event: JsonDict) -> str:
+    evidence = str(event.get("evidence_span") or "").strip()
+    if evidence:
+        return f"Evidence supports this event: {evidence[:180]}"
+    return "Event is retained as a model candidate but needs evidence validation."

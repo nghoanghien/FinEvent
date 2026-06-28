@@ -3,7 +3,6 @@ import {
   BookOpenCheck,
   DatabaseZap,
   FileSearch,
-  GitBranch,
   HardDrive,
   Layers3,
   ShieldCheck,
@@ -17,7 +16,6 @@ export const workflowNodeOrder: WorkflowNodeId[] = [
   "m02_labeling",
   "m03_rag",
   "m04_retrieval",
-  "m05_patterns",
   "m06_extraction",
   "m07_verification",
   "m08_evaluation",
@@ -62,11 +60,6 @@ export const workflowNodePresentation: Record<
     shortTitle: "Retrieve",
     accent: "emerald",
     icon: FileSearch,
-  },
-  m05_patterns: {
-    shortTitle: "Patterns",
-    accent: "emerald",
-    icon: GitBranch,
   },
   m06_extraction: {
     shortTitle: "Extract",

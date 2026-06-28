@@ -143,6 +143,7 @@ def _upsert_gold_document(
             INSERT INTO event_label_documents_gold (
                 article_id,
                 document_label,
+                label_reason,
                 label_schema_version,
                 label_source,
                 teacher_model,
@@ -157,6 +158,7 @@ def _upsert_gold_document(
             VALUES (
                 :article_id,
                 :document_label,
+                :label_reason,
                 :label_schema_version,
                 :label_source,
                 :teacher_model,
@@ -171,6 +173,7 @@ def _upsert_gold_document(
             ON CONFLICT (article_id)
             DO UPDATE SET
                 document_label = EXCLUDED.document_label,
+                label_reason = EXCLUDED.label_reason,
                 label_schema_version = EXCLUDED.label_schema_version,
                 label_source = EXCLUDED.label_source,
                 teacher_model = EXCLUDED.teacher_model,
@@ -186,6 +189,7 @@ def _upsert_gold_document(
         {
             "article_id": label["article_id"],
             "document_label": label["document_label"],
+            "label_reason": label.get("label_reason") or "",
             "label_schema_version": record["label_schema_version"],
             "label_source": record["label_source"],
             "teacher_model": record["teacher_model"],
@@ -218,6 +222,7 @@ def _insert_gold_event(
                 event_type,
                 event_subtype,
                 event_summary,
+                event_reason,
                 event_arguments,
                 impact_sentiment,
                 evidence_span,
@@ -239,6 +244,7 @@ def _insert_gold_event(
                 :event_type,
                 :event_subtype,
                 :event_summary,
+                :event_reason,
                 CAST(:event_arguments AS JSONB),
                 :impact_sentiment,
                 :evidence_span,
@@ -260,6 +266,7 @@ def _insert_gold_event(
                 event_type = EXCLUDED.event_type,
                 event_subtype = EXCLUDED.event_subtype,
                 event_summary = EXCLUDED.event_summary,
+                event_reason = EXCLUDED.event_reason,
                 event_arguments = EXCLUDED.event_arguments,
                 impact_sentiment = EXCLUDED.impact_sentiment,
                 evidence_span = EXCLUDED.evidence_span,
@@ -282,6 +289,7 @@ def _insert_gold_event(
             "event_type": event["event_type"],
             "event_subtype": event.get("event_subtype"),
             "event_summary": event["event_summary"],
+            "event_reason": event.get("event_reason") or "",
             "event_arguments": json.dumps(event.get("event_arguments", {}), ensure_ascii=False),
             "impact_sentiment": event["impact_sentiment"],
             "evidence_span": event["evidence_span"],

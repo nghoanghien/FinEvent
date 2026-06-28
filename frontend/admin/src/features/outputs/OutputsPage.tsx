@@ -25,14 +25,14 @@ export function OutputsPage() {
   }
 
   return (
-    <div className="eatzy-page space-y-8">
+    <div className="finevent-page space-y-8">
       <PageHeader
         eyebrow="Structured outputs"
         title="EVENT OUTPUTS"
         icon={Boxes}
         description="Kiểm tra bảng sự kiện model sinh ra: event table, evidence, validation issues, hallucination metrics và node traces."
         actions={
-          <button type="button" onClick={refresh} className="eatzy-secondary-button">
+          <button type="button" onClick={refresh} className="finevent-secondary-button">
             <RefreshCw className={`h-4 w-4 ${outputs.isFetching || selected.isFetching || articleOutput.isFetching ? "animate-spin" : ""}`} />
             Refresh
           </button>
@@ -71,7 +71,7 @@ export function OutputsPage() {
                     className={`focus-ring w-full rounded-[24px] border p-4 text-left transition-all duration-300 ${
                       selectedRunId === item.run_id
                         ? "border-primary/40 bg-lime-50 text-gray-950 shadow-[inset_0_0_20px_12px_rgba(255,255,255,0.8)]"
-                        : "border-gray-100 bg-white hover:-translate-y-0.5 hover:shadow-eatzy"
+                        : "border-gray-100 bg-white hover:-translate-y-0.5 hover:shadow-finevent"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">

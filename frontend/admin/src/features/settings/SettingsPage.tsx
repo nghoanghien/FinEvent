@@ -38,7 +38,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="eatzy-page space-y-8">
+    <div className="finevent-page space-y-8">
       <PageHeader
         eyebrow="Runtime settings"
         title="API SETTINGS"
@@ -78,11 +78,11 @@ export function SettingsPage() {
               />
             </label>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={save} className="eatzy-primary-button">
+              <button type="button" onClick={save} className="finevent-primary-button">
                 <Save className="h-4 w-4" />
                 Lưu và test health
               </button>
-              <button type="button" onClick={clearKey} className="eatzy-secondary-button">
+              <button type="button" onClick={clearKey} className="finevent-secondary-button">
                 <Trash2 className="h-4 w-4" />
                 Xóa key local
               </button>

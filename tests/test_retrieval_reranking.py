@@ -9,9 +9,14 @@ from finevent.rag.embeddings import HashEmbeddingClient, embed_chunks_with_cache
 from finevent.rag.models import ChunkRecord
 from finevent.retrieval.engine import RetrievalEngine
 from finevent.retrieval.evaluation import evaluate_results
-from finevent.retrieval.experiments import run_retrieval_comparison
-from finevent.retrieval.llm_rerank import build_llm_reasoning_rerank_prompt
-from finevent.retrieval.models import RetrievalCandidate
+from finevent.retrieval.experiments import run_online_retrieval, run_retrieval_comparison
+from finevent.retrieval.llm_rerank import (
+    build_listwise_llm_rerank_prompt,
+    build_llm_reasoning_rerank_prompt,
+    parse_listwise_rerank_output,
+    rerank_candidates_listwise,
+)
+from finevent.retrieval.models import RetrievalCandidate, RetrievalQuery
 from finevent.retrieval.querying import build_queries_from_article
 
 
@@ -23,6 +28,16 @@ class CountingEmbeddingClient(HashEmbeddingClient):
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         self.call_count += len(texts)
         return super().embed_texts(texts)
+
+
+class FakeListwiseModel:
+    def __init__(self, output: str):
+        self.output = output
+        self.prompts: list[str] = []
+
+    def invoke(self, prompt: str) -> str:
+        self.prompts.append(prompt)
+        return self.output
 
 
 def test_query_decomposition_uses_article_metadata() -> None:
@@ -143,6 +158,144 @@ def test_llm_reasoning_prompt_contains_candidate_schema(tmp_path: Path) -> None:
     assert "candidate_schema" in prompt
     assert "has_corporate_event" in prompt
     assert "relevance_score" in prompt
+
+
+def test_listwise_llm_prompt_includes_article_and_candidate_metadata(tmp_path: Path) -> None:
+    artifacts = _build_retrieval_artifacts(tmp_path)
+    engine = RetrievalEngine.from_artifacts(**artifacts)
+    queries = build_queries_from_article(_article())
+    candidates = engine.retrieve(queries, config="metadata_aware_hybrid", select_final=False)
+
+    prompt = build_listwise_llm_rerank_prompt(
+        query_article=_article(),
+        queries=queries,
+        candidates=candidates[:3],
+        max_query_article_chars=120,
+        max_candidate_chars=90,
+    )
+
+    assert "listwise_financial_news_rerank" in prompt
+    assert "query_article" in prompt
+    assert "source_article" in prompt
+    assert "article_summary_preview" in prompt
+    assert "published_at" in prompt
+    assert "score_breakdown" in prompt
+    assert "candidate_schema" not in prompt
+
+
+def test_listwise_rerank_parser_accepts_object_and_array() -> None:
+    parsed_object = parse_listwise_rerank_output(
+        '```json\n{"ranked_candidate_ids": [2, "chunk_a"], "judgments": []}\n```'
+    )
+    parsed_array = parse_listwise_rerank_output("[3, 1, 2]")
+
+    assert parsed_object["ranked_candidate_ids"] == ["2", "chunk_a"]
+    assert parsed_array["ranked_candidate_ids"] == ["3", "1", "2"]
+
+
+def test_listwise_llm_rerank_reorders_candidates_with_fake_model() -> None:
+    candidates = [
+        _candidate("first_context", ["MA"], rank=1),
+        _candidate("second_context", ["DIVIDEND"], rank=2),
+    ]
+    query = RetrievalQuery(
+        query_id="manual_query",
+        article_id="manual_article",
+        text="Cong ty A chia co tuc",
+        query_type="manual",
+        event_type_hints=["DIVIDEND"],
+    )
+    model = FakeListwiseModel(
+        """
+        {
+          "ranked_candidate_ids": [2, 1],
+          "judgments": [
+            {
+              "candidate_id": 2,
+              "relevance_score": 0.98,
+              "relevance_label": "HIGH",
+              "reasoning_summary": "Ung vien noi ve co tuc."
+            }
+          ]
+        }
+        """
+    )
+
+    result = rerank_candidates_listwise(
+        query_article=_multi_event_article(),
+        queries=[query],
+        candidates=candidates,
+        mode="student_env",
+        model_name="fake_student",
+        model=model,
+        top_n=2,
+    )
+
+    assert result.candidates[0].chunk_id == "second_context"
+    assert result.candidates[0].score_breakdown["llm_rank"] == 1
+    assert result.candidates[0].score_breakdown["llm_rerank_model"] == "fake_student"
+    assert model.prompts and "article_summary_preview" in model.prompts[0]
+
+
+def test_online_retrieval_runs_listwise_rerank_before_context_output(tmp_path: Path) -> None:
+    artifacts = _build_multi_event_retrieval_artifacts(tmp_path)
+    articles_path = tmp_path / "articles.jsonl"
+    output_path = tmp_path / "online_contexts.jsonl"
+    logs_path = tmp_path / "online_logs.jsonl"
+    metrics_path = tmp_path / "metrics.csv"
+    error_path = tmp_path / "errors.md"
+    write_jsonl(articles_path, [_multi_event_article()])
+    model = FakeListwiseModel(
+        """
+        {
+          "ranked_candidate_ids": ["dividend_context"],
+          "judgments": [
+            {
+              "chunk_id": "dividend_context",
+              "relevance_score": 0.99,
+              "relevance_label": "HIGH",
+              "reasoning_summary": "Chunk nay noi ve co tuc."
+            }
+          ]
+        }
+        """
+    )
+
+    run_online_retrieval(
+        chunks_path=artifacts["chunks_path"],
+        bm25_index_path=artifacts["bm25_index_path"],
+        embeddings_path=artifacts["embeddings_path"],
+        articles_path=articles_path,
+        gold_path=tmp_path / "missing_gold.jsonl",
+        output_path=output_path,
+        logs_path=logs_path,
+        metrics_path=metrics_path,
+        error_analysis_path=error_path,
+        config_name="multi_event_aware_hybrid",
+        llm_rerank_mode="student_env",
+        llm_rerank_model=model,
+        llm_rerank_model_name="fake_student",
+        llm_rerank_top_n=15,
+        max_contexts=2,
+    )
+
+    records = read_jsonl(output_path)
+    logs = read_jsonl(logs_path)
+    dividend_context = next(
+        context
+        for context in records[0]["contexts"]
+        if context["chunk_id"] == "dividend_context"
+    )
+    assert records[0]["llm_rerank"]["mode"] == "student_env"
+    assert dividend_context["score_breakdown"]["llm_rank"] == 1
+    assert dividend_context["score_breakdown"]["llm_rerank_model"] == "fake_student"
+    assert dividend_context["score_breakdown"]["selection_strategy"] == "coverage_mmr"
+    assert logs[0]["llm_rerank"]["preselect_context_count"] > len(records[0]["contexts"])
+    assert len(records[0]["contexts"]) == 2
+    assert logs[0]["llm_rerank"]["raw_output"]
+    assert logs[0]["llm_rerank"]["parsed_output"]["ranked_candidate_ids"] == [
+        "dividend_context"
+    ]
 
 
 def test_retrieval_comparison_writes_metrics_and_logs(tmp_path: Path) -> None:
@@ -362,6 +515,7 @@ def _gold_record() -> dict:
         "label": {
             "article_id": "cafef_833adef5f3d9",
             "document_label": "HAS_EVENT",
+            "label_reason": "Bai viet co thong tin Hoa Phat khoi cong du an nha may moi.",
             "events": [
                 {
                     "event_id": "cafef_833adef5f3d9_e01",
@@ -370,6 +524,7 @@ def _gold_record() -> dict:
                     "event_type": "EXPANSION",
                     "event_subtype": "NEW_FACTORY",
                     "event_summary": "Hoa Phat cong bo khoi cong du an nha may moi.",
+                    "event_reason": "Bang chung neu ro Hoa Phat khoi cong nha may moi.",
                     "event_arguments": {
                         "project": "du an nha may moi",
                         "location": "khu cong nghiep",

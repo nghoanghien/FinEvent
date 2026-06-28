@@ -11,7 +11,7 @@ Raw financial articles
 -> data cleaning and metadata extraction
 -> structure-aware chunking
 -> embedding/BM25/vector indexes
--> teacher labeling and pattern library
+-> teacher labeling and chunk-attached pattern records
 -> online query workflow
 -> hybrid retrieval and reranking
 -> LLM event extraction

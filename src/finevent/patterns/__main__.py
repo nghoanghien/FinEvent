@@ -1,4 +1,4 @@
-"""Run the pattern library CLI with `python -m finevent.patterns`."""
+"""Run the pattern records CLI with `python -m finevent.patterns`."""
 
 from __future__ import annotations
 

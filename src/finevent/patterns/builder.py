@@ -1,4 +1,4 @@
-"""Build few-shot pattern records from AI-generated gold labels."""
+"""Build gold-derived pattern records from AI-generated labels."""
 
 from __future__ import annotations
 
@@ -178,9 +178,7 @@ def _build_no_event_pattern(
         teacher_prompt_version=str(gold_record.get("prompt_version") or ""),
         auto_validation_status=str(gold_record.get("validation_status") or "PASS"),
         validation_errors=list(gold_record.get("validation_errors", [])),
-        explanation_brief=(
-            "The article has no concrete corporate event, so the target output is NO_EVENT."
-        ),
+        explanation_brief=_no_event_explanation(gold_record, label, article),
         metadata=_metadata(article, label, None),
     )
     errors = validate_pattern(pattern)
@@ -223,12 +221,27 @@ def _article_excerpt(article: JsonDict, *, max_words: int = 120) -> str:
 
 
 def _event_explanation(event: JsonDict) -> str:
-    event_type = event.get("event_type") or "UNKNOWN"
-    subtype = event.get("event_subtype") or "unspecified subtype"
-    return (
-        f"Pattern illustrates event {event_type}/{subtype} with grounded evidence "
-        "and schema-valid output."
-    )
+    for key in ("event_reason", "reasoning_summary", "rationale", "explanation"):
+        reason = normalize_text(str(event.get(key) or ""))
+        if reason:
+            return reason
+    summary = normalize_text(str(event.get("event_summary") or ""))
+    evidence = normalize_text(str(event.get("evidence_span") or ""))
+    if summary and evidence:
+        return f"{summary} Evidence: {evidence}"
+    return summary or evidence
+
+
+def _no_event_explanation(gold_record: JsonDict, label: JsonDict, article: JsonDict) -> str:
+    for source in (label, gold_record):
+        for key in ("label_reason", "reasoning_summary", "rationale", "explanation"):
+            reason = normalize_text(str(source.get(key) or ""))
+            if reason:
+                return reason
+    title = normalize_text(str(article.get("title") or ""))
+    if title:
+        return f"No reportable taxonomy event was identified in article: {title}."
+    return "No reportable taxonomy event was identified in the article."
 
 
 def _event_summary(pattern: PatternRecord) -> str:

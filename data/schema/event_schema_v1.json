@@ -6,6 +6,7 @@
   "required": [
     "article_id",
     "document_label",
+    "label_reason",
     "events",
     "warnings",
     "model_info"
@@ -23,6 +24,10 @@
         "NO_EVENT",
         "UNCERTAIN"
       ]
+    },
+    "label_reason": {
+      "type": "string",
+      "minLength": 1
     },
     "events": {
       "type": "array",
@@ -67,6 +72,7 @@
         "event_type",
         "event_subtype",
         "event_summary",
+        "event_reason",
         "event_arguments",
         "impact_sentiment",
         "evidence_span",
@@ -120,6 +126,10 @@
           ]
         },
         "event_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_reason": {
           "type": "string",
           "minLength": 1
         },

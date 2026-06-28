@@ -50,6 +50,11 @@ class RetrievalEngine:
     ):
         self.chunks = chunks
         self.chunks_by_id = {chunk.chunk_id: chunk for chunk in chunks}
+        self.document_previews_by_article = {
+            chunk.article_id: chunk.text[:900]
+            for chunk in chunks
+            if chunk.chunk_level == "document"
+        }
         self.bm25_index = bm25_index
         self.embeddings_by_chunk = embeddings_by_chunk
         self.embedding_model, self.embedding_dimension = _infer_embedding_shape(embeddings_by_chunk)
@@ -88,6 +93,8 @@ class RetrievalEngine:
         *,
         config: RetrievalConfig | str = "metadata_aware_hybrid",
         llm_judgments: list[JsonDict] | None = None,
+        select_final: bool = True,
+        apply_config_llm: bool = True,
     ) -> list[RetrievalCandidate]:
         retrieval_config = _resolve_config(config)
         score_state = self._collect_stage1_scores(queries, retrieval_config)
@@ -103,7 +110,7 @@ class RetrievalEngine:
             for rank, candidate in enumerate(candidates, start=1)
         ]
 
-        if retrieval_config.use_llm_rerank and candidates:
+        if apply_config_llm and retrieval_config.use_llm_rerank and candidates:
             judgments = llm_judgments
             if judgments is None:
                 judgments = deterministic_reasoning_judgments(
@@ -117,6 +124,8 @@ class RetrievalEngine:
                 llm_weight=retrieval_config.llm_weight,
             )
 
+        if not select_final:
+            return candidates
         return select_final_candidates(candidates, queries, retrieval_config)
 
     def _collect_stage1_scores(
@@ -238,7 +247,10 @@ class RetrievalEngine:
             published_at=chunk.published_at,
             score=round(score, 6),
             score_breakdown=breakdown,
-            metadata=_chunk_metadata(chunk),
+            metadata=_chunk_metadata(
+                chunk,
+                article_summary_preview=self.document_previews_by_article.get(chunk.article_id),
+            ),
         )
 
     def _dedupe_candidates(
@@ -330,7 +342,7 @@ def _source_recency_score(chunk: ChunkRecord) -> float:
     return TRUSTED_SOURCE_BONUS.get(chunk.source.lower(), 0.0)
 
 
-def _chunk_metadata(chunk: ChunkRecord) -> JsonDict:
+def _chunk_metadata(chunk: ChunkRecord, *, article_summary_preview: str | None = None) -> JsonDict:
     return {
         "tickers_hint": chunk.tickers_hint,
         "company_names_hint": chunk.company_names_hint,
@@ -338,8 +350,10 @@ def _chunk_metadata(chunk: ChunkRecord) -> JsonDict:
         "event_keywords": chunk.event_keywords,
         "event_type_hints": chunk.event_type_hints,
         "event_subtype_hints": chunk.event_subtype_hints,
+        "pattern_refs": chunk.pattern_refs,
         "paragraph_start": chunk.paragraph_start,
         "paragraph_end": chunk.paragraph_end,
+        "article_summary_preview": article_summary_preview,
         "source_metadata": chunk.metadata,
     }
 

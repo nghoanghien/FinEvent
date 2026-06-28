@@ -59,7 +59,7 @@ def test_verification_strips_fields_outside_schema() -> None:
 def test_online_workflow_runs_verification_and_writes_artifacts(tmp_path: Path) -> None:
     state = run_online_extraction_workflow(
         {"input_type": "article", "article": _article()},
-        config=ExtractionRunConfig(use_retrieval=False, use_patterns=False),
+        config=ExtractionRunConfig(use_retrieval=False),
         artifacts=ExtractionWorkflowArtifacts(logs_dir=tmp_path / "runs"),
         raw_model_output=_draft_contract_output(),
     )
@@ -115,6 +115,7 @@ def _draft_contract_output() -> dict:
     return {
         "article_id": "manual_contract_001",
         "document_label": "HAS_EVENT",
+        "label_reason": "Bai viet co thong tin HPG trung thau goi thau xay dung nha may.",
         "events": [
             {
                 "event_id": "manual_contract_001_e01",
@@ -123,6 +124,7 @@ def _draft_contract_output() -> dict:
                 "event_type": "CONTRACT",
                 "event_subtype": "BIDDING_WIN",
                 "event_summary": "HPG trung thau goi thau xay dung nha may.",
+                "event_reason": "Bang chung neu HPG da trung thau goi thau xay dung nha may.",
                 "event_arguments": {
                     "project": "goi thau xay dung nha may",
                 },

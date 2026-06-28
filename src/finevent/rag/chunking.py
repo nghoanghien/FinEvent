@@ -163,6 +163,7 @@ def _make_chunk(
         event_keywords=list(article.get("event_keywords", [])),
         event_type_hints=list(article.get("event_type_hints", [])),
         event_subtype_hints=list(article.get("event_subtype_hints", [])),
+        pattern_refs=[],
         parent_chunk_id=parent_chunk_id,
         paragraph_start=paragraph_start,
         paragraph_end=paragraph_end,

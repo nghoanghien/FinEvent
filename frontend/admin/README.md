@@ -12,7 +12,7 @@ Next.js admin dashboard for operating the FinEvent-VN NLP/RAG extraction pipelin
 - Recharts
 - react-markdown
 
-The UI is inspired by the Eatzy frontend structure, but adapted for this project:
+The UI uses project-specific FinEvent tokens and a feature-first structure:
 
 - feature-first folders;
 - dense operational dashboard;

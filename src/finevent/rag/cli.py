@@ -17,7 +17,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     prepare = subparsers.add_parser("prepare", help="Build chunks, embeddings and BM25 artifacts.")
     prepare.add_argument("--articles-path", default="data/processed/articles_clean.jsonl")
+    prepare.add_argument("--gold-path", default="data/labels/events_gold.jsonl")
     prepare.add_argument("--chunks-output-path", default="data/processed/chunks.jsonl")
+    prepare.add_argument("--patterns-output-path", default="data/patterns/patterns.jsonl")
+    prepare.add_argument(
+        "--rejected-patterns-output-path",
+        default="data/patterns/patterns_rejected.jsonl",
+    )
+    prepare.add_argument(
+        "--chunk-patterns-output-path",
+        default="data/processed/chunk_patterns.jsonl",
+    )
     prepare.add_argument("--retrieval-dir", default="data/retrieval")
     prepare.add_argument("--vector-store-dir", default="data/vector_store")
     prepare.add_argument("--report-path", default="reports/data/rag_preparation_summary.md")
@@ -44,6 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
     sync.add_argument("--articles-path", default="data/processed/articles_clean.jsonl")
     sync.add_argument("--chunks-path", default="data/processed/chunks.jsonl")
     sync.add_argument("--embeddings-path", default="data/retrieval/chunk_embeddings.jsonl")
+    sync.add_argument("--chunk-patterns-path", default="data/processed/chunk_patterns.jsonl")
     return parser
 
 
@@ -52,7 +63,11 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "prepare":
         result = run_rag_preparation(
             articles_path=args.articles_path,
+            gold_path=args.gold_path,
             chunks_output_path=args.chunks_output_path,
+            patterns_output_path=args.patterns_output_path,
+            rejected_patterns_output_path=args.rejected_patterns_output_path,
+            chunk_patterns_output_path=args.chunk_patterns_output_path,
             retrieval_dir=args.retrieval_dir,
             vector_store_dir=args.vector_store_dir,
             report_path=args.report_path,
@@ -71,10 +86,16 @@ def main(argv: list[str] | None = None) -> None:
                     "embeddings_path": str(result.embeddings_path),
                     "bm25_index_path": str(result.bm25_index_path),
                     "vector_manifest_path": str(result.vector_manifest_path),
+                    "patterns_path": str(result.patterns_path),
+                    "rejected_patterns_path": str(result.rejected_patterns_path),
+                    "chunk_patterns_path": str(result.chunk_patterns_path),
                     "report_path": str(result.report_path),
                     "article_count": result.article_count,
                     "chunk_count": result.chunk_count,
                     "embedding_count": result.embedding_count,
+                    "pattern_count": result.pattern_count,
+                    "rejected_pattern_count": result.rejected_pattern_count,
+                    "chunk_pattern_count": result.chunk_pattern_count,
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -94,6 +115,7 @@ def main(argv: list[str] | None = None) -> None:
             articles_path=args.articles_path,
             chunks_path=args.chunks_path,
             embeddings_path=args.embeddings_path,
+            chunk_patterns_path=args.chunk_patterns_path,
         )
         print(
             json.dumps(

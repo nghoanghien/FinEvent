@@ -20,9 +20,11 @@ from pathlib import Path
 from typing import Any
 
 from finevent.api.artifacts import artifact_relative_path, get_workspace_root
+from finevent.api.report_store import register_workflow_reports
 from finevent.api.serialization import to_jsonable
 from finevent.api.workflow_registry.catalog import build_workflow_steps
 from finevent.api.workflow_registry.types import WorkflowStep
+from finevent.db import get_sqlalchemy_engine
 
 RUN_STATUSES = {"queued", "running", "success", "failed", "canceled", "interrupted"}
 PROCESS_REGISTRY: dict[str, subprocess.Popen[str]] = {}
@@ -295,6 +297,7 @@ def _execute_run(run_id: str, steps: list[WorkflowStep]) -> None:
             return
         artifacts = _existing_artifacts(step.expected_artifacts)
         if exit_code == 0:
+            _register_step_reports(run_state, step.step_id, artifacts)
             _update_step(
                 run_state,
                 step.step_id,
@@ -391,6 +394,37 @@ def _existing_artifacts(paths: tuple[str, ...]) -> list[str]:
         if candidate.exists() and candidate.is_relative_to(workspace_root):
             artifacts.append(artifact_relative_path(candidate))
     return artifacts
+
+
+def _register_step_reports(run_state: RunState, step_id: str, artifact_paths: list[str]) -> None:
+    report_paths = [path for path in artifact_paths if path.startswith("reports/")]
+    if not report_paths:
+        return
+    try:
+        count = register_workflow_reports(
+            get_sqlalchemy_engine(),
+            run_id=run_state.run_id,
+            workflow_name=run_state.workflow_name,
+            step_id=step_id,
+            artifact_paths=report_paths,
+        )
+    except Exception as exc:  # noqa: BLE001 - report storage must not fail the workflow.
+        _log_event(
+            run_state.run_id,
+            step_id,
+            "WARN",
+            "system",
+            f"Workflow report DB sync skipped: {exc}",
+        )
+        return
+    if count:
+        _log_event(
+            run_state.run_id,
+            step_id,
+            "INFO",
+            "system",
+            f"Stored {count} workflow report artifact(s) in PostgreSQL.",
+        )
 
 
 def _write_run_state(run_state: RunState) -> None:

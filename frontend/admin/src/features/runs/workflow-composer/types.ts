@@ -6,7 +6,6 @@ export type WorkflowNodeId =
   | "m02_labeling"
   | "m03_rag"
   | "m04_retrieval"
-  | "m05_patterns"
   | "m06_extraction"
   | "m07_verification"
   | "m08_evaluation";

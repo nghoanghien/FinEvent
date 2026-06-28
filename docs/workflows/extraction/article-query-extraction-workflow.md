@@ -13,8 +13,9 @@ Khác với [rag-preparation-workflow.md](../data/rag-preparation-workflow.md), 
   "input_type": "url",
   "value": "https://example.com/hpg-trung-thau-du-an-moi",
   "run_config": {
-    "retrieval": "hybrid_metadata_llm_rerank",
-    "pattern_count": 3,
+    "retrieval_results_path": "data/retrieval/online_contexts.jsonl",
+    "retrieval_config": "metadata_aware_hybrid",
+    "max_contexts": 5,
     "student_model": "qwen_or_llama_8b",
     "prompt_version": "extract_v1"
   }
@@ -75,7 +76,7 @@ Nếu user paste text:
 | Query rewriting | rule + optional LLM |
 | Retrieval | BM25 + pgvector |
 | Reranking | rule-aware + LLM reasoning rerank |
-| Pattern selection | pgvector pattern embeddings |
+| Matched patterns | `pattern_refs` attached to retrieved chunks |
 | Extraction | student LLM 7B/8B |
 | Validation | Pydantic/JSON Schema |
 | Logging | JSONL + PostgreSQL `extraction_runs` |

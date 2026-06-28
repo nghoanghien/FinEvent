@@ -23,7 +23,7 @@ export function RunDetailPage({ runId }: { runId: string }) {
   const isCancelable = run.data.status === "queued" || run.data.status === "running";
 
   return (
-    <div className="eatzy-page space-y-8">
+    <div className="finevent-page space-y-8">
       <PageHeader
         eyebrow="Run detail"
         title="WORKFLOW TRACE"
@@ -31,12 +31,12 @@ export function RunDetailPage({ runId }: { runId: string }) {
         description={`${workflowTitle(run.data.workflow_name)} · ${run.data.run_id}`}
         actions={
           <>
-            <div onClick={() => router.push("/admin/runs")} className="eatzy-secondary-button cursor-pointer">
+            <div onClick={() => router.push("/admin/runs")} className="finevent-secondary-button cursor-pointer">
               <ChevronLeft className="h-4 w-4" />
               Quay lại
             </div>
             <StatusBadge value={run.data.status} />
-            <button type="button" onClick={() => run.refetch()} className="eatzy-secondary-button">
+            <button type="button" onClick={() => run.refetch()} className="finevent-secondary-button">
               <RefreshCw className={`h-4 w-4 ${run.isFetching ? "animate-spin" : ""}`} />
               Refresh
             </button>

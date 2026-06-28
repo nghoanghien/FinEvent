@@ -468,8 +468,8 @@ Nếu không có kết quả bất thường, demo dùng:
 {
   "retrieval": "hybrid_vector_keyword_ticker",
   "chunking": "structure_aware_hierarchical",
-  "pattern_count": 3,
-  "pattern_selection": "diverse_top_patterns",
+  "retrieval_results_path": "data/retrieval/online_contexts.jsonl",
+  "matched_patterns": "chunk_pattern_refs",
   "llm": "best_8b_on_dev_set",
   "label_schema": "flat_event_type",
   "validation": "schema_evidence_self_verification",

@@ -84,7 +84,7 @@ export function LiveLogViewer({ runId, enabled }: { runId: string; enabled: bool
               className="focus-ring h-12 w-60 rounded-full border border-gray-100 bg-gray-100 pl-11 pr-4 text-sm font-medium text-gray-700 placeholder:text-gray-400"
             />
           </div>
-          <button type="button" onClick={() => setPaused((value) => !value)} className="eatzy-secondary-button">
+          <button type="button" onClick={() => setPaused((value) => !value)} className="finevent-secondary-button">
             {paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
             {paused ? "Resume" : "Pause"}
           </button>

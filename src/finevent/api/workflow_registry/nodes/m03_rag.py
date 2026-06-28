@@ -29,6 +29,17 @@ def build_steps(context: BuildContext) -> list[WorkflowStep]:
     embedding_provider = str_config(config, "embedding_provider", "hash")
     embedding_dimension = int_config(config, "embedding_dimension", 128)
     chunks_path = str_config(config, "chunks_path", "data/processed/chunks.jsonl")
+    patterns_path = str_config(config, "patterns_path", "data/patterns/patterns.jsonl")
+    rejected_patterns_path = str_config(
+        config,
+        "rejected_patterns_path",
+        "data/patterns/patterns_rejected.jsonl",
+    )
+    chunk_patterns_path = str_config(
+        config,
+        "chunk_patterns_path",
+        "data/processed/chunk_patterns.jsonl",
+    )
     embeddings_path = str_config(
         config,
         "retrieval_embeddings_path",
@@ -46,8 +57,16 @@ def build_steps(context: BuildContext) -> list[WorkflowStep]:
                 "prepare",
                 "--articles-path",
                 str_config(config, "articles_path", "data/processed/articles_clean.jsonl"),
+                "--gold-path",
+                str_config(config, "gold_path", "data/labels/events_gold.jsonl"),
                 "--chunks-output-path",
                 chunks_path,
+                "--patterns-output-path",
+                patterns_path,
+                "--rejected-patterns-output-path",
+                rejected_patterns_path,
+                "--chunk-patterns-output-path",
+                chunk_patterns_path,
                 "--retrieval-dir",
                 str_config(config, "retrieval_dir", "data/retrieval"),
                 "--vector-store-dir",
@@ -69,6 +88,8 @@ def build_steps(context: BuildContext) -> list[WorkflowStep]:
             ],
             expected_artifacts=(
                 chunks_path,
+                patterns_path,
+                chunk_patterns_path,
                 embeddings_path,
                 str_config(config, "bm25_index_path", "data/retrieval/bm25_index.pkl"),
                 str_config(
@@ -97,6 +118,8 @@ def build_steps(context: BuildContext) -> list[WorkflowStep]:
                     chunks_path,
                     "--embeddings-path",
                     embeddings_path,
+                    "--chunk-patterns-path",
+                    chunk_patterns_path,
                 ],
             )
         )
@@ -108,10 +131,10 @@ node_spec = WorkflowNodeSpec(
     milestone="M03",
     title="RAG preparation",
     description=(
-        "Chunk articles, build embeddings, BM25 and vector artifacts, then sync "
-        "retrieval data."
+        "Chunk articles, attach gold-derived patterns to matching chunks, build "
+        "embeddings/BM25 artifacts, then sync retrieval data."
     ),
-    depends_on=("m01_ingestion",),
+    depends_on=("m01_ingestion", "m02_labeling"),
     default_config={
         "embedding_provider": "hash",
         "embedding_dimension": 128,
@@ -119,8 +142,16 @@ node_spec = WorkflowNodeSpec(
         "target_words": 420,
         "max_words": 620,
         "overlap_words": 80,
+        "patterns_path": "data/patterns/patterns.jsonl",
+        "rejected_patterns_path": "data/patterns/patterns_rejected.jsonl",
+        "chunk_patterns_path": "data/processed/chunk_patterns.jsonl",
     },
-    expected_artifacts=("data/processed/chunks.jsonl", "data/retrieval/bm25_index.pkl"),
+    expected_artifacts=(
+        "data/processed/chunks.jsonl",
+        "data/processed/chunk_patterns.jsonl",
+        "data/patterns/patterns.jsonl",
+        "data/retrieval/bm25_index.pkl",
+    ),
     build_steps=build_steps,
     fields=(
         WorkflowFieldSpec(
@@ -164,6 +195,18 @@ node_spec = WorkflowNodeSpec(
             type="number",
             min=0.0,
             step=10.0,
+        ),
+        WorkflowFieldSpec(
+            key="patterns_path",
+            label="Patterns output",
+            type="text",
+            configurable=False,
+        ),
+        WorkflowFieldSpec(
+            key="chunk_patterns_path",
+            label="Chunk-pattern mapping",
+            type="text",
+            configurable=False,
         ),
         WorkflowFieldSpec(
             key="sync_postgres",

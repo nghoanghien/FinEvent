@@ -24,11 +24,11 @@ Chạy toàn bộ pipeline end-to-end:
 6. Teacher labeling.
 7. Sync gold labels.
 8. RAG preparation.
-9. Sync chunks/embeddings.
-10. Retrieval comparison.
-11. Pattern library build.
-12. Sync patterns.
-13. Student 8B batch extraction.
+9. Build gold-derived pattern records and attach them to matching chunks.
+10. Sync chunks/embeddings/chunk-pattern mapping.
+11. Online retrieval contexts for extraction.
+12. Sync retrieval runs.
+13. Student 8B batch extraction from M04 contexts.
 14. Sync extraction runs.
 15. Evaluation/report generation.
 
@@ -38,6 +38,8 @@ Output chính:
 - `data/labels/events_gold.jsonl`
 - `data/retrieval/chunk_embeddings.jsonl`
 - `data/patterns/patterns.jsonl`
+- `data/processed/chunk_patterns.jsonl`
+- `data/retrieval/online_contexts.jsonl`
 - `data/extraction/student_predictions.jsonl`
 - `reports/evaluation/report_index.md`
 
@@ -92,43 +94,43 @@ Khi dùng:
 
 Không có human review trong workflow hiện tại theo quyết định của project.
 
-### 5. Retrieval Evaluation
+### 5. Online Retrieval
 
 Chạy:
 
-- BM25 only;
-- dense only;
-- hybrid;
-- metadata-aware hybrid;
-- rule-aware rerank;
-- LLM reasoning rerank nếu bật.
+- online retrieval theo `retrieval_config`;
+- BM25/dense/hybrid/rerank theo strategy được chọn;
+- listwise LLM rerank bằng student model như bước xếp hạng cuối nếu `llm_rerank_mode=student_env`;
+- ghi contexts có pattern refs cho M06;
+- ghi metrics nếu gold labels có sẵn.
 
 Output:
 
-- `reports/evaluation/retrieval_metrics.csv`
-- `reports/evaluation/retrieval_error_analysis.md`
+- `data/retrieval/online_contexts.jsonl`
+- `reports/evaluation/online_retrieval_metrics.csv`
+- `reports/evaluation/online_retrieval_error_analysis.md`
 
-### 6. Pattern Library Build
+### 6. Pattern Records In M03
 
 Chạy:
 
 - build patterns từ gold labels;
 - validate pattern;
-- embed patterns;
-- sync pattern DB.
+- attach pattern refs vào chunk theo `evidence_span`;
+- sync pattern records và chunk-pattern mapping.
 
 Output:
 
 - `data/patterns/patterns.jsonl`
-- `data/patterns/pattern_embeddings.jsonl`
+- `data/processed/chunk_patterns.jsonl`
 - `reports/evaluation/pattern_library_summary.md`
 
 ### 7. Student 8B Batch Extraction
 
 Chạy:
 
-- retrieval;
-- pattern selection;
+- load M04 retrieval contexts;
+- use matched patterns attached to retrieved chunks;
 - prompt budgeting;
 - student 8B extraction;
 - validation;
@@ -195,7 +197,8 @@ Các field vận hành chính:
 | `embedding_dimension` | 128 | Dimension mặc định trong node spec hiện tại |
 | `student_provider` | `deterministic` | Có thể đổi sang `env` nếu endpoint model đã cấu hình |
 | `retrieval_config` | `metadata_aware_hybrid` | Config tốt nhất hiện tại |
-| `pattern_count` | 3 | Few-shot patterns |
+| `llm_rerank_mode` | `student_env` | M04 dùng student model để rerank listwise sau scoring/strategy selection |
+| `llm_rerank_top_n` | 15 | Số candidate trong pool trước LLM rerank |
 | `max_contexts` | 5 | Context cho extraction |
 | `limit` | 10 | Số bài chạy cho M06 |
 | `offset` | 0 | Offset batch M06 |

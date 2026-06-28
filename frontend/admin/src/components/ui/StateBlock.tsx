@@ -39,7 +39,7 @@ export function ErrorBlock({
 }) {
   const message = error instanceof Error ? error.message : String(error);
   return (
-    <div className="rounded-[32px] border border-danger/20 bg-red-50 p-5 shadow-eatzy">
+    <div className="rounded-[32px] border border-danger/20 bg-red-50 p-5 shadow-finevent">
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-danger shadow-sm">
           <AlertCircle className="h-5 w-5" />
@@ -48,7 +48,7 @@ export function ErrorBlock({
           <h3 className="text-sm font-black text-red-950">{title}</h3>
           <p className="mt-1 text-sm font-medium text-red-700">{message}</p>
           {onRetry ? (
-            <button type="button" onClick={onRetry} className="mt-4 eatzy-secondary-button">
+            <button type="button" onClick={onRetry} className="mt-4 finevent-secondary-button">
               Thử lại
             </button>
           ) : null}

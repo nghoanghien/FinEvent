@@ -1,36 +1,27 @@
-# Multi-Event-Aware Retrieval And Pattern Selection
+# Retrieval Có Nhận Biết Nhiều Event
 
-## Mục tiêu
+`multi_event_aware_hybrid` là retrieval strategy cho bài viết có thể chứa nhiều
+corporate event type.
 
-`multi_event_aware_hybrid` là strategy bổ sung cho các bài báo có nhiều event type.
-Strategy này không thay thế mặc định cũ, mà dùng khi cần giảm rủi ro context và
-few-shot pattern bị một event áp đảo.
+## Cách Hoạt Động
 
-## Cách hoạt động
-
-1. Query legacy vẫn được tạo theo title, ticker/event, company/event và event type.
-2. Nếu config dùng `query_mode="event_intent"`, hệ thống tạo thêm query riêng cho
-   từng event type trong `event_type_hints`.
-3. Chunk retrieval Stage 1 vẫn lấy candidate từ bể chung gồm document/section/paragraph.
-4. Chunk final selection dùng `coverage_mmr`:
-   - ưu tiên candidate có relevance cao;
-   - cộng điểm cho event type/query intent chưa được cover;
-   - trừ điểm cho chunk trùng lặp nhiều với context đã chọn;
-   - hạn chế một event type chiếm quá nhiều context cuối.
-5. Pattern selection cũng dùng cùng `query_mode="event_intent"`:
-   - tạo pattern query tổng hợp legacy;
-   - tạo thêm pattern query riêng cho từng event type detected;
-   - chọn pattern theo `coverage` trước, rồi fill slot còn lại bằng score.
-
-Hệ thống không query toàn bộ taxonomy. Cả chunk và pattern chỉ tách intent theo
-những event type có trong `event_type_hints` của bài đầu vào.
+1. Legacy queries vẫn được build từ title, ticker/event keywords, company/event keywords và event type hints.
+2. Với `query_mode="event_intent"`, retrieval build thêm một query cho mỗi event type trong `event_type_hints`.
+3. Stage 1 retrieve candidates từ shared chunk index: document, section và paragraph chunks.
+4. Strategy selection dùng `coverage_mmr` trên pool rộng hơn `max_contexts`:
+   - ưu tiên relevance cao;
+   - thưởng event/query intents chưa được cover;
+   - phạt near-duplicate context;
+   - giới hạn việc một event type áp đảo context pool.
+5. Nếu M04 bật `llm_rerank_mode`, student LLM rerank listwise sau coverage/MMR. Đây là bước xếp hạng cuối cùng.
+6. M04 cắt theo `max_contexts` rồi ghi context pack cho M06.
+7. Pattern refs không được retrieve riêng. M03 gắn `pattern_refs` vào chunks, và M04 mang các refs đó trong từng retrieved context.
 
 ## Config
 
-Config mới nằm trong `DEFAULT_RETRIEVAL_CONFIGS`:
+`multi_event_aware_hybrid` hiện dùng:
 
 ```text
-multi_event_aware_hybrid
 top_k_stage1 = 75
 top_k_final = 10
 query_mode = event_intent
@@ -38,34 +29,84 @@ selection_strategy = coverage_mmr
 adaptive_top_k_final = true
 ```
 
-Adaptive context budget:
+Ngân sách context thích ứng:
 
-| Số event type trong query | Context tối đa |
+| Số event type | Final context budget |
 | ---: | ---: |
 | 0-1 | 5 |
 | 2 | 8 |
 | >=3 | 10 |
 
-Trong online extraction, `max_contexts` vẫn là lớp cắt cuối. Khi dùng strategy này
-trên Admin UI nên đặt `max_contexts` khoảng `8-10`.
+Trong admin UI, M04 và M06 vẫn áp dụng `max_contexts` làm cap cuối. Với multi-event
+run nên dùng `8-10`.
 
-`pattern_count` vẫn là giới hạn cuối cho số few-shot pattern. Nếu bài có nhiều event
-type hơn `pattern_count`, pattern selector sẽ cover được tối đa `pattern_count` event
-type bằng pattern, sau đó mới fill thêm theo score khi còn slot.
+Không có config `pattern_count`. Prompt patterns đến từ `pattern_refs` gắn trên
+retrieved chunks.
 
-## Metrics mới
+## Khi Nào Dùng
 
-Retrieval evaluation có thêm các metric:
+Nên dùng `multi_event_aware_hybrid` khi bài đầu vào có dấu hiệu chứa nhiều event type,
+ví dụ:
+
+- vừa có tin hợp đồng vừa có mở rộng dự án;
+- vừa có thay đổi lãnh đạo vừa có phát hành cổ phiếu;
+- bài tổng hợp nhiều doanh nghiệp/mã cổ phiếu;
+- `event_type_hints` có từ 2 event type trở lên.
+
+Với bài single-event rõ ràng, `metadata_aware_hybrid` thường đủ và rẻ hơn.
+
+## Coverage/MMR
+
+Selection không chỉ sort theo score. Nó cân bằng:
+
+```text
+final_score = relevance_score
+            + coverage_bonus_for_uncovered_event_intent
+            - duplicate_penalty
+            - dominance_penalty
+```
+
+Ý nghĩa:
+
+- `relevance_score`: chunk vẫn phải liên quan.
+- `coverage_bonus`: event type chưa có context sẽ được ưu tiên.
+- `duplicate_penalty`: tránh nhiều chunk gần như giống nhau.
+- `dominance_penalty`: tránh một event type chiếm hết context budget.
+
+Điểm này giúp M06 có đủ evidence cho nhiều event, thay vì chỉ thấy event nổi bật nhất
+và bỏ sót event phụ.
+
+## Quan Hệ Với M06
+
+M04 quyết định context pack. Với `multi_event_aware_hybrid`, coverage/MMR chạy trước
+để bảo vệ context cho event phụ và tạo một candidate pool rộng hơn context cuối cùng.
+Nếu `llm_rerank_mode` bật, listwise LLM rerank chạy sau đó như bước lọc/xếp hạng cuối
+cùng trước khi M04 cắt theo `max_contexts`.
+
+M06 không blend nhiều artifact output từ nhiều recipe và không tự gọi lại retrieval. Nếu admin đặt
+`retrieval_config=multi_event_aware_hybrid` ở M06, M06 chỉ tìm record M04 có cùng
+config đó trong `online_contexts.jsonl`; recipe này phải được M04 chạy trước.
+
+Vì vậy khi muốn đánh giá multi-event, cần chạy M04 bằng
+`multi_event_aware_hybrid` trước, rồi M06 dùng cùng `retrieval_config`.
+
+## Metrics
+
+Retrieval evaluation gồm:
 
 | Metric | Ý nghĩa |
 | --- | --- |
-| `event_type_coverage_at_5/10` | Tỷ lệ gold event type được cover trong top K context |
-| `event_evidence_coverage_at_5/10` | Tỷ lệ gold event có evidence chunk nằm trong top K |
-| `unique_event_types_at_5/10` | Số event type khác nhau trong top K |
-| `dominance_ratio_at_5/10` | Tỷ lệ event type chiếm nhiều nhất trong top K |
+| `event_type_coverage_at_5/10` | Tỷ lệ gold event types được cover trong top K contexts |
+| `event_evidence_coverage_at_5/10` | Tỷ lệ gold events có evidence chunk trong top K |
+| `unique_event_types_at_5/10` | Số event type xuất hiện trong top K |
+| `dominance_ratio_at_5/10` | Tỷ lệ event type áp đảo nhất trong top K |
 
-## Khi nào dùng
+## Failure Cases
 
-Dùng `multi_event_aware_hybrid` khi bài báo hoặc batch có dấu hiệu chứa nhiều
-corporate actions, ví dụ M&A đi kèm chia cổ tức, thay đổi lãnh đạo hoặc tăng vốn.
-Với bài báo một event chính, `metadata_aware_hybrid` vẫn là lựa chọn gọn và ít nhiễu hơn.
+| Trường hợp | Rủi ro | Cách xử lý |
+| --- | --- | --- |
+| `event_type_hints` thiếu event phụ | Không sinh query intent cho event đó | Cải thiện M01/M02 hinting hoặc rely vào title/body query |
+| Một event có quá ít candidate | Coverage bonus không có gì để chọn | Giữ top relevance chung, log miss trong metrics |
+| Context quá nhiều duplicate | M06 prompt phí context budget | Tăng duplicate penalty hoặc giảm `max_contexts` |
+| `max_contexts` quá thấp | Không đủ context cho nhiều event | Dùng 8-10 cho multi-event |
+| Pattern refs thiếu | Prompt thiếu ví dụ schema | Kiểm tra M03 chunk-pattern mapping |

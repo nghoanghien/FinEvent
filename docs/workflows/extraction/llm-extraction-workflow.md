@@ -2,7 +2,7 @@
 
 ## Mục tiêu
 
-Dùng model 8B để đọc bài báo mới, kết hợp context retrieval và pattern library, rồi sinh bảng sự kiện đúng schema FinEvent-VN.
+Dùng model 8B để đọc bài báo mới, kết hợp M04 retrieval contexts và pattern refs gắn với chunk, rồi sinh bảng sự kiện đúng schema FinEvent-VN.
 
 Workflow này là lõi của hệ thống demo.
 
@@ -18,7 +18,6 @@ Workflow này là lõi của hệ thống demo.
     "published_at": "2026-06-13T09:00:00+07:00"
   },
   "retrieved_contexts": [],
-  "patterns": [],
   "ticker_company_map": []
 }
 ```
@@ -187,7 +186,7 @@ Prompt gồm 5 phần:
 2. Schema: JSON schema rút gọn.
 3. Taxonomy: event types, subtypes, argument rules và impact sentiment rules.
 4. Retrieved evidence contexts: top 3-5 context đã rerank.
-5. Few-shot patterns: 3 ví dụ mặc định.
+5. Matched patterns: lấy từ `pattern_refs` của retrieved chunks.
 6. Input article: title + text + metadata.
 7. Grounding instruction: chỉ sinh field có evidence.
 
@@ -234,7 +233,7 @@ Mỗi lần chạy lưu:
   "prompt_version": "v1.0",
   "model_name": "qwen-2.5-7b-instruct",
   "retrieval_config": "hybrid_v1",
-  "patterns_used": ["pattern_contract_001"],
+  "pattern_refs_used": ["pattern_contract_001"],
   "raw_model_output": "...",
   "validated_output": {},
   "validation_errors": [],

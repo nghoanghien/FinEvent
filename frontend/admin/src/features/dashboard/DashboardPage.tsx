@@ -25,7 +25,7 @@ export function DashboardPage() {
   const latestRun = runs.data?.items?.[0];
 
   return (
-    <div className="eatzy-page space-y-8">
+    <div className="finevent-page space-y-8">
       <PageHeader
         eyebrow="Operational overview"
         title="FINEVENT CONTROL"
@@ -33,11 +33,11 @@ export function DashboardPage() {
         description="Theo dõi pipeline NLP/RAG thật: API, PostgreSQL/pgvector, workflow runs, reports, charts và structured outputs."
         actions={
           <>
-            <button type="button" onClick={dashboard.refetch} className="eatzy-secondary-button">
+            <button type="button" onClick={dashboard.refetch} className="finevent-secondary-button">
               <RefreshCw className={`h-4 w-4 ${dashboard.isRefreshing ? "animate-spin" : ""}`} />
               Refresh
             </button>
-            <div onClick={() => router.push("/admin/runs")} className="eatzy-primary-button cursor-pointer">
+            <div onClick={() => router.push("/admin/runs")} className="finevent-primary-button cursor-pointer">
               <Activity className="h-4 w-4" />
               Chạy workflow
             </div>
@@ -80,7 +80,7 @@ export function DashboardPage() {
               </div>
               <p className="pl-3.5 text-sm font-medium text-gray-400">Theo dõi nhanh các workflow vừa chạy.</p>
             </div>
-            <div onClick={() => router.push("/admin/runs")} className="eatzy-secondary-button cursor-pointer">
+            <div onClick={() => router.push("/admin/runs")} className="finevent-secondary-button cursor-pointer">
               Xem tất cả
             </div>
           </div>

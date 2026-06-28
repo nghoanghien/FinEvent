@@ -209,6 +209,9 @@ def _label(article_id: str, events: list[dict]) -> dict:
     return {
         "article_id": article_id,
         "document_label": "HAS_EVENT" if events else "NO_EVENT",
+        "label_reason": (
+            "Fixture label contains events." if events else "Fixture label has no event."
+        ),
         "events": events,
         "warnings": [],
         "model_info": {
@@ -227,6 +230,7 @@ def _contract_event() -> dict:
         "event_type": "CONTRACT",
         "event_subtype": "BIDDING_WIN",
         "event_summary": "HPG trung thau goi thau xay dung nha may.",
+        "event_reason": "Bang chung neu HPG trung thau goi thau xay dung nha may.",
         "event_arguments": {
             "project": "goi thau xay dung nha may",
             "contract_value": "500 ty dong",
@@ -254,6 +258,7 @@ def _leadership_event() -> dict:
         "event_type": "LEADERSHIP",
         "event_subtype": "CEO_APPOINTMENT",
         "event_summary": "VCB bo nhiem tong giam doc moi.",
+        "event_reason": "Bang chung neu VCB bo nhiem tong giam doc moi.",
         "event_arguments": {
             "person": "Nguyen Van A",
             "role": "tong giam doc",

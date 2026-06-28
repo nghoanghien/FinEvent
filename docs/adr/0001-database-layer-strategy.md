@@ -11,7 +11,7 @@ Từ M01 đến M06, project đã có nhiều bảng PostgreSQL và nhiều modu
 - ticker dictionary.
 - AI-generated gold labels.
 - retrieval documents/chunks/embeddings.
-- pattern library.
+- chunk-attached pattern records.
 - extraction run logs.
 
 Các module này hiện dùng SQLAlchemy engine nhưng viết câu lệnh SQL trực tiếp bằng

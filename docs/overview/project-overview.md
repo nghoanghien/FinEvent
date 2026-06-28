@@ -58,7 +58,7 @@ flowchart TD
     A[Raw Vietnamese financial articles] --> B[Data cleaning and metadata normalization]
     B --> C[Structure-aware and hierarchical chunking]
     C --> D[Embedding, BM25 and vector indexes]
-    B --> P[Teacher labeling and pattern library]
+    B --> P[Teacher labeling and chunk-attached pattern records]
     E[New article or URL] --> F[Preprocess and chunk]
     F --> G[Query rewriting and decomposition]
     G --> H[Hybrid retrieval: BM25 + vector + metadata]

@@ -35,11 +35,10 @@ from finevent.llm import (
     load_provider_runtime_config,
 )
 from finevent.patterns.pattern_sql import sync_pattern_artifacts
-from finevent.patterns.pipeline import run_pattern_library_build
 from finevent.rag.embeddings import build_embedding_client
 from finevent.rag.pipeline import run_rag_preparation
 from finevent.rag.rag_sql import sync_retrieval_artifacts
-from finevent.retrieval.experiments import run_retrieval_comparison
+from finevent.retrieval.experiments import run_online_retrieval
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -188,48 +187,38 @@ def run_m00_m08(args: argparse.Namespace) -> dict[str, Any]:
         articles_path="data/processed/articles_clean.jsonl",
         chunks_path="data/processed/chunks.jsonl",
         embeddings_path="data/retrieval/chunk_embeddings.jsonl",
+        chunk_patterns_path="data/processed/chunk_patterns.jsonl",
     )
     summary["steps"]["m03_postgres_sync"] = retrieval_sync.__dict__
+    pattern_sync = sync_pattern_artifacts(
+        engine,
+        patterns_path="data/patterns/patterns.jsonl",
+    )
+    summary["steps"]["m03_pattern_postgres_sync"] = pattern_sync.__dict__
 
-    retrieval_eval = run_retrieval_comparison(
+    student_model = cast(InvokableStudentModel, build_student_chat_model_from_env())
+    retrieval_eval = run_online_retrieval(
         chunks_path="data/processed/chunks.jsonl",
         bm25_index_path="data/retrieval/bm25_index.pkl",
         embeddings_path="data/retrieval/chunk_embeddings.jsonl",
+        articles_path="data/processed/articles_clean.jsonl",
         gold_path="data/labels/events_gold.jsonl",
-        logs_path="data/retrieval/retrieval_logs.jsonl",
-        metrics_path="reports/evaluation/retrieval_metrics.csv",
-        error_analysis_path="reports/evaluation/retrieval_error_analysis.md",
+        output_path="data/retrieval/online_contexts.jsonl",
+        logs_path="data/retrieval/online_retrieval_logs.jsonl",
+        metrics_path="reports/evaluation/online_retrieval_metrics.csv",
+        error_analysis_path="reports/evaluation/online_retrieval_error_analysis.md",
         query_embedding_client=build_embedding_client(
             provider=args.embedding_provider,
             model_name=args.embedding_model,
             dimension=args.embedding_dimension,
         ),
+        llm_rerank_mode="student_env",
+        llm_rerank_model=student_model,
+        llm_rerank_model_name=provider_config.student_model or "student_model",
     )
-    summary["steps"]["m04_retrieval_evaluation"] = retrieval_eval.__dict__
-
-    patterns = run_pattern_library_build(
-        articles_path="data/processed/articles_clean.jsonl",
-        gold_path="data/labels/events_gold.jsonl",
-        patterns_output_path="data/patterns/patterns.jsonl",
-        rejected_patterns_output_path="data/patterns/patterns_rejected.jsonl",
-        embeddings_output_path="data/patterns/pattern_embeddings.jsonl",
-        embedding_cache_path="data/patterns/pattern_embedding_cache.jsonl",
-        metrics_path="reports/evaluation/pattern_metrics.csv",
-        report_path="reports/evaluation/pattern_library_summary.md",
-        embedding_provider=args.embedding_provider,
-        embedding_model=args.embedding_model,
-        embedding_dimension=args.embedding_dimension,
-    )
-    summary["steps"]["m05_pattern_library"] = patterns.__dict__
-    pattern_sync = sync_pattern_artifacts(
-        engine,
-        patterns_path="data/patterns/patterns.jsonl",
-        embeddings_path="data/patterns/pattern_embeddings.jsonl",
-    )
-    summary["steps"]["m05_postgres_sync"] = pattern_sync.__dict__
+    summary["steps"]["m04_online_retrieval"] = retrieval_eval.__dict__
 
     first_article = _first_article("data/processed/articles_clean.jsonl")
-    student_model = cast(InvokableStudentModel, build_student_chat_model_from_env())
     extraction_config = replace(
         ExtractionRunConfig(),
         student_model=provider_config.student_model or "student_model",
@@ -238,12 +227,7 @@ def run_m00_m08(args: argparse.Namespace) -> dict[str, Any]:
         {"input_type": "article", "article": first_article},
         config=extraction_config,
         artifacts=ExtractionWorkflowArtifacts(
-            retrieval_query_embedding_provider=args.embedding_provider,
-            retrieval_query_embedding_model=args.embedding_model,
-            retrieval_query_embedding_dimension=args.embedding_dimension,
-            pattern_query_embedding_provider=args.embedding_provider,
-            pattern_query_embedding_model=args.embedding_model,
-            pattern_query_embedding_dimension=args.embedding_dimension,
+            retrieval_results_path="data/retrieval/online_contexts.jsonl",
         ),
         langchain_model=student_model,
     )
@@ -261,7 +245,7 @@ def run_m00_m08(args: argparse.Namespace) -> dict[str, Any]:
     evaluation = run_evaluation_pipeline(
         gold_path="data/labels/events_gold.jsonl",
         runs_dir="runs/extraction",
-        retrieval_metrics_path="reports/evaluation/retrieval_metrics.csv",
+        retrieval_metrics_path="reports/evaluation/online_retrieval_metrics.csv",
         output_dir="reports/evaluation",
         default_config_name="live_m00_m08",
     )

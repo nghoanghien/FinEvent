@@ -240,6 +240,39 @@ def test_m02_catalog_defaults_to_strict_validation_and_explains_limits() -> None
     assert "--strict-validation" in validate_step.command
 
 
+def test_m04_catalog_and_command_default_to_student_listwise_rerank() -> None:
+    catalog = workflow_catalog()
+    m04 = next(item for item in catalog if item["id"] == "m04_retrieval")
+    fields = {field["key"]: field for field in m04["fields"]}
+
+    assert m04["default_config"]["llm_rerank_mode"] == "student_env"
+    assert m04["default_config"]["llm_rerank_top_n"] == 15
+    assert fields["llm_rerank_mode"]["type"] == "select"
+    assert fields["llm_rerank_top_n"]["type"] == "number"
+    assert "student model" in fields["llm_rerank_mode"]["description"]
+
+    steps = build_workflow_steps(
+        "milestone_graph",
+        {
+            "selected_nodes": [
+                "m00_runtime",
+                "m01_ingestion",
+                "m02_labeling",
+                "m03_rag",
+                "m04_retrieval",
+            ]
+        },
+        run_id="admin_run_test",
+    )
+    m04_step = next(step for step in steps if step.step_id == "m04_online_retrieval")
+    command = m04_step.command
+
+    assert command[command.index("--llm-rerank-mode") + 1] == "student_env"
+    assert command[command.index("--llm-rerank-top-n") + 1] == "15"
+    assert "--llm-rerank-max-query-article-chars" in command
+    assert "--llm-rerank-max-candidate-chars" in command
+
+
 def test_milestone_graph_rejects_missing_dependencies(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

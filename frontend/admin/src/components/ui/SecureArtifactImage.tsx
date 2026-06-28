@@ -28,7 +28,7 @@ export function SecureArtifactImage({ path, alt }: { path: string; alt: string }
     <img
       src={objectUrl}
       alt={alt}
-      className="max-h-[720px] w-full rounded-[28px] border border-gray-100 bg-white object-contain shadow-eatzy"
+      className="max-h-[720px] w-full rounded-[28px] border border-gray-100 bg-white object-contain shadow-finevent"
     />
   );
 }

@@ -18,34 +18,18 @@ from finevent.extraction.student import (
 )
 from finevent.extraction.validation import validate_or_repair_extraction_output
 from finevent.extraction.verification import VerificationConfig, verify_extraction_output
-from finevent.jsonl import write_jsonl
+from finevent.jsonl import read_jsonl, write_jsonl
 from finevent.logging_utils import create_run_id
-from finevent.patterns.models import PatternCandidate
-from finevent.patterns.querying import build_pattern_queries_from_article
-from finevent.patterns.store import PatternStore
-from finevent.rag.embeddings import build_embedding_client
-from finevent.retrieval.engine import RetrievalEngine, artifacts_exist
-from finevent.retrieval.models import DEFAULT_RETRIEVAL_CONFIGS, RetrievalCandidate, RetrievalQuery
-from finevent.retrieval.querying import build_queries_from_article
+from finevent.retrieval.models import RetrievalCandidate
 from finevent.types import JsonDict, PathLike
 
 
 @dataclass(frozen=True)
 class ExtractionWorkflowArtifacts:
-    chunks_path: PathLike = "data/processed/chunks.jsonl"
-    bm25_index_path: PathLike = "data/retrieval/bm25_index.pkl"
-    retrieval_embeddings_path: PathLike = "data/retrieval/chunk_embeddings.jsonl"
-    patterns_path: PathLike = "data/patterns/patterns.jsonl"
-    pattern_embeddings_path: PathLike = "data/patterns/pattern_embeddings.jsonl"
+    retrieval_results_path: PathLike = "data/retrieval/online_contexts.jsonl"
     logs_dir: PathLike = "runs/extraction"
     dictionary_path: PathLike = "data/dictionaries/ticker_company_map.csv"
     keyword_taxonomy_path: PathLike = "data/dictionaries/event_keyword_taxonomy.csv"
-    retrieval_query_embedding_provider: str | None = None
-    retrieval_query_embedding_model: str | None = None
-    retrieval_query_embedding_dimension: int = 128
-    pattern_query_embedding_provider: str | None = None
-    pattern_query_embedding_model: str | None = None
-    pattern_query_embedding_dimension: int = 128
 
 
 def run_online_extraction_workflow(
@@ -66,9 +50,11 @@ def run_online_extraction_workflow(
     )
 
     _run_node(state, "preprocess", lambda: _node_preprocess(state, artifact_config))
-    _run_node(state, "query_plan", lambda: _node_query_plan(state))
-    _run_node(state, "retrieve_rerank", lambda: _node_retrieve(state, artifact_config))
-    _run_node(state, "pattern_selection", lambda: _node_select_patterns(state, artifact_config))
+    _run_node(
+        state,
+        "load_retrieval_contexts",
+        lambda: _node_load_retrieval_contexts(state, artifact_config),
+    )
     _run_node(
         state,
         "extraction",
@@ -157,106 +143,54 @@ def _node_preprocess(
     }
 
 
-def _node_query_plan(state: ExtractionWorkflowState) -> JsonDict:
-    if not state.article:
-        raise ValueError("preprocess must run before query_plan.")
-    retrieval_config = DEFAULT_RETRIEVAL_CONFIGS.get(state.config.retrieval_config)
-    query_mode = retrieval_config.query_mode if retrieval_config else "legacy"
-    queries = build_queries_from_article(state.article, query_mode=query_mode)
-    state.query_plan = [query.to_dict() for query in queries]
-    if not queries:
-        state.warnings.append("query_plan_empty")
-    return {"query_count": len(queries), "query_mode": query_mode}
-
-
-def _node_retrieve(
+def _node_load_retrieval_contexts(
     state: ExtractionWorkflowState,
     artifacts: ExtractionWorkflowArtifacts,
 ) -> JsonDict:
+    if not state.article:
+        raise ValueError("preprocess must run before loading retrieval contexts.")
     if not state.config.use_retrieval:
         state.warnings.append("retrieval_disabled")
-        return {"retrieved_count": 0}
-    if not state.query_plan:
-        state.warnings.append("retrieval_skipped_empty_query_plan")
-        return {"retrieved_count": 0}
-    if not artifacts_exist(
-        chunks_path=artifacts.chunks_path,
-        bm25_index_path=artifacts.bm25_index_path,
-        embeddings_path=artifacts.retrieval_embeddings_path,
-    ):
-        state.warnings.append("retrieval_artifacts_missing")
-        return {"retrieved_count": 0}
+        return {"retrieval_run_id": None, "retrieved_count": 0, "pattern_ref_count": 0}
+    records = read_jsonl(artifacts.retrieval_results_path)
+    if not records:
+        state.warnings.append("retrieval_results_missing")
+        if not state.config.allow_zero_context:
+            state.errors.append("retrieval_results_missing")
+        return {"retrieval_run_id": None, "retrieved_count": 0, "pattern_ref_count": 0}
 
-    query_client = None
-    if artifacts.retrieval_query_embedding_provider:
-        query_client = build_embedding_client(
-            provider=artifacts.retrieval_query_embedding_provider,
-            model_name=artifacts.retrieval_query_embedding_model,
-            dimension=artifacts.retrieval_query_embedding_dimension,
-        )
-    engine = RetrievalEngine.from_artifacts(
-        chunks_path=artifacts.chunks_path,
-        bm25_index_path=artifacts.bm25_index_path,
-        embeddings_path=artifacts.retrieval_embeddings_path,
-        query_embedding_client=query_client,
+    article_id = str(state.article.get("article_id") or "")
+    record = _select_retrieval_record(
+        records,
+        article_id=article_id,
+        retrieval_config=state.config.retrieval_config,
     )
-    candidates = engine.retrieve(
-        [_retrieval_query_from_dict(query) for query in state.query_plan],
-        config=state.config.retrieval_config,
-    )
-    selected = candidates[: state.config.max_contexts]
-    state.retrieved_contexts = [candidate.to_dict() for candidate in selected]
-    if not selected and not state.config.allow_zero_context:
-        state.errors.append("retrieval_empty")
-    if not selected:
+    if record is None:
+        state.warnings.append("retrieval_context_missing_for_article")
+        if not state.config.allow_zero_context:
+            state.errors.append("retrieval_context_missing_for_article")
+        return {"retrieval_run_id": None, "retrieved_count": 0, "pattern_ref_count": 0}
+
+    contexts = [
+        context
+        for context in record.get("contexts", [])
+        if isinstance(context, dict)
+    ][: state.config.max_contexts]
+    state.retrieval_run_id = str(record.get("retrieval_run_id") or "")
+    state.query_plan = [
+        query for query in record.get("queries", []) if isinstance(query, dict)
+    ]
+    state.retrieved_contexts = contexts
+    state.selected_patterns = _pattern_refs_from_contexts(contexts)
+    if not contexts:
         state.warnings.append("retrieval_empty")
-    return {"retrieved_count": len(selected)}
-
-
-def _node_select_patterns(
-    state: ExtractionWorkflowState,
-    artifacts: ExtractionWorkflowArtifacts,
-) -> JsonDict:
-    if not state.config.use_patterns:
-        state.warnings.append("pattern_selection_disabled")
-        return {"pattern_count": 0}
-    if not state.article:
-        raise ValueError("preprocess must run before pattern selection.")
-    patterns_path = Path(artifacts.patterns_path)
-    pattern_embeddings_path = Path(artifacts.pattern_embeddings_path)
-    if not patterns_path.exists() or not pattern_embeddings_path.exists():
-        state.warnings.append("pattern_artifacts_missing")
-        return {"pattern_count": 0}
-
-    query_client = None
-    if artifacts.pattern_query_embedding_provider:
-        query_client = build_embedding_client(
-            provider=artifacts.pattern_query_embedding_provider,
-            model_name=artifacts.pattern_query_embedding_model,
-            dimension=artifacts.pattern_query_embedding_dimension,
-        )
-    store = PatternStore.from_artifacts(
-        patterns_path=artifacts.patterns_path,
-        embeddings_path=artifacts.pattern_embeddings_path,
-        query_embedding_client=query_client,
-    )
-    retrieval_config = DEFAULT_RETRIEVAL_CONFIGS.get(state.config.retrieval_config)
-    query_mode = retrieval_config.query_mode if retrieval_config else "legacy"
-    selection_strategy = "coverage" if query_mode == "event_intent" else "score"
-    queries = build_pattern_queries_from_article(state.article, query_mode=query_mode)
-    candidates = store.select_patterns_for_queries(
-        queries,
-        top_k=state.config.pattern_count,
-        selection_strategy=selection_strategy,
-    )
-    state.selected_patterns = [candidate.to_dict() for candidate in candidates]
-    if not candidates:
-        state.warnings.append("pattern_selection_empty")
+        if not state.config.allow_zero_context:
+            state.errors.append("retrieval_empty")
     return {
-        "pattern_count": len(candidates),
-        "pattern_query_count": len(queries),
-        "pattern_query_mode": query_mode,
-        "pattern_selection_strategy": selection_strategy,
+        "retrieval_run_id": state.retrieval_run_id,
+        "retrieved_count": len(contexts),
+        "query_count": len(state.query_plan),
+        "pattern_ref_count": len(state.selected_patterns),
     }
 
 
@@ -269,15 +203,12 @@ def _node_extract(
     if not state.article:
         raise ValueError("preprocess must run before extraction.")
     contexts = [_retrieval_candidate_from_dict(record) for record in state.retrieved_contexts]
-    patterns = [_pattern_candidate_from_dict(record) for record in state.selected_patterns]
     state.extraction_prompt = build_extraction_prompt(
         article=state.article,
         contexts=contexts,
-        patterns=patterns,
         prompt_version=state.config.prompt_version,
         max_article_chars=state.config.max_article_chars,
         max_context_chars=state.config.max_context_chars,
-        max_pattern_excerpt_chars=state.config.max_pattern_excerpt_chars,
         max_pattern_output_chars=state.config.max_pattern_output_chars,
         max_prompt_chars=state.config.max_prompt_chars,
     )
@@ -399,26 +330,39 @@ def _node_log(
     }
 
 
-def _retrieval_query_from_dict(record: JsonDict) -> RetrievalQuery:
-    return RetrievalQuery(
-        query_id=str(record["query_id"]),
-        article_id=str(record["article_id"]),
-        text=str(record["text"]),
-        query_type=str(record["query_type"]),
-        weight=float(record.get("weight", 1.0)),
-        tickers=[str(item) for item in record.get("tickers", [])],
-        company_names=[str(item) for item in record.get("company_names", [])],
-        event_keywords=[str(item) for item in record.get("event_keywords", [])],
-        event_type_hints=[str(item) for item in record.get("event_type_hints", [])],
-        event_subtype_hints=[str(item) for item in record.get("event_subtype_hints", [])],
-        intent_key=str(record["intent_key"]) if record.get("intent_key") else None,
-        intent_event_type=(
-            str(record["intent_event_type"]) if record.get("intent_event_type") else None
-        ),
-        intent_subtype_hints=[
-            str(item) for item in record.get("intent_subtype_hints", [])
-        ],
-    )
+def _select_retrieval_record(
+    records: list[JsonDict],
+    *,
+    article_id: str,
+    retrieval_config: str,
+) -> JsonDict | None:
+    matching_article = [
+        record
+        for record in records
+        if isinstance(record, dict) and str(record.get("article_id") or "") == article_id
+    ]
+    for record in matching_article:
+        if str(record.get("retrieval_config") or "") == retrieval_config:
+            return record
+    return matching_article[0] if matching_article else None
+
+
+def _pattern_refs_from_contexts(contexts: list[JsonDict]) -> list[JsonDict]:
+    seen: set[str] = set()
+    refs: list[JsonDict] = []
+    for context in contexts:
+        raw_metadata = context.get("metadata")
+        metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
+        for raw_ref in metadata.get("pattern_refs", []):
+            if not isinstance(raw_ref, dict):
+                continue
+            pattern_id = str(raw_ref.get("pattern_id") or "")
+            key = pattern_id or repr(sorted(raw_ref.items()))
+            if key in seen:
+                continue
+            seen.add(key)
+            refs.append(raw_ref)
+    return refs
 
 
 def _retrieval_candidate_from_dict(record: JsonDict) -> RetrievalCandidate:
@@ -434,24 +378,5 @@ def _retrieval_candidate_from_dict(record: JsonDict) -> RetrievalCandidate:
         published_at=record.get("published_at"),
         score=float(record.get("score", 0.0)),
         score_breakdown=dict(record.get("score_breakdown", {})),
-        metadata=dict(record.get("metadata", {})),
-    )
-
-
-def _pattern_candidate_from_dict(record: JsonDict) -> PatternCandidate:
-    return PatternCandidate(
-        rank=int(record["rank"]),
-        pattern_id=str(record["pattern_id"]),
-        article_id=str(record["article_id"]),
-        document_label=str(record["document_label"]),
-        event_type=record.get("event_type"),
-        event_subtype=record.get("event_subtype"),
-        ticker=record.get("ticker"),
-        company_name=record.get("company_name"),
-        score=float(record.get("score", 0.0)),
-        score_breakdown=dict(record.get("score_breakdown", {})),
-        input_excerpt=str(record["input_excerpt"]),
-        gold_output=dict(record["gold_output"]),
-        explanation_brief=str(record.get("explanation_brief") or ""),
         metadata=dict(record.get("metadata", {})),
     )

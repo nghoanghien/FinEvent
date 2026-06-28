@@ -81,11 +81,17 @@ def test_duplicate_chunk_hash_keeps_unique_embedding_ids(tmp_path: Path) -> None
 
 def test_run_rag_preparation_writes_artifacts(tmp_path: Path) -> None:
     articles_path = tmp_path / "articles_clean.jsonl"
+    gold_path = tmp_path / "events_gold.jsonl"
     articles_path.write_text(json.dumps(_article(), ensure_ascii=False) + "\n", encoding="utf-8")
+    gold_path.write_text(json.dumps(_gold_record(), ensure_ascii=False) + "\n", encoding="utf-8")
 
     result = run_rag_preparation(
         articles_path=articles_path,
+        gold_path=gold_path,
         chunks_output_path=tmp_path / "chunks.jsonl",
+        patterns_output_path=tmp_path / "patterns.jsonl",
+        rejected_patterns_output_path=tmp_path / "patterns_rejected.jsonl",
+        chunk_patterns_output_path=tmp_path / "chunk_patterns.jsonl",
         retrieval_dir=tmp_path / "retrieval",
         vector_store_dir=tmp_path / "vector_store",
         report_path=tmp_path / "rag_summary.md",
@@ -99,6 +105,10 @@ def test_run_rag_preparation_writes_artifacts(tmp_path: Path) -> None:
     assert result.chunk_count >= 3
     assert result.embedding_count == result.chunk_count
     assert result.chunks_path.exists()
+    assert result.patterns_path.exists()
+    assert result.chunk_patterns_path.exists()
+    assert result.pattern_count == 1
+    assert result.chunk_pattern_count >= 1
     assert result.bm25_index_path.exists()
     assert result.vector_manifest_path.exists()
     assert result.report_path.exists()
@@ -129,4 +139,40 @@ def _article() -> dict:
         "event_type_hints": ["EXPANSION"],
         "event_subtype_hints": ["NEW_FACTORY"],
         "language": "vi",
+    }
+
+
+def _gold_record() -> dict:
+    return {
+        "article_id": "cafef_833adef5f3d9",
+        "teacher_model": "fixture_teacher",
+        "prompt_version": "m02_teacher_v1",
+        "validation_status": "PASS",
+        "validation_errors": [],
+        "label": {
+            "article_id": "cafef_833adef5f3d9",
+            "document_label": "HAS_EVENT",
+            "label_reason": "Bai viet co thong tin Hoa Phat khoi cong nha may moi.",
+            "events": [
+                {
+                    "event_id": "cafef_833adef5f3d9_e01",
+                    "ticker": "HPG",
+                    "company_name": "Hoa Phat Group",
+                    "event_type": "EXPANSION",
+                    "event_subtype": "NEW_FACTORY",
+                    "event_summary": "Hoa Phat cong bo khoi cong du an nha may moi.",
+                    "event_reason": "Bang chung neu ro Hoa Phat khoi cong nha may moi.",
+                    "event_arguments": {"project": "du an nha may moi"},
+                    "impact_sentiment": "POSITIVE",
+                    "evidence_span": (
+                        "Tap doan Hoa Phat cong bo khoi cong du an nha may moi "
+                        "tai khu cong nghiep."
+                    ),
+                    "source_url": "file://tests/fixtures/html/cafef_sample.html",
+                    "published_at": "2026-01-15T08:00:00+07:00",
+                    "confidence": 0.86,
+                }
+            ],
+            "warnings": [],
+        },
     }

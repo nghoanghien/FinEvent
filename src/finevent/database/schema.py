@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Column,
     Float,
@@ -136,6 +137,7 @@ event_label_documents_gold = Table(
     metadata,
     Column("article_id", Text, primary_key=True),
     Column("document_label", Text, nullable=False),
+    Column("label_reason", Text, nullable=False),
     Column("label_schema_version", Text, nullable=False),
     Column("label_source", Text, nullable=False, server_default=text("'ai_generated'")),
     Column("teacher_model", Text, nullable=False),
@@ -165,6 +167,7 @@ events_gold = Table(
     Column("event_type", Text, nullable=False),
     Column("event_subtype", Text),
     Column("event_summary", Text, nullable=False),
+    Column("event_reason", Text, nullable=False),
     Column("event_arguments", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
     Column("impact_sentiment", Text, nullable=False),
     Column("evidence_span", Text, nullable=False),
@@ -243,6 +246,7 @@ financial_news_chunks = Table(
     Column("event_keywords", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
     Column("event_type_hints", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
     Column("event_subtype_hints", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
+    Column("pattern_refs", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
     Column("paragraph_start", Integer),
     Column("paragraph_end", Integer),
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
@@ -251,6 +255,28 @@ financial_news_chunks = Table(
     Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=text("NOW()")),
     UniqueConstraint("article_id", "chunk_level", "chunk_index"),
     CheckConstraint("chunk_level IN ('document', 'section', 'paragraph')"),
+)
+
+financial_news_chunk_patterns = Table(
+    "financial_news_chunk_patterns",
+    metadata,
+    Column(
+        "chunk_id",
+        Text,
+        ForeignKey("financial_news_chunks.chunk_id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("article_id", Text, nullable=False),
+    Column("pattern_id", Text, primary_key=True),
+    Column("event_id", Text),
+    Column("event_type", Text),
+    Column("event_subtype", Text),
+    Column("pattern_kind", Text),
+    Column("document_label", Text),
+    Column("match_strategy", Text, nullable=False),
+    Column("match_score", Float, nullable=False, server_default=text("0")),
+    Column("pattern_ref", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=text("NOW()")),
 )
 
 financial_news_chunk_embeddings = Table(
@@ -309,24 +335,37 @@ event_patterns = Table(
     CheckConstraint("pattern_kind IN ('event', 'no_event')"),
 )
 
-event_pattern_embeddings = Table(
-    "event_pattern_embeddings",
+retrieval_runs = Table(
+    "retrieval_runs",
     metadata,
-    Column("embedding_id", Text, primary_key=True),
-    Column(
-        "pattern_id",
-        Text,
-        ForeignKey("event_patterns.pattern_id", ondelete="CASCADE"),
-        nullable=False,
-    ),
-    Column("embedding_model", Text, nullable=False),
-    Column("embedding_dimension", Integer, nullable=False),
-    Column("pattern_hash", Text, nullable=False),
-    Column("embedding", Vector()),
-    Column("status", Text, nullable=False, server_default=text("'success'")),
-    Column("error", Text),
+    Column("retrieval_run_id", Text, primary_key=True),
+    Column("article_id", Text),
+    Column("retrieval_config", Text, nullable=False),
+    Column("query_plan", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
+    Column("metrics", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    Column("warnings", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
+    Column("source_path", Text),
+    Column("output_path", Text),
     Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=text("NOW()")),
-    UniqueConstraint("pattern_id", "embedding_model"),
+)
+
+retrieval_run_contexts = Table(
+    "retrieval_run_contexts",
+    metadata,
+    Column(
+        "retrieval_run_id",
+        Text,
+        ForeignKey("retrieval_runs.retrieval_run_id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("rank", Integer, primary_key=True),
+    Column("chunk_id", Text, nullable=False),
+    Column("article_id", Text, nullable=False),
+    Column("score", Float, nullable=False, server_default=text("0")),
+    Column("score_breakdown", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    Column("context", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    Column("pattern_refs", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=text("NOW()")),
 )
 
 extraction_runs = Table(
@@ -340,6 +379,8 @@ extraction_runs = Table(
     Column("prompt_version", Text, nullable=False),
     Column("retrieval_config", Text),
     Column("pattern_ids", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
+    Column("retrieval_run_id", Text),
+    Column("context_chunk_ids", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
     Column("draft_output", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
     Column("final_output", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
     Column("validation_issues", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
@@ -372,11 +413,44 @@ extraction_node_traces = Table(
     Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=text("NOW()")),
 )
 
+workflow_reports = Table(
+    "workflow_reports",
+    metadata,
+    Column("report_id", Text, primary_key=True),
+    Column("run_id", Text),
+    Column("workflow_name", Text),
+    Column("step_id", Text),
+    Column("path", Text, nullable=False),
+    Column("name", Text, nullable=False),
+    Column("kind", Text, nullable=False),
+    Column("size_bytes", BigInteger, nullable=False, server_default=text("0")),
+    Column("content_text", Text),
+    Column("content_json", JSONB),
+    Column("content_truncated", Boolean, nullable=False, server_default=text("FALSE")),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=text("NOW()")),
+    Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=text("NOW()")),
+)
+
 Index("idx_articles_source", articles.c.source)
 Index("idx_articles_published_at", articles.c.published_at)
 Index("idx_ticker_companies_sector", ticker_companies.c.sector)
 Index("idx_ticker_companies_exchange", ticker_companies.c.exchange)
 Index("idx_events_gold_event_type", events_gold.c.event_type)
 Index("idx_financial_news_chunks_article_id", financial_news_chunks.c.article_id)
+Index("idx_financial_news_chunk_patterns_article_id", financial_news_chunk_patterns.c.article_id)
+Index("idx_financial_news_chunk_patterns_pattern_id", financial_news_chunk_patterns.c.pattern_id)
+Index("idx_financial_news_chunk_patterns_event_type", financial_news_chunk_patterns.c.event_type)
 Index("idx_event_patterns_event_type", event_patterns.c.event_type)
+Index("idx_retrieval_runs_article_id", retrieval_runs.c.article_id)
+Index("idx_retrieval_runs_config", retrieval_runs.c.retrieval_config)
+Index("idx_retrieval_runs_created_at", retrieval_runs.c.created_at)
+Index("idx_retrieval_run_contexts_run_id", retrieval_run_contexts.c.retrieval_run_id)
+Index("idx_retrieval_run_contexts_chunk_id", retrieval_run_contexts.c.chunk_id)
 Index("idx_extraction_runs_article_id", extraction_runs.c.article_id)
+Index("idx_workflow_reports_run_id", workflow_reports.c.run_id)
+Index("idx_workflow_reports_workflow_name", workflow_reports.c.workflow_name)
+Index("idx_workflow_reports_step_id", workflow_reports.c.step_id)
+Index("idx_workflow_reports_path", workflow_reports.c.path)
+Index("idx_workflow_reports_kind", workflow_reports.c.kind)
+Index("idx_workflow_reports_updated_at", workflow_reports.c.updated_at)

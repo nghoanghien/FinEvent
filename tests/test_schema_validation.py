@@ -22,6 +22,7 @@ def valid_label() -> dict:
     return {
         "article_id": "cafef_833adef5f3d9",
         "document_label": "HAS_EVENT",
+        "label_reason": "Bai viet co thong tin Hoa Phat khoi cong du an nha may moi.",
         "events": [
             {
                 "event_id": "cafef_833adef5f3d9_e01",
@@ -30,6 +31,7 @@ def valid_label() -> dict:
                 "event_type": "EXPANSION",
                 "event_subtype": "NEW_FACTORY",
                 "event_summary": "Hoa Phat cong bo khoi cong du an nha may moi.",
+                "event_reason": "Bang chung neu ro Hoa Phat khoi cong du an nha may moi.",
                 "event_arguments": {
                     "project": "du an nha may moi",
                     "location": "khu cong nghiep",

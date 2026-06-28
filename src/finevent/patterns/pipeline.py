@@ -1,21 +1,14 @@
-"""Milestone 05 pattern library build pipeline."""
+"""Build gold-derived pattern records for chunk mapping."""
 
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass
 from pathlib import Path
 
 from finevent.jsonl import read_jsonl, write_jsonl
 from finevent.patterns.builder import build_patterns_from_gold
-from finevent.patterns.embeddings import embed_patterns_with_cache
-from finevent.patterns.evaluation import (
-    build_pattern_library_summary,
-    evaluate_pattern_store,
-    write_pattern_metrics_csv,
-)
-from finevent.patterns.store import PatternStore
-from finevent.rag.embeddings import build_embedding_client
-from finevent.types import PathLike
+from finevent.types import JsonDict, PathLike
 
 
 @dataclass(frozen=True)
@@ -24,12 +17,10 @@ class PatternBuildResult:
     gold_path: Path
     patterns_path: Path
     rejected_patterns_path: Path
-    embeddings_path: Path
     metrics_path: Path
     report_path: Path
     pattern_count: int
     rejected_pattern_count: int
-    embedding_count: int
 
 
 def run_pattern_library_build(
@@ -38,13 +29,8 @@ def run_pattern_library_build(
     gold_path: PathLike = "data/labels/events_gold.jsonl",
     patterns_output_path: PathLike = "data/patterns/patterns.jsonl",
     rejected_patterns_output_path: PathLike = "data/patterns/patterns_rejected.jsonl",
-    embeddings_output_path: PathLike = "data/patterns/pattern_embeddings.jsonl",
-    embedding_cache_path: PathLike = "data/patterns/pattern_embedding_cache.jsonl",
     metrics_path: PathLike = "reports/evaluation/pattern_metrics.csv",
     report_path: PathLike = "reports/evaluation/pattern_library_summary.md",
-    embedding_provider: str = "hash",
-    embedding_model: str | None = None,
-    embedding_dimension: int = 128,
 ) -> PatternBuildResult:
     articles = read_jsonl(articles_path)
     gold_records = read_jsonl(gold_path)
@@ -63,22 +49,15 @@ def run_pattern_library_build(
         (pattern.to_dict() for pattern in rejected_patterns),
     )
 
-    client = build_embedding_client(
-        provider=embedding_provider,
-        model_name=embedding_model,
-        dimension=embedding_dimension,
-    )
-    embeddings = embed_patterns_with_cache(
-        valid_patterns,
-        client=client,
-        output_path=embeddings_output_path,
-        cache_path=embedding_cache_path,
-    )
-    store = PatternStore(
-        patterns=valid_patterns,
-        embeddings_by_pattern={record.pattern_id: record for record in embeddings},
-    )
-    metrics = evaluate_pattern_store(store=store, patterns=valid_patterns)
+    metrics = {
+        "metric_scope": "pattern_library",
+        "pattern_count": len(valid_patterns),
+        "event_pattern_count": sum(1 for item in valid_patterns if item.pattern_kind == "event"),
+        "no_event_pattern_count": sum(
+            1 for item in valid_patterns if item.pattern_kind == "no_event"
+        ),
+        "rejected_pattern_count": len(rejected_patterns),
+    }
     write_pattern_metrics_csv(metrics_path, metrics)
     _write_text(report_path, build_pattern_library_summary(metrics))
 
@@ -87,12 +66,10 @@ def run_pattern_library_build(
         gold_path=Path(gold_path),
         patterns_path=Path(patterns_output_path),
         rejected_patterns_path=Path(rejected_patterns_output_path),
-        embeddings_path=Path(embeddings_output_path),
         metrics_path=Path(metrics_path),
         report_path=Path(report_path),
         pattern_count=len(valid_patterns),
         rejected_pattern_count=len(rejected_patterns),
-        embedding_count=len(embeddings),
     )
 
 
@@ -105,3 +82,33 @@ def _write_text(path: PathLike, content: str) -> None:
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(content, encoding="utf-8")
+
+
+def write_pattern_metrics_csv(path: PathLike, metrics: JsonDict) -> Path:
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=list(metrics))
+        writer.writeheader()
+        writer.writerow(metrics)
+    return output_path
+
+
+def build_pattern_library_summary(metrics: JsonDict) -> str:
+    return "\n".join(
+        [
+            "# Pattern Record Summary",
+            "",
+            "## Overview",
+            "",
+            f"- Valid patterns: {metrics.get('pattern_count', 0)}",
+            f"- Event patterns: {metrics.get('event_pattern_count', 0)}",
+            f"- NO_EVENT patterns: {metrics.get('no_event_pattern_count', 0)}",
+            f"- Rejected patterns: {metrics.get('rejected_pattern_count', 0)}",
+            "",
+            (
+                "Patterns are attached to chunks during M03 and consumed through "
+                "M04 retrieval contexts."
+            ),
+        ]
+    )

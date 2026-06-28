@@ -8,7 +8,7 @@ Milestone này biến event schema trong tài liệu thành một hệ label có
 - Có prompt để đưa bài báo sạch cho teacher LLM sinh label.
 - Có validator tự động để tách label thành `gold` và `rejected`.
 - Chấp nhận label AI nếu pass auto validation, không có bước human review.
-- Có schema PostgreSQL để lưu doc-level label và event-level label cho evaluation, pattern library và app.
+- Có schema PostgreSQL để lưu doc-level label và event-level label cho evaluation, pattern records và app.
 
 ## Vai trò trong project
 

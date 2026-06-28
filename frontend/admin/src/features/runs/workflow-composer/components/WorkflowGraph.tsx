@@ -21,7 +21,6 @@ const nodePositions: Record<WorkflowNodeId, { x: number; y: number }> = {
   m02_labeling: { x: 610, y: 30 },
   m03_rag: { x: 610, y: 330 },
   m04_retrieval: { x: 890, y: 30 },
-  m05_patterns: { x: 890, y: 330 },
   m06_extraction: { x: 1170, y: 180 },
   m07_verification: { x: 1450, y: 180 },
   m08_evaluation: { x: 1730, y: 30 },

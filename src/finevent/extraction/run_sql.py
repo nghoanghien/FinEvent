@@ -26,6 +26,7 @@ def sync_extraction_state(
     final_output = state.final_output or {}
     article_id = final_output.get("article_id")
     pattern_ids = [pattern.get("pattern_id") for pattern in state.selected_patterns]
+    context_chunk_ids = [context.get("chunk_id") for context in state.retrieved_contexts]
 
     with engine.begin() as connection:
         connection.execute(
@@ -40,6 +41,8 @@ def sync_extraction_state(
                     prompt_version,
                     retrieval_config,
                     pattern_ids,
+                    retrieval_run_id,
+                    context_chunk_ids,
                     draft_output,
                     final_output,
                     validation_issues,
@@ -59,6 +62,8 @@ def sync_extraction_state(
                     :prompt_version,
                     :retrieval_config,
                     CAST(:pattern_ids AS JSONB),
+                    :retrieval_run_id,
+                    CAST(:context_chunk_ids AS JSONB),
                     CAST(:draft_output AS JSONB),
                     CAST(:final_output AS JSONB),
                     CAST(:validation_issues AS JSONB),
@@ -78,6 +83,8 @@ def sync_extraction_state(
                     prompt_version = EXCLUDED.prompt_version,
                     retrieval_config = EXCLUDED.retrieval_config,
                     pattern_ids = EXCLUDED.pattern_ids,
+                    retrieval_run_id = EXCLUDED.retrieval_run_id,
+                    context_chunk_ids = EXCLUDED.context_chunk_ids,
                     draft_output = EXCLUDED.draft_output,
                     final_output = EXCLUDED.final_output,
                     validation_issues = EXCLUDED.validation_issues,
@@ -98,6 +105,8 @@ def sync_extraction_state(
                 "prompt_version": state.config.prompt_version,
                 "retrieval_config": state.config.retrieval_config,
                 "pattern_ids": _json(pattern_ids),
+                "retrieval_run_id": state.retrieval_run_id,
+                "context_chunk_ids": _json(context_chunk_ids),
                 "draft_output": _json(state.draft_output or {}),
                 "final_output": _json(final_output),
                 "validation_issues": _json(state.validation_issues),

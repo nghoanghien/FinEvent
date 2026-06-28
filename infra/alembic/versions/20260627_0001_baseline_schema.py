@@ -23,7 +23,7 @@ BASELINE_SQL_FILES = (
     "004_retrieval.sql",
     "005_event_patterns.sql",
     "006_extraction_runs.sql",
-    "007_verification_reports.sql",
+    "007_workflow_reports.sql",
 )
 
 
@@ -35,7 +35,6 @@ def upgrade() -> None:
             raise FileNotFoundError(f"Missing baseline SQL file: {sql_path}")
         for statement in _split_sql_statements(sql_path.read_text(encoding="utf-8")):
             op.execute(statement)
-    op.execute("ALTER TABLE IF EXISTS articles ADD COLUMN IF NOT EXISTS raw_html_path TEXT")
 
 
 def downgrade() -> None:

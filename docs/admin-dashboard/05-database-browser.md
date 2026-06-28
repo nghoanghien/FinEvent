@@ -126,7 +126,7 @@ Detail drawer:
 
 ### Patterns
 
-Mục đích: kiểm tra pattern library.
+Mục đích: kiểm tra pattern records và chunk-pattern mapping.
 
 Columns:
 
@@ -254,4 +254,3 @@ Detail drawer:
 - Max limit 200.
 - Text search nên dùng indexed columns trước.
 - JSON detail chỉ load khi mở drawer.
-

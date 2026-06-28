@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS event_labeling_runs (
 CREATE TABLE IF NOT EXISTS event_label_documents_gold (
     article_id TEXT PRIMARY KEY,
     document_label TEXT NOT NULL CHECK (document_label IN ('HAS_EVENT', 'NO_EVENT', 'UNCERTAIN')),
+    label_reason TEXT NOT NULL,
     label_schema_version TEXT NOT NULL,
     label_source TEXT NOT NULL DEFAULT 'ai_generated',
     teacher_model TEXT NOT NULL,
@@ -35,6 +36,7 @@ CREATE TABLE IF NOT EXISTS events_gold (
     event_type TEXT NOT NULL,
     event_subtype TEXT,
     event_summary TEXT NOT NULL,
+    event_reason TEXT NOT NULL,
     event_arguments JSONB NOT NULL DEFAULT '{}'::jsonb,
     impact_sentiment TEXT NOT NULL CHECK (impact_sentiment IN ('POSITIVE', 'NEGATIVE', 'NEUTRAL', 'MIXED')),
     evidence_span TEXT NOT NULL,

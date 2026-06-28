@@ -10,8 +10,8 @@ from finevent.extraction.workflow import (
     build_public_result,
     run_online_extraction_workflow,
 )
-from finevent.patterns.pipeline import run_pattern_library_build
 from finevent.rag.pipeline import run_rag_preparation
+from finevent.retrieval.experiments import run_online_retrieval
 
 
 class RecordingStudentModel:
@@ -24,7 +24,7 @@ class RecordingStudentModel:
         return json.dumps(self.output, ensure_ascii=False)
 
 
-def test_online_extraction_event_text_runs_without_retrieval_or_patterns(tmp_path: Path) -> None:
+def test_online_extraction_event_text_runs_without_retrieval(tmp_path: Path) -> None:
     state = run_online_extraction_workflow(
         {
             "input_type": "text",
@@ -35,7 +35,7 @@ def test_online_extraction_event_text_runs_without_retrieval_or_patterns(tmp_pat
             ),
             "source": "manual",
         },
-        config=ExtractionRunConfig(use_retrieval=False, use_patterns=False),
+        config=ExtractionRunConfig(use_retrieval=False),
         artifacts=ExtractionWorkflowArtifacts(logs_dir=tmp_path / "runs"),
     )
     result = build_public_result(state)
@@ -58,6 +58,7 @@ def test_online_extraction_respects_prompt_budget_before_student_call(tmp_path: 
         {
             "article_id": "manual_long_input",
             "document_label": "NO_EVENT",
+            "label_reason": "Fixture output has no reportable event.",
             "events": [],
             "warnings": [],
             "model_info": {
@@ -76,7 +77,6 @@ def test_online_extraction_respects_prompt_budget_before_student_call(tmp_path: 
         },
         config=ExtractionRunConfig(
             use_retrieval=False,
-            use_patterns=False,
             max_article_chars=900,
             max_prompt_chars=5000,
         ),
@@ -98,7 +98,7 @@ def test_online_extraction_no_event_text_returns_no_event(tmp_path: Path) -> Non
                 "Bai viet chi tom tat dien bien thi truong chung."
             ),
         },
-        config=ExtractionRunConfig(use_retrieval=False, use_patterns=False),
+        config=ExtractionRunConfig(use_retrieval=False),
         artifacts=ExtractionWorkflowArtifacts(logs_dir=tmp_path / "runs"),
     )
     result = build_public_result(state)
@@ -117,6 +117,7 @@ def test_validation_repairs_markdown_wrapped_json() -> None:
     {
       "article_id": "cafef_833adef5f3d9",
       "document_label": "NO_EVENT",
+      "label_reason": "Fixture repair case has no remaining event.",
       "events": [],
       "warnings": [],
       "model_info": {
@@ -145,6 +146,7 @@ def test_validation_locks_system_identifiers_to_input_article() -> None:
     raw_output = {
         "article_id": "wrong_article_id",
         "document_label": "HAS_EVENT",
+        "label_reason": "Wrong article id fixture still contains an expansion event.",
         "events": [
             {
                 "event_id": "wrong_article_id_e01",
@@ -153,6 +155,7 @@ def test_validation_locks_system_identifiers_to_input_article() -> None:
                 "event_type": "EXPANSION",
                 "event_subtype": "NEW_FACTORY",
                 "event_summary": "Hoa Phat cong bo khoi cong du an nha may moi.",
+                "event_reason": "Evidence states Hoa Phat started a new factory project.",
                 "event_arguments": {},
                 "impact_sentiment": "POSITIVE",
                 "evidence_span": "Tap doan Hoa Phat cong bo khoi cong du an nha may moi.",
@@ -184,7 +187,7 @@ def test_validation_locks_system_identifiers_to_input_article() -> None:
     assert result.output["events"][0]["published_at"] == article["published_at"]
 
 
-def test_online_extraction_uses_retrieval_and_patterns(tmp_path: Path) -> None:
+def test_online_extraction_uses_m04_retrieval_context_patterns(tmp_path: Path) -> None:
     articles_path = tmp_path / "articles_clean.jsonl"
     gold_path = tmp_path / "events_gold.jsonl"
     articles_path.write_text(
@@ -198,7 +201,11 @@ def test_online_extraction_uses_retrieval_and_patterns(tmp_path: Path) -> None:
 
     rag_result = run_rag_preparation(
         articles_path=articles_path,
+        gold_path=gold_path,
         chunks_output_path=tmp_path / "chunks.jsonl",
+        patterns_output_path=tmp_path / "patterns.jsonl",
+        rejected_patterns_output_path=tmp_path / "patterns_rejected.jsonl",
+        chunk_patterns_output_path=tmp_path / "chunk_patterns.jsonl",
         retrieval_dir=tmp_path / "retrieval",
         vector_store_dir=tmp_path / "vector_store",
         report_path=tmp_path / "rag_summary.md",
@@ -207,26 +214,22 @@ def test_online_extraction_uses_retrieval_and_patterns(tmp_path: Path) -> None:
         max_words=32,
         overlap_words=4,
     )
-    pattern_result = run_pattern_library_build(
+    retrieval_result = run_online_retrieval(
+        chunks_path=rag_result.chunks_path,
+        bm25_index_path=rag_result.bm25_index_path,
+        embeddings_path=rag_result.embeddings_path,
         articles_path=articles_path,
         gold_path=gold_path,
-        patterns_output_path=tmp_path / "patterns.jsonl",
-        rejected_patterns_output_path=tmp_path / "patterns_rejected.jsonl",
-        embeddings_output_path=tmp_path / "pattern_embeddings.jsonl",
-        embedding_cache_path=tmp_path / "pattern_embedding_cache.jsonl",
-        metrics_path=tmp_path / "pattern_metrics.csv",
-        report_path=tmp_path / "pattern_summary.md",
-        embedding_dimension=32,
+        output_path=tmp_path / "online_contexts.jsonl",
+        logs_path=tmp_path / "online_retrieval_logs.jsonl",
+        metrics_path=tmp_path / "online_retrieval_metrics.csv",
+        error_analysis_path=tmp_path / "online_retrieval_error_analysis.md",
     )
 
     state = run_online_extraction_workflow(
         {"input_type": "article", "article": _event_article()},
         artifacts=ExtractionWorkflowArtifacts(
-            chunks_path=rag_result.chunks_path,
-            bm25_index_path=rag_result.bm25_index_path,
-            retrieval_embeddings_path=rag_result.embeddings_path,
-            patterns_path=pattern_result.patterns_path,
-            pattern_embeddings_path=pattern_result.embeddings_path,
+            retrieval_results_path=retrieval_result.output_path,
             logs_dir=tmp_path / "runs",
         ),
     )
@@ -236,10 +239,11 @@ def test_online_extraction_uses_retrieval_and_patterns(tmp_path: Path) -> None:
     assert result["retrieval_trace"]
     assert result["selected_patterns"]
     assert result["selected_patterns"][0]["event_type"] == "EXPANSION"
-    assert "Few-shot patterns:" in state.extraction_prompt
+    assert "matched_patterns" in state.extraction_prompt
+    assert state.retrieval_run_id
 
 
-def test_online_extraction_multi_event_mode_uses_pattern_coverage(tmp_path: Path) -> None:
+def test_online_extraction_multi_event_mode_consumes_matching_m04_run(tmp_path: Path) -> None:
     articles_path = tmp_path / "articles_clean.jsonl"
     gold_path = tmp_path / "events_gold.jsonl"
     articles_path.write_text(
@@ -253,7 +257,11 @@ def test_online_extraction_multi_event_mode_uses_pattern_coverage(tmp_path: Path
 
     rag_result = run_rag_preparation(
         articles_path=articles_path,
+        gold_path=gold_path,
         chunks_output_path=tmp_path / "chunks.jsonl",
+        patterns_output_path=tmp_path / "patterns.jsonl",
+        rejected_patterns_output_path=tmp_path / "patterns_rejected.jsonl",
+        chunk_patterns_output_path=tmp_path / "chunk_patterns.jsonl",
         retrieval_dir=tmp_path / "retrieval",
         vector_store_dir=tmp_path / "vector_store",
         report_path=tmp_path / "rag_summary.md",
@@ -262,38 +270,35 @@ def test_online_extraction_multi_event_mode_uses_pattern_coverage(tmp_path: Path
         max_words=32,
         overlap_words=4,
     )
-    pattern_result = run_pattern_library_build(
+    retrieval_result = run_online_retrieval(
+        chunks_path=rag_result.chunks_path,
+        bm25_index_path=rag_result.bm25_index_path,
+        embeddings_path=rag_result.embeddings_path,
         articles_path=articles_path,
         gold_path=gold_path,
-        patterns_output_path=tmp_path / "patterns.jsonl",
-        rejected_patterns_output_path=tmp_path / "patterns_rejected.jsonl",
-        embeddings_output_path=tmp_path / "pattern_embeddings.jsonl",
-        embedding_cache_path=tmp_path / "pattern_embedding_cache.jsonl",
-        metrics_path=tmp_path / "pattern_metrics.csv",
-        report_path=tmp_path / "pattern_summary.md",
-        embedding_dimension=32,
+        output_path=tmp_path / "online_contexts.jsonl",
+        logs_path=tmp_path / "online_retrieval_logs.jsonl",
+        metrics_path=tmp_path / "online_retrieval_metrics.csv",
+        error_analysis_path=tmp_path / "online_retrieval_error_analysis.md",
+        config_name="multi_event_aware_hybrid",
     )
 
     state = run_online_extraction_workflow(
         {"input_type": "article", "article": _event_article()},
         config=ExtractionRunConfig(retrieval_config="multi_event_aware_hybrid"),
         artifacts=ExtractionWorkflowArtifacts(
-            chunks_path=rag_result.chunks_path,
-            bm25_index_path=rag_result.bm25_index_path,
-            retrieval_embeddings_path=rag_result.embeddings_path,
-            patterns_path=pattern_result.patterns_path,
-            pattern_embeddings_path=pattern_result.embeddings_path,
+            retrieval_results_path=retrieval_result.output_path,
             logs_dir=tmp_path / "runs",
         ),
     )
     result = build_public_result(state)
 
     assert result["selected_patterns"]
-    assert result["selected_patterns"][0]["score_breakdown"]["selection_strategy"] == "coverage"
-    pattern_trace = next(
-        trace for trace in result["node_traces"] if trace["node"] == "pattern_selection"
+    retrieval_trace = next(
+        trace for trace in result["node_traces"] if trace["node"] == "load_retrieval_contexts"
     )
-    assert pattern_trace["output_summary"]["pattern_query_mode"] == "event_intent"
+    assert retrieval_trace["output_summary"]["retrieval_run_id"] == state.retrieval_run_id
+    assert state.retrieval_run_id and "multi_event_aware_hybrid" in state.retrieval_run_id
 
 
 def _event_article() -> dict:
@@ -330,6 +335,7 @@ def _event_gold_record() -> dict:
         "label": {
             "article_id": "cafef_833adef5f3d9",
             "document_label": "HAS_EVENT",
+            "label_reason": "Bai viet co su kien khoi cong du an moi cua Hoa Phat.",
             "events": [
                 {
                     "event_id": "cafef_833adef5f3d9_e01",
@@ -338,6 +344,7 @@ def _event_gold_record() -> dict:
                     "event_type": "EXPANSION",
                     "event_subtype": "NEW_FACTORY",
                     "event_summary": "Hoa Phat cong bo khoi cong du an nha may moi.",
+                    "event_reason": "Bang chung noi ro Hoa Phat khoi cong nha may moi.",
                     "event_arguments": {
                         "project": "du an nha may moi",
                         "location": "khu cong nghiep",

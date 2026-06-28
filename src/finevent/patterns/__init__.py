@@ -1,10 +1,8 @@
-"""Pattern library and few-shot example selection."""
+"""Pattern record builders used by the retrieval workflow."""
 
 from finevent.patterns.pipeline import PatternBuildResult, run_pattern_library_build
-from finevent.patterns.store import PatternStore
 
 __all__ = [
     "PatternBuildResult",
-    "PatternStore",
     "run_pattern_library_build",
 ]

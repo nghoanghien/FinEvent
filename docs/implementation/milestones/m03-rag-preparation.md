@@ -18,7 +18,7 @@ M03 tạo:
 M03 là nền giữa dữ liệu báo chí và các workflow RAG/extraction sau này:
 
 - M04 retrieval/reranking dùng chunks + BM25 + embeddings để lấy context.
-- M05 pattern library dùng chunk/evidence để tìm mẫu tương tự.
+- Pattern records từ gold labels được attach vào chunk theo `evidence_span`; M04/M06 dùng mapping này qua retrieval contexts.
 - M06 online extraction dùng paragraph chunk làm evidence span.
 - M08 evaluation dùng BM25/dense/hybrid artifacts để đo Recall@k, MRR, nDCG.
 

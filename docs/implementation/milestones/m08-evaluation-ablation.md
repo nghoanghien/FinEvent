@@ -13,7 +13,7 @@ M08 tập trung vào 4 câu hỏi:
 2. Hệ thống trích xuất đúng loại sự kiện, ticker, chiều hướng tác động và slots
    hay không?
 3. Tầng verification ở M07 giảm hallucination ra sao?
-4. Khi bật/tắt retrieval, pattern library, reranking, verification thì metric
+4. Khi bật/tắt retrieval, chunk-attached pattern refs, reranking, verification thì metric
    thay đổi thế nào?
 
 ## Vị trí trong pipeline
@@ -175,7 +175,7 @@ Mỗi prediction có `config_name`. Trường này dùng để nhóm ablation:
 baseline
 hybrid
 workflow
-hybrid_patterns_verification
+hybrid_context_patterns_verification
 ```
 
 Nếu không có `config_name`, CLI dùng `--default-config-name`.
@@ -288,7 +288,7 @@ Các config nên chạy trong quá trình làm đồ án:
 | `dense_only` | dense | off | off | Tác động semantic retrieval |
 | `hybrid` | BM25 + dense | off | off | Tác động hybrid retrieval |
 | `hybrid_rerank` | hybrid + rerank | off | off | Tác động reranking |
-| `hybrid_patterns` | hybrid + rerank | on | off | Tác động pattern library |
+| `hybrid_context_patterns` | hybrid + rerank | on | off | Tác động chunk-attached pattern refs |
 | `workflow_full` | hybrid + rerank | on | on | Workflow đầy đủ |
 
 Trong báo cáo, cùng một test split phải được dùng cho mọi config.

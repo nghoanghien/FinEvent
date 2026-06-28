@@ -52,6 +52,14 @@ def build_teacher_prompt(
             "- Do not infer facts that are not present in title, text, URL metadata, or hints.",
             "- If event_subtype is uncertain, set event_subtype=null instead of guessing.",
             "- event_arguments must contain only reusable slots supported by evidence.",
+            (
+                "- Always include label_reason: one concise Vietnamese sentence "
+                "explaining the document label."
+            ),
+            (
+                "- For every event, include event_reason: one concise Vietnamese "
+                "sentence grounded in evidence."
+            ),
             "",
             "Required JSON shape:",
             json.dumps(_required_shape(prompt_version), ensure_ascii=False, indent=2),
@@ -105,6 +113,7 @@ def _required_shape(prompt_version: str) -> JsonDict:
     return {
         "article_id": "<same as input article_id>",
         "document_label": "HAS_EVENT | NO_EVENT | UNCERTAIN",
+        "label_reason": "one concise grounded Vietnamese reason for document_label",
         "events": [
             {
                 "event_id": "<article_id>_e01",
@@ -113,6 +122,7 @@ def _required_shape(prompt_version: str) -> JsonDict:
                 "event_type": "one taxonomy event type",
                 "event_subtype": "one valid subtype or null",
                 "event_summary": "one short grounded Vietnamese summary",
+                "event_reason": "one concise grounded Vietnamese reason for this event",
                 "event_arguments": {},
                 "impact_sentiment": "POSITIVE | NEGATIVE | NEUTRAL | MIXED",
                 "evidence_span": "sentence or short paragraph from the article",

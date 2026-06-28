@@ -21,13 +21,6 @@ from finevent.api.workflow_registry.types import (
 )
 from finevent.retrieval.models import DEFAULT_RETRIEVAL_CONFIGS
 
-embedding_options = [
-    {"value": "hash", "label": "hash"},
-    {"value": "cloudflare", "label": "cloudflare"},
-    {"value": "openai_compatible", "label": "openai_compatible"},
-    {"value": "direct_http", "label": "direct_http"},
-]
-
 article_sources_options = [
     {"value": "cafef", "label": "CafeF"},
     {"value": "vietstock", "label": "Vietstock"},
@@ -55,36 +48,15 @@ def build_steps(context: BuildContext) -> list[WorkflowStep]:
         str_config(config, "student_provider", "deterministic"),
         "--retrieval-config",
         str_config(config, "retrieval_config", "metadata_aware_hybrid"),
-        "--pattern-count",
-        str(int_config(config, "pattern_count", 3)),
         "--max-contexts",
         str(int_config(config, "max_contexts", 5)),
-        "--retrieval-query-embedding-provider",
-        str_config(config, "embedding_provider", "hash"),
-        "--retrieval-query-embedding-dimension",
-        str(int_config(config, "embedding_dimension", 128)),
-        "--pattern-query-embedding-provider",
-        str_config(config, "embedding_provider", "hash"),
-        "--pattern-query-embedding-dimension",
-        str(int_config(config, "embedding_dimension", 128)),
+        "--retrieval-results-path",
+        str_config(config, "retrieval_results_path", "data/retrieval/online_contexts.jsonl"),
     ]
     extend_optional_int(command, "--limit", config, "limit")
     command.extend(["--offset", str(int_config(config, "offset", 0))])
-    model = config.get("embedding_model")
-    if model:
-        model_str = str(model)
-        command.extend(
-            [
-                "--retrieval-query-embedding-model",
-                model_str,
-                "--pattern-query-embedding-model",
-                model_str,
-            ]
-        )
     if not bool_config(config, "use_retrieval", True):
         command.append("--disable-retrieval")
-    if not bool_config(config, "use_patterns", True):
-        command.append("--disable-patterns")
     if not context.selected("m07_verification"):
         command.append("--disable-verification")
     if bool_config(config, "sync_postgres", True):
@@ -160,22 +132,18 @@ node_spec = WorkflowNodeSpec(
     id="m06_extraction",
     milestone="M06",
     title="Student extraction",
-    description="Run student model extraction over selected clean articles.",
-    depends_on=("m03_rag", "m05_patterns"),
+    description="Run student model extraction using retrieval contexts produced by M04.",
+    depends_on=("m04_retrieval",),
     default_config={
         "limit": 10,
         "offset": 0,
         "sources": ["cafef"],
         "output_path": "data/extraction/student_predictions.jsonl",
         "student_provider": "deterministic",
-        "embedding_provider": "hash",
-        "embedding_model": "",
-        "embedding_dimension": 128,
         "sync_postgres": True,
         "use_retrieval": True,
-        "use_patterns": True,
         "retrieval_config": "metadata_aware_hybrid",
-        "pattern_count": 3,
+        "retrieval_results_path": "data/retrieval/online_contexts.jsonl",
         "max_contexts": 5,
     },
     expected_artifacts=("data/extraction/student_predictions.jsonl",),
@@ -218,39 +186,26 @@ node_spec = WorkflowNodeSpec(
             ],
         ),
         WorkflowFieldSpec(
-            key="embedding_provider",
-            label="Query embedding provider",
-            type="select",
-            options=embedding_options,
-            configurable=False,
-        ),
-        WorkflowFieldSpec(
-            key="embedding_model",
-            label="Query embedding model",
-            type="text",
-            configurable=False,
-        ),
-        WorkflowFieldSpec(
-            key="embedding_dimension",
-            label="Embedding dimension",
-            type="number",
-            min=1.0,
-            step=1.0,
-            configurable=False,
-        ),
-        WorkflowFieldSpec(
             key="use_retrieval",
             label="Use retrieval",
             type="checkbox",
         ),
         WorkflowFieldSpec(
             key="retrieval_config",
-            label="Retrieval strategy",
+            label="Công thức retrieval đã dùng ở M04",
             type="select",
             description=(
-                "Chọn multi_event_aware_hybrid khi bài có nhiều event type và cần context đa dạng."
+                "M06 không chạy retrieval lại. Giá trị này chỉ dùng để chọn record "
+                "trong online_contexts.jsonl khớp article_id + retrieval_config; "
+                "nên giữ giống M04."
             ),
             options=retrieval_config_options,
+        ),
+        WorkflowFieldSpec(
+            key="retrieval_results_path",
+            label="Retrieval contexts path",
+            type="text",
+            configurable=False,
         ),
         WorkflowFieldSpec(
             key="max_contexts",
@@ -260,20 +215,6 @@ node_spec = WorkflowNodeSpec(
             min=1.0,
             max=20.0,
             step=1.0,
-        ),
-        WorkflowFieldSpec(
-            key="pattern_count",
-            label="Few-shot patterns",
-            type="number",
-            description="Number of selected patterns added to the extraction prompt.",
-            min=1.0,
-            max=10.0,
-            step=1.0,
-        ),
-        WorkflowFieldSpec(
-            key="use_patterns",
-            label="Use patterns",
-            type="checkbox",
         ),
         WorkflowFieldSpec(
             key="sync_postgres",

@@ -1,5 +1,3 @@
-CREATE EXTENSION IF NOT EXISTS vector;
-
 CREATE TABLE IF NOT EXISTS event_patterns (
     pattern_id TEXT PRIMARY KEY,
     article_id TEXT NOT NULL,
@@ -30,19 +28,6 @@ CREATE TABLE IF NOT EXISTS event_patterns (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS event_pattern_embeddings (
-    embedding_id TEXT PRIMARY KEY,
-    pattern_id TEXT NOT NULL REFERENCES event_patterns(pattern_id) ON DELETE CASCADE,
-    embedding_model TEXT NOT NULL,
-    embedding_dimension INTEGER NOT NULL,
-    pattern_hash TEXT NOT NULL,
-    embedding VECTOR,
-    status TEXT NOT NULL DEFAULT 'success',
-    error TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (pattern_id, embedding_model)
-);
-
 CREATE INDEX IF NOT EXISTS idx_event_patterns_article_id
     ON event_patterns(article_id);
 CREATE INDEX IF NOT EXISTS idx_event_patterns_document_label
@@ -59,8 +44,3 @@ CREATE INDEX IF NOT EXISTS idx_event_patterns_gold_output
     ON event_patterns USING GIN (gold_output);
 CREATE INDEX IF NOT EXISTS idx_event_patterns_metadata
     ON event_patterns USING GIN (metadata);
-
-CREATE INDEX IF NOT EXISTS idx_event_pattern_embeddings_pattern_id
-    ON event_pattern_embeddings(pattern_id);
-CREATE INDEX IF NOT EXISTS idx_event_pattern_embeddings_model
-    ON event_pattern_embeddings(embedding_model);

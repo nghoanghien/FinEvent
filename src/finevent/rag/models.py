@@ -27,6 +27,7 @@ class ChunkRecord:
     event_keywords: list[str]
     event_type_hints: list[str]
     event_subtype_hints: list[str]
+    pattern_refs: list[JsonDict] = field(default_factory=list)
     parent_chunk_id: str | None = None
     paragraph_start: int | None = None
     paragraph_end: int | None = None

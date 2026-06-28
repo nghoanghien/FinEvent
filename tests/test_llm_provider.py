@@ -35,7 +35,13 @@ class FakeChatModel:
 
     def invoke(self, prompt: str) -> FakeResponse:
         self.prompts.append(prompt)
-        return FakeResponse({"document_label": "NO_EVENT", "events": []})
+        return FakeResponse(
+            {
+                "document_label": "NO_EVENT",
+                "label_reason": "Fixture response has no event.",
+                "events": [],
+            }
+        )
 
 
 class FakeEmbeddingModel:

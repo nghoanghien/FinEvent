@@ -1,4 +1,4 @@
-"""PostgreSQL sync helpers for event pattern library artifacts."""
+"""PostgreSQL sync helpers for event pattern records."""
 
 from __future__ import annotations
 
@@ -13,30 +13,21 @@ from finevent.types import JsonDict, PathLike
 @dataclass(frozen=True)
 class PatternSyncResult:
     pattern_count: int
-    embedding_count: int
 
 
 def sync_pattern_artifacts(
     engine: Any,
     *,
     patterns_path: PathLike = "data/patterns/patterns.jsonl",
-    embeddings_path: PathLike = "data/patterns/pattern_embeddings.jsonl",
 ) -> PatternSyncResult:
     patterns = read_jsonl(patterns_path)
-    embeddings = read_jsonl(embeddings_path)
     sql = _sqlalchemy_text()
 
     with engine.begin() as connection:
         for pattern in patterns:
             _upsert_pattern(connection, sql, pattern)
-        for embedding in embeddings:
-            if embedding.get("status") == "success":
-                _upsert_embedding(connection, sql, embedding)
 
-    return PatternSyncResult(
-        pattern_count=len(patterns),
-        embedding_count=sum(1 for record in embeddings if record.get("status") == "success"),
-    )
+    return PatternSyncResult(pattern_count=len(patterns))
 
 
 def _upsert_pattern(connection: Any, sql: Any, pattern: JsonDict) -> None:
@@ -156,58 +147,6 @@ def _upsert_pattern(connection: Any, sql: Any, pattern: JsonDict) -> None:
             "version": pattern.get("version") or "m05_v1",
         },
     )
-
-
-def _upsert_embedding(connection: Any, sql: Any, embedding: JsonDict) -> None:
-    connection.execute(
-        sql(
-            """
-            INSERT INTO event_pattern_embeddings (
-                embedding_id,
-                pattern_id,
-                embedding_model,
-                embedding_dimension,
-                pattern_hash,
-                embedding,
-                status,
-                error
-            )
-            VALUES (
-                :embedding_id,
-                :pattern_id,
-                :embedding_model,
-                :embedding_dimension,
-                :pattern_hash,
-                CAST(:embedding AS vector),
-                :status,
-                :error
-            )
-            ON CONFLICT (pattern_id, embedding_model)
-            DO UPDATE SET
-                embedding_id = EXCLUDED.embedding_id,
-                embedding_dimension = EXCLUDED.embedding_dimension,
-                pattern_hash = EXCLUDED.pattern_hash,
-                embedding = EXCLUDED.embedding,
-                status = EXCLUDED.status,
-                error = EXCLUDED.error
-            """
-        ),
-        {
-            "embedding_id": embedding["embedding_id"],
-            "pattern_id": embedding["pattern_id"],
-            "embedding_model": embedding["embedding_model"],
-            "embedding_dimension": embedding["embedding_dimension"],
-            "pattern_hash": embedding["pattern_hash"],
-            "embedding": _pgvector_literal(embedding.get("vector", [])),
-            "status": embedding.get("status") or "success",
-            "error": embedding.get("error"),
-        },
-    )
-
-
-def _pgvector_literal(vector: list[float]) -> str:
-    return "[" + ",".join(str(float(value)) for value in vector) + "]"
-
 
 def _json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False)

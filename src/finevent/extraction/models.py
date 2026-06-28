@@ -10,12 +10,10 @@ from finevent.types import JsonDict
 @dataclass(frozen=True)
 class ExtractionRunConfig:
     retrieval_config: str = "metadata_aware_hybrid"
-    pattern_count: int = 3
     max_contexts: int = 5
     student_model: str = "deterministic_student_v1"
     prompt_version: str = "m06_extraction_v1"
     use_retrieval: bool = True
-    use_patterns: bool = True
     allow_zero_context: bool = True
     enable_verification: bool = True
     evidence_match_threshold: float = 0.82
@@ -26,7 +24,6 @@ class ExtractionRunConfig:
     run_label: str = "m06_online_extraction"
     max_article_chars: int = 2200
     max_context_chars: int = 450
-    max_pattern_excerpt_chars: int = 350
     max_pattern_output_chars: int = 700
     max_prompt_chars: int = 11000
 
@@ -61,6 +58,7 @@ class ExtractionWorkflowState:
     config: ExtractionRunConfig
     input_payload: JsonDict
     article: JsonDict | None = None
+    retrieval_run_id: str | None = None
     query_plan: list[JsonDict] = field(default_factory=list)
     retrieved_contexts: list[JsonDict] = field(default_factory=list)
     selected_patterns: list[JsonDict] = field(default_factory=list)
@@ -82,6 +80,7 @@ class ExtractionWorkflowState:
             "config": self.config.to_dict(),
             "input_payload": self.input_payload,
             "article": self.article,
+            "retrieval_run_id": self.retrieval_run_id,
             "query_plan": self.query_plan,
             "retrieved_contexts": self.retrieved_contexts,
             "selected_patterns": self.selected_patterns,

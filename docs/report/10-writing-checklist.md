@@ -92,5 +92,4 @@ Trả lời: Đây là AI-generated gold theo weak supervision. Metric đo mức
 
 ### “Đề tài hơn prompt LLM trực tiếp ở đâu?”
 
-Trả lời: Có schema, retrieval, pattern library, verification và evaluation. Prompt trực tiếp thiếu evidence control và khó đo field-level metric.
-
+Trả lời: Có schema, retrieval, chunk-attached pattern refs, verification và evaluation. Prompt trực tiếp thiếu evidence control và khó đo field-level metric.

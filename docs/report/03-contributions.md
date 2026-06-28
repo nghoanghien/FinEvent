@@ -108,7 +108,7 @@ Dữ liệu tiếng Việt cho financial event extraction không phổ biến nh
 
 - có dữ liệu mới đúng yêu cầu môn học.
 - có benchmark nội bộ để so sánh workflow.
-- có pattern library cho few-shot extraction.
+- có pattern refs gắn với chunk cho grounded extraction.
 - có nền cho các nghiên cứu sau.
 
 ### Khác gì chỉ dùng dataset cũ
@@ -286,7 +286,7 @@ Ablation study cần so sánh:
 | Dense retrieval only | Tác động semantic retrieval |
 | Hybrid retrieval | Tác động BM25 + vector + metadata |
 | Hybrid + rerank | Tác động reranking |
-| Hybrid + pattern | Tác động few-shot pattern |
+| Hybrid + context pattern refs | Tác động pattern refs gắn với retrieved chunks |
 | Hybrid + pattern + verification | Tác động workflow đầy đủ |
 
 ### Thành phần 3.6: Tối ưu đúng điểm nghẽn thay vì train toàn bộ

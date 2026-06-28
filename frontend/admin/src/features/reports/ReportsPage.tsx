@@ -31,14 +31,14 @@ export function ReportsPage() {
   }
 
   return (
-    <div className="eatzy-page space-y-8">
+    <div className="finevent-page space-y-8">
       <PageHeader
         eyebrow="Report center"
         title="REPORT VAULT"
         icon={BarChart3}
         description="Tập trung tất cả artifact trong reports/: markdown, CSV, JSONL, SVG/PNG chart và final dashboard."
         actions={
-          <button type="button" onClick={refresh} className="eatzy-secondary-button">
+          <button type="button" onClick={refresh} className="finevent-secondary-button">
             <RefreshCw className={`h-4 w-4 ${reports.isFetching || charts.isFetching ? "animate-spin" : ""}`} />
             Refresh
           </button>
@@ -106,7 +106,7 @@ function ReportListItem({
       className={`focus-ring w-full rounded-[24px] border p-4 text-left transition-all duration-300 ${
         active
           ? "border-primary/40 bg-lime-50 text-gray-950 shadow-[inset_0_0_24px_16px_rgba(255,255,255,0.8)]"
-          : "border-gray-100 bg-white hover:-translate-y-0.5 hover:shadow-eatzy"
+          : "border-gray-100 bg-white hover:-translate-y-0.5 hover:shadow-finevent"
       }`}
     >
       <div className="flex items-start gap-3">

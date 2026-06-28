@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from finevent.api.workflow_registry.catalog import workflow_catalog, EDGE_LABELS
+from finevent.api.workflow_registry.catalog import EDGE_LABELS, workflow_catalog
 
 router = APIRouter(prefix="/admin/workflows", tags=["admin-workflows"])
 

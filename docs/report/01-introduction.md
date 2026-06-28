@@ -43,7 +43,7 @@ Việc fine-tune toàn bộ reasoning của LLM trên một tập dữ liệu nh
 - mô hình sinh field không có evidence.
 - hệ thống không có bước verification để phát hiện hallucination.
 
-Do đó, hướng tiếp cận của đề tài là tối ưu workflow trước: dữ liệu được làm sạch, chunking có cấu trúc, retrieval kết hợp BM25/vector/metadata, reranking lọc evidence, pattern library cung cấp ví dụ đúng schema và verification loại bỏ thông tin không có căn cứ. Nếu evaluation cho thấy một bước cụ thể là điểm nghẽn, project mới cân nhắc fine-tune module nhỏ tại đúng bước đó, ví dụ reranker, event detector hoặc event type classifier.
+Do đó, hướng tiếp cận của đề tài là tối ưu workflow trước: dữ liệu được làm sạch, chunking có cấu trúc, retrieval kết hợp BM25/vector/metadata, reranking lọc evidence, pattern refs gắn với chunk cung cấp ví dụ đúng schema và verification loại bỏ thông tin không có căn cứ. Nếu evaluation cho thấy một bước cụ thể là điểm nghẽn, project mới cân nhắc fine-tune module nhỏ tại đúng bước đó, ví dụ reranker, event detector hoặc event type classifier.
 
 Do đó, đóng góp chính của đề tài là thiết kế một **workflow NLP có căn cứ bằng chứng** cho financial event extraction tiếng Việt. LLM là một thành phần trong pipeline, không phải toàn bộ phương pháp.
 

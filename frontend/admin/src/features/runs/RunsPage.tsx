@@ -101,7 +101,7 @@ export function RunsPage() {
           type="button"
           disabled={!runRequest.ok || createRun.isPending}
           onClick={handleRunClick}
-          className="eatzy-primary-button disabled:cursor-not-allowed disabled:opacity-50 shrink-0"
+          className="finevent-primary-button disabled:cursor-not-allowed disabled:opacity-50 shrink-0"
         >
           <Play className="h-4 w-4" />
           {createRun.isPending ? "Đang chạy..." : "Run workflow"}
@@ -174,7 +174,7 @@ export function RunsPage() {
           <button
             type="button"
             onClick={() => router.push(`/admin/runs/${createRun.data.run.run_id}`)}
-            className="eatzy-secondary-button border-primary/30 bg-lime-50 text-lime-800 animate-[fadeInUp_0.3s_ease-out] shadow-lg"
+            className="finevent-secondary-button border-primary/30 bg-lime-50 text-lime-800 animate-[fadeInUp_0.3s_ease-out] shadow-lg"
           >
             <Play className="h-4 w-4" />
             Mở run vừa tạo: {createRun.data.run.run_id}

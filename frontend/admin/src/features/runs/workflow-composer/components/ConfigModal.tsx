@@ -139,7 +139,7 @@ export function ConfigModal({ isOpen, node, configs = {}, onChange, onClose }: C
               <button
                 type="button"
                 onClick={onClose}
-                className="focus-ring eatzy-primary-button h-11 px-6 active:scale-95"
+                className="focus-ring finevent-primary-button h-11 px-6 active:scale-95"
               >
                 Xác nhận
               </button>

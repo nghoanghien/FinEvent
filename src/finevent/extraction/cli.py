@@ -149,46 +149,22 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
         ),
     )
     parser.add_argument("--retrieval-config", default="metadata_aware_hybrid")
-    parser.add_argument("--pattern-count", type=int, default=3)
     parser.add_argument("--max-contexts", type=int, default=5)
     parser.add_argument("--student-model", default="deterministic_student_v1")
     parser.add_argument("--prompt-version", default="m06_extraction_v1")
     parser.add_argument("--disable-retrieval", action="store_true")
-    parser.add_argument("--disable-patterns", action="store_true")
     parser.add_argument("--disable-verification", action="store_true")
     parser.add_argument("--evidence-match-threshold", type=float, default=0.82)
     parser.add_argument("--argument-match-threshold", type=float, default=0.78)
-    parser.add_argument("--chunks-path", default="data/processed/chunks.jsonl")
-    parser.add_argument("--bm25-index-path", default="data/retrieval/bm25_index.pkl")
     parser.add_argument(
-        "--retrieval-embeddings-path",
-        default="data/retrieval/chunk_embeddings.jsonl",
+        "--retrieval-results-path",
+        default="data/retrieval/online_contexts.jsonl",
     )
-    parser.add_argument(
-        "--retrieval-query-embedding-provider",
-        default=None,
-        choices=["hash", "cloudflare", "openai_compatible", "direct_http"],
-    )
-    parser.add_argument("--retrieval-query-embedding-model", default=None)
-    parser.add_argument("--retrieval-query-embedding-dimension", type=int, default=128)
-    parser.add_argument("--patterns-path", default="data/patterns/patterns.jsonl")
-    parser.add_argument(
-        "--pattern-embeddings-path",
-        default="data/patterns/pattern_embeddings.jsonl",
-    )
-    parser.add_argument(
-        "--pattern-query-embedding-provider",
-        default=None,
-        choices=["hash", "cloudflare", "openai_compatible", "direct_http"],
-    )
-    parser.add_argument("--pattern-query-embedding-model", default=None)
-    parser.add_argument("--pattern-query-embedding-dimension", type=int, default=128)
     parser.add_argument("--logs-dir", default="runs/extraction")
     parser.add_argument("--output-path", default=None)
     parser.add_argument("--sync-postgres", action="store_true")
     parser.add_argument("--max-article-chars", type=int, default=2200)
     parser.add_argument("--max-context-chars", type=int, default=450)
-    parser.add_argument("--max-pattern-excerpt-chars", type=int, default=350)
     parser.add_argument("--max-pattern-output-chars", type=int, default=700)
     parser.add_argument("--max-prompt-chars", type=int, default=11000)
 
@@ -196,18 +172,15 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
 def _config_from_args(args: argparse.Namespace) -> ExtractionRunConfig:
     return ExtractionRunConfig(
         retrieval_config=args.retrieval_config,
-        pattern_count=args.pattern_count,
         max_contexts=args.max_contexts,
         student_model=args.student_model,
         prompt_version=args.prompt_version,
         use_retrieval=not args.disable_retrieval,
-        use_patterns=not args.disable_patterns,
         enable_verification=not args.disable_verification,
         evidence_match_threshold=args.evidence_match_threshold,
         argument_match_threshold=args.argument_match_threshold,
         max_article_chars=args.max_article_chars,
         max_context_chars=args.max_context_chars,
-        max_pattern_excerpt_chars=args.max_pattern_excerpt_chars,
         max_pattern_output_chars=args.max_pattern_output_chars,
         max_prompt_chars=args.max_prompt_chars,
     )
@@ -215,18 +188,8 @@ def _config_from_args(args: argparse.Namespace) -> ExtractionRunConfig:
 
 def _artifacts_from_args(args: argparse.Namespace) -> ExtractionWorkflowArtifacts:
     return ExtractionWorkflowArtifacts(
-        chunks_path=args.chunks_path,
-        bm25_index_path=args.bm25_index_path,
-        retrieval_embeddings_path=args.retrieval_embeddings_path,
-        patterns_path=args.patterns_path,
-        pattern_embeddings_path=args.pattern_embeddings_path,
+        retrieval_results_path=args.retrieval_results_path,
         logs_dir=args.logs_dir,
-        retrieval_query_embedding_provider=args.retrieval_query_embedding_provider,
-        retrieval_query_embedding_model=args.retrieval_query_embedding_model,
-        retrieval_query_embedding_dimension=args.retrieval_query_embedding_dimension,
-        pattern_query_embedding_provider=args.pattern_query_embedding_provider,
-        pattern_query_embedding_model=args.pattern_query_embedding_model,
-        pattern_query_embedding_dimension=args.pattern_query_embedding_dimension,
     )
 
 

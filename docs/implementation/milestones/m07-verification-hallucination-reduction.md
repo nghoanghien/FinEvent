@@ -273,8 +273,7 @@ Ví dụ:
 finevent-extract run-text `
   --title "HPG trúng thầu gói thầu xây dựng nhà máy" `
   --text "..." `
-  --disable-retrieval `
-  --disable-patterns
+  --disable-retrieval
 ```
 
 Chạy ablation không verification:

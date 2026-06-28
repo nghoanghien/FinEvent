@@ -17,7 +17,7 @@ const entities: { id: DbEntity; label: string; description: string }[] = [
   { id: "embeddings", label: "Embeddings", description: "Vector embedding metadata" },
   { id: "gold-labels", label: "Gold labels", description: "Document labels từ teacher" },
   { id: "gold-events", label: "Gold events", description: "Event rows đã chuẩn hóa" },
-  { id: "patterns", label: "Patterns", description: "Few-shot/event pattern library" },
+  { id: "patterns", label: "Patterns", description: "Gold-derived event pattern records" },
   { id: "extraction-runs", label: "Extraction runs", description: "Student outputs" },
   { id: "node-traces", label: "Node traces", description: "Trace từng node workflow" },
   { id: "tickers", label: "Tickers", description: "Ticker dictionary" },
@@ -45,14 +45,14 @@ export function DatabasePage() {
   const idKey = idColumnForEntity(entity);
 
   return (
-    <div className="eatzy-page space-y-8">
+    <div className="finevent-page space-y-8">
       <PageHeader
         eyebrow="Database browser"
         title="DATA BROWSER"
         icon={Database}
         description="Xem dữ liệu PostgreSQL qua allowlist an toàn. Frontend không nhận tên bảng trực tiếp và backend loại bỏ vector lớn khỏi detail response."
         actions={
-          <button type="button" onClick={() => rows.refetch()} className="eatzy-secondary-button">
+          <button type="button" onClick={() => rows.refetch()} className="finevent-secondary-button">
             <RefreshCw className={`h-4 w-4 ${rows.isFetching ? "animate-spin" : ""}`} />
             Refresh
           </button>
@@ -74,7 +74,7 @@ export function DatabasePage() {
                 className={`focus-ring w-full rounded-[22px] border p-4 text-left transition-all duration-300 ${
                   entity === item.id
                     ? "border-primary/40 bg-lime-50 text-gray-950 shadow-[inset_0_0_20px_12px_rgba(255,255,255,0.8)]"
-                    : "border-gray-100 bg-white text-gray-700 hover:-translate-y-0.5 hover:shadow-eatzy"
+                    : "border-gray-100 bg-white text-gray-700 hover:-translate-y-0.5 hover:shadow-finevent"
                 }`}
               >
                 <p className="text-sm font-black">{item.label}</p>
@@ -120,7 +120,7 @@ export function DatabasePage() {
                 type="button"
                 disabled={offset === 0}
                 onClick={() => setOffset(Math.max(0, offset - 50))}
-                className="eatzy-secondary-button disabled:cursor-not-allowed disabled:opacity-50"
+                className="finevent-secondary-button disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Previous
               </button>
@@ -131,7 +131,7 @@ export function DatabasePage() {
                 type="button"
                 disabled={offset + 50 >= rows.data.total}
                 onClick={() => setOffset(offset + 50)}
-                className="eatzy-secondary-button disabled:cursor-not-allowed disabled:opacity-50"
+                className="finevent-secondary-button disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Next
               </button>
@@ -147,7 +147,7 @@ export function DatabasePage() {
               <h3 className="font-anton text-2xl font-black uppercase text-gray-900">Record detail</h3>
               <p className="mt-1 font-mono text-xs font-medium text-gray-500">{entity}/{selectedId}</p>
             </div>
-            <button className="eatzy-secondary-button" onClick={() => setSelectedId(null)}>
+            <button className="finevent-secondary-button" onClick={() => setSelectedId(null)}>
               Đóng
             </button>
           </div>

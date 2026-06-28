@@ -32,8 +32,8 @@ const config: Config = {
       },
       boxShadow: {
         panel: "0 1px 2px rgba(15, 23, 42, 0.05), 0 10px 30px rgba(15, 23, 42, 0.04)",
-        eatzy: "0 8px 40px rgba(0, 0, 0, 0.04)",
-        "eatzy-hover": "0 18px 55px rgba(0, 0, 0, 0.10)",
+        finevent: "0 8px 40px rgba(0, 0, 0, 0.04)",
+        "finevent-hover": "0 18px 55px rgba(0, 0, 0, 0.10)",
       },
       keyframes: {
         fadeInUp: {
