@@ -168,10 +168,10 @@ M06 có chủ ý trim prompt inputs để student call không vượt context:
 
 | Config | Mặc định | Áp dụng cho |
 | --- | ---: | --- |
-| `max_article_chars` | `2200` | Main input article text |
-| `max_context_chars` | `450` | Text của mỗi retrieved context |
-| `max_pattern_output_chars` | `700` | Compact gold pattern output view gắn với context |
-| `max_prompt_chars` | `11000` | Final rendered extraction prompt |
+| `max_article_chars` | `0` | Main input article text; `0` nghĩa là không cắt |
+| `max_context_chars` | `0` | Text của mỗi retrieved context; `0` nghĩa là không cắt |
+| `max_pattern_output_chars` | `0` | Gold pattern output view gắn với context; `0` nghĩa là không cắt |
+| `max_prompt_chars` | `0` | Final rendered extraction prompt; `0` nghĩa là không áp prompt budget |
 
 Nếu rendered prompt quá dài, M06 thử lại theo thứ tự:
 

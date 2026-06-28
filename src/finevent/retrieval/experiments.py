@@ -142,8 +142,8 @@ def run_online_retrieval(
     llm_rerank_model: InvokableRerankModel | None = None,
     llm_rerank_model_name: str = "deterministic_listwise_rerank",
     llm_rerank_top_n: int = 15,
-    llm_rerank_max_query_article_chars: int = 2400,
-    llm_rerank_max_candidate_chars: int = 900,
+    llm_rerank_max_query_article_chars: int = 0,
+    llm_rerank_max_candidate_chars: int = 0,
     llm_rerank_max_retries: int = 1,
     llm_rerank_retry_sleep_seconds: float = 1.0,
 ) -> OnlineRetrievalRunResult:

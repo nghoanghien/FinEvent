@@ -163,10 +163,10 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--logs-dir", default="runs/extraction")
     parser.add_argument("--output-path", default=None)
     parser.add_argument("--sync-postgres", action="store_true")
-    parser.add_argument("--max-article-chars", type=int, default=2200)
-    parser.add_argument("--max-context-chars", type=int, default=450)
-    parser.add_argument("--max-pattern-output-chars", type=int, default=700)
-    parser.add_argument("--max-prompt-chars", type=int, default=11000)
+    parser.add_argument("--max-article-chars", type=int, default=0)
+    parser.add_argument("--max-context-chars", type=int, default=0)
+    parser.add_argument("--max-pattern-output-chars", type=int, default=0)
+    parser.add_argument("--max-prompt-chars", type=int, default=0)
 
 
 def _config_from_args(args: argparse.Namespace) -> ExtractionRunConfig:

@@ -69,12 +69,14 @@ def test_provider_config_redacts_secret(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("OPENAI_API_KEY", "teacher-test-1234567890")
     monkeypatch.setenv("TEACHER_LLM_MODEL", "teacher-test")
     monkeypatch.setenv("STUDENT_LLM_PROVIDER", "")
+    monkeypatch.setenv("STUDENT_LLM_MAX_TOKENS", "")
     monkeypatch.setenv("EMBEDDING_PROVIDER", "")
 
     config = load_provider_runtime_config()
 
     assert config.teacher_model == "teacher-test"
     assert config.student_provider == "langchain_openai"
+    assert config.student_max_tokens is None
     assert config.embedding_provider == "langchain_openai"
     assert redact_secret("teacher-test-1234567890") == "teac...7890"
     assert config.redacted_dict()["teacher_api_key"] == "teac...7890"
@@ -146,6 +148,32 @@ def test_direct_http_chat_model_invokes_openai_compatible_endpoint(
     assert calls[0]["url"] == "https://example.local/v1/chat/completions"
     assert calls[0]["json"]["messages"][0]["content"].startswith("/no_think")
     assert calls[0]["json"]["max_tokens"] == 64
+
+
+def test_direct_http_chat_model_omits_token_limit_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict] = []
+
+    def fake_post(url: str, headers: dict, json: dict, timeout: float) -> FakeHttpResponse:
+        calls.append({"url": url, "headers": headers, "json": json, "timeout": timeout})
+        return FakeHttpResponse({"choices": [{"message": {"content": '{"ok": true}'}}]})
+
+    import requests
+
+    monkeypatch.setattr(requests, "post", fake_post)
+    model = DirectHttpChatModel(
+        api_key="student-key",
+        model="qwen/qwen3-8b",
+        base_url="https://example.local/v1",
+        disable_thinking=True,
+    )
+
+    response = model.invoke("Return JSON.")
+
+    assert response.content == '{"ok": true}'
+    assert "max_tokens" not in calls[0]["json"]
+    assert "max_completion_tokens" not in calls[0]["json"]
 
 
 def test_direct_http_embeddings_parse_vectors(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -90,8 +90,8 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     run_batch.add_argument("--llm-rerank-top-n", type=int, default=15)
-    run_batch.add_argument("--llm-rerank-max-query-article-chars", type=int, default=2400)
-    run_batch.add_argument("--llm-rerank-max-candidate-chars", type=int, default=900)
+    run_batch.add_argument("--llm-rerank-max-query-article-chars", type=int, default=0)
+    run_batch.add_argument("--llm-rerank-max-candidate-chars", type=int, default=0)
     run_batch.add_argument("--llm-rerank-max-retries", type=int, default=1)
 
     prompt = subparsers.add_parser("llm-rerank-prompt", help="Render an LLM rerank prompt.")

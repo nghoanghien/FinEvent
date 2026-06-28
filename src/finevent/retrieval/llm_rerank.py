@@ -62,8 +62,8 @@ def build_listwise_llm_rerank_prompt(
     query_article: JsonDict,
     queries: list[RetrievalQuery],
     candidates: list[RetrievalCandidate],
-    max_query_article_chars: int = 2400,
-    max_candidate_chars: int = 900,
+    max_query_article_chars: int = 0,
+    max_candidate_chars: int = 0,
 ) -> str:
     """Build a RankGPT-style listwise prompt with compact source metadata."""
     payload = {
@@ -140,8 +140,8 @@ def rerank_candidates_listwise(
     model_name: str,
     top_n: int = 15,
     model: InvokableRerankModel | None = None,
-    max_query_article_chars: int = 2400,
-    max_candidate_chars: int = 900,
+    max_query_article_chars: int = 0,
+    max_candidate_chars: int = 0,
     max_retries: int = 1,
     retry_sleep_seconds: float = 1.0,
 ) -> ListwiseRerankResult:
@@ -342,7 +342,7 @@ def build_llm_reasoning_rerank_prompt(
                 "title": candidate.title,
                 "chunk_level": candidate.chunk_level,
                 "metadata": candidate.metadata,
-                "text": candidate.text[:1800],
+                "text": candidate.text,
                 "score_breakdown": candidate.score_breakdown,
             }
             for candidate in candidates
@@ -460,7 +460,7 @@ def _candidate_prompt_payload(
             "published_at": candidate.published_at,
             "article_summary_preview": _truncate_chars(
                 str(metadata.get("article_summary_preview") or ""),
-                max_chars=700,
+                max_chars=max_candidate_chars,
             ),
         },
         "chunk": {
@@ -476,14 +476,17 @@ def _candidate_prompt_payload(
             "event_keywords": metadata.get("event_keywords", []),
             "event_type_hints": metadata.get("event_type_hints", []),
             "event_subtype_hints": metadata.get("event_subtype_hints", []),
-            "pattern_refs": _compact_pattern_refs(metadata.get("pattern_refs", [])),
+            "pattern_refs": _compact_pattern_refs(
+                metadata.get("pattern_refs", []),
+                max_chars=max_candidate_chars,
+            ),
             "chunk_representation": source_metadata.get("representation"),
         },
         "score_breakdown": candidate.score_breakdown,
     }
 
 
-def _compact_pattern_refs(value: object) -> list[JsonDict]:
+def _compact_pattern_refs(value: object, *, max_chars: int) -> list[JsonDict]:
     if not isinstance(value, list):
         return []
     refs: list[JsonDict] = []
@@ -497,7 +500,7 @@ def _compact_pattern_refs(value: object) -> list[JsonDict]:
                 "event_subtype": item.get("event_subtype"),
                 "evidence_span": _truncate_chars(
                     str(item.get("evidence_span") or ""),
-                    max_chars=180,
+                    max_chars=max_chars,
                 ),
             }
         )
@@ -608,7 +611,7 @@ def _content_from_response(response: Any) -> str:
 
 def _truncate_chars(text: str, *, max_chars: int) -> str:
     if max_chars <= 0:
-        return ""
+        return text
     if len(text) <= max_chars:
         return text
     return text[:max_chars].rstrip() + "..."

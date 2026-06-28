@@ -31,7 +31,7 @@ class ProviderRuntimeConfig:
     student_model: str | None
     student_base_url: str | None
     student_disable_thinking: bool
-    student_max_tokens: int
+    student_max_tokens: int | None
     embedding_provider: str | None
     embedding_api_key: str | None
     embedding_model: str | None
@@ -39,7 +39,7 @@ class ProviderRuntimeConfig:
     embedding_batch_size: int
     openai_compatible_user_agent: str
 
-    def redacted_dict(self) -> dict[str, str | None]:
+    def redacted_dict(self) -> dict[str, object]:
         data = asdict(self)
         for key in list(data):
             if key.endswith("_api_key"):
@@ -65,7 +65,7 @@ def load_provider_runtime_config() -> ProviderRuntimeConfig:
         student_model=os.getenv("STUDENT_LLM_MODEL"),
         student_base_url=os.getenv("STUDENT_LLM_BASE_URL") or os.getenv("STUDENT_LLM_ENDPOINT"),
         student_disable_thinking=_env_bool("STUDENT_LLM_DISABLE_THINKING", default=True),
-        student_max_tokens=_env_int("STUDENT_LLM_MAX_TOKENS", default=1536),
+        student_max_tokens=_env_optional_positive_int("STUDENT_LLM_MAX_TOKENS"),
         embedding_provider=os.getenv("EMBEDDING_PROVIDER") or "langchain_openai",
         embedding_api_key=os.getenv("EMBEDDING_API_KEY") or os.getenv("STUDENT_LLM_API_KEY"),
         embedding_model=os.getenv("EMBEDDING_MODEL"),
@@ -116,7 +116,11 @@ def build_student_chat_model_from_env(**overrides: Any) -> object:
             base_url=_override_str(overrides, "base_url", config.student_base_url),
             temperature=_override_float(overrides, "temperature", 0.0),
             timeout=_override_float(overrides, "timeout", 120.0),
-            max_tokens=int(overrides.get("max_tokens") or config.student_max_tokens),
+            max_tokens=_override_optional_positive_int(
+                overrides,
+                "max_tokens",
+                config.student_max_tokens,
+            ),
             disable_thinking=bool(
                 overrides.get("disable_thinking", config.student_disable_thinking)
             ),
@@ -129,7 +133,11 @@ def build_student_chat_model_from_env(**overrides: Any) -> object:
         base_url=_override_optional_str(overrides, "base_url", config.student_base_url),
         temperature=_override_float(overrides, "temperature", 0.0),
         timeout=_override_float(overrides, "timeout", 120.0),
-        max_completion_tokens=int(overrides.get("max_tokens") or config.student_max_tokens),
+        max_completion_tokens=_override_optional_positive_int(
+            overrides,
+            "max_tokens",
+            config.student_max_tokens,
+        ),
         default_headers=_self_host_default_headers(
             base_url=_override_optional_str(overrides, "base_url", config.student_base_url),
             user_agent=config.openai_compatible_user_agent,
@@ -201,7 +209,7 @@ class DirectHttpChatModel:
         base_url: str,
         temperature: float = 0.0,
         timeout: float = 120.0,
-        max_tokens: int = 1536,
+        max_tokens: int | None = None,
         disable_thinking: bool = True,
     ):
         self.api_key = api_key
@@ -213,7 +221,7 @@ class DirectHttpChatModel:
         self.disable_thinking = disable_thinking
 
     def invoke(self, prompt: str) -> DirectHttpChatResponse:
-        payload = {
+        payload: dict[str, Any] = {
             "model": self.model,
             "messages": [
                 {
@@ -222,8 +230,9 @@ class DirectHttpChatModel:
                 }
             ],
             "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
         }
+        if self.max_tokens is not None:
+            payload["max_tokens"] = self.max_tokens
         response_json = _post_openai_compatible_json(
             url=f"{self.base_url}/chat/completions",
             api_key=self.api_key,
@@ -234,7 +243,8 @@ class DirectHttpChatModel:
         if not content:
             raise RuntimeError(
                 "Direct HTTP chat response returned empty content. "
-                "Increase STUDENT_LLM_MAX_TOKENS or set STUDENT_LLM_DISABLE_THINKING=true."
+                "If the endpoint cut the output, set STUDENT_LLM_MAX_TOKENS explicitly "
+                "or set STUDENT_LLM_DISABLE_THINKING=true."
             )
         return DirectHttpChatResponse(content=content, raw_response=response_json)
 
@@ -447,6 +457,28 @@ def _env_int(name: str, *, default: int) -> int:
     if value is None or not value.strip():
         return default
     return int(value)
+
+
+def _env_optional_positive_int(name: str) -> int | None:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return None
+    parsed = int(value)
+    return parsed if parsed > 0 else None
+
+
+def _override_optional_positive_int(
+    overrides: dict[str, Any],
+    key: str,
+    default: int | None,
+) -> int | None:
+    value = overrides.get(key)
+    if value is None:
+        value = default
+    if value is None or str(value).strip() == "":
+        return None
+    parsed = int(value)
+    return parsed if parsed > 0 else None
 
 
 def _override_str(overrides: dict[str, Any], key: str, default: str | None) -> str:

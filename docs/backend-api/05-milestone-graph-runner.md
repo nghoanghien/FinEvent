@@ -462,15 +462,16 @@ Các điểm cắt có chủ ý hiện tại:
 | Khu vực | Giới hạn | Mục đích |
 | --- | --- | --- |
 | M03 chunking | `max_words` mỗi chunk | Giữ chunk ổn định, tôn trọng paragraph/section |
-| M06 article text trong prompt | `max_article_chars`, mặc định `2200` | Giữ prompt extraction có kích thước kiểm soát được |
-| M06 context text | `max_context_chars`, mặc định `450` mỗi context | Tránh context chiếm toàn bộ prompt |
-| M06 matched pattern output | `max_pattern_output_chars`, mặc định `700` mỗi pattern output view | Giữ ví dụ pattern compact |
-| M06 total prompt | `max_prompt_chars`, mặc định `11000` | Nếu quá dài thì fallback sang ít context hơn |
+| M06 article text trong prompt | `max_article_chars`, mặc định `0` | `0` nghĩa là không cắt article text; số dương mới bật giới hạn |
+| M06 context text | `max_context_chars`, mặc định `0` | `0` nghĩa là không cắt context text; số dương mới bật giới hạn mỗi context |
+| M06 matched pattern output | `max_pattern_output_chars`, mặc định `0` | `0` nghĩa là không cắt pattern output view |
+| M06 total prompt | `max_prompt_chars`, mặc định `0` | `0` nghĩa là không áp prompt budget; số dương mới bật fallback cắt prompt |
 | Verification prompt | article `4000`, context `1200` ký tự | Giới hạn prompt verifier |
 | Report DB snapshot | `2_000_000` bytes mỗi text report | Lưu preview report mà không nhét file quá lớn vào DB |
 
 Fallback của M06: full contexts, top 3 contexts ngắn hơn, top 1 context ngắn hơn,
-rồi không có retrieval context nếu vẫn vượt `max_prompt_chars`.
+rồi không có retrieval context nếu vẫn vượt `max_prompt_chars`. Cơ chế fallback này chỉ
+chạy khi `max_prompt_chars` là số dương.
 
 ## Lưu Report Vào DB
 

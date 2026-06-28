@@ -88,6 +88,39 @@ def test_online_extraction_respects_prompt_budget_before_student_call(tmp_path: 
     assert state.raw_model_output is not None
 
 
+def test_online_extraction_default_prompt_has_no_text_cap(tmp_path: Path) -> None:
+    student = RecordingStudentModel(
+        {
+            "article_id": "manual_uncapped_input",
+            "document_label": "NO_EVENT",
+            "label_reason": "Fixture output has no reportable event.",
+            "events": [],
+            "warnings": [],
+            "model_info": {
+                "model_name": "fixture_student",
+                "prompt_version": "m06_test",
+                "run_id": "fixture_run",
+            },
+        }
+    )
+    text = "HPG cap nhat thong tin du an. " + ("noi dung dai " * 400) + "UNCAPPED_TAIL"
+
+    run_online_extraction_workflow(
+        {
+            "input_type": "text",
+            "title": "HPG cap nhat thong tin doanh nghiep",
+            "value": text,
+            "source": "manual",
+        },
+        config=ExtractionRunConfig(use_retrieval=False),
+        artifacts=ExtractionWorkflowArtifacts(logs_dir=tmp_path / "runs"),
+        langchain_model=student,
+    )
+
+    assert "UNCAPPED_TAIL" in student.prompt
+    assert len(student.prompt) > 2200
+
+
 def test_online_extraction_no_event_text_returns_no_event(tmp_path: Path) -> None:
     state = run_online_extraction_workflow(
         {

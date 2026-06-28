@@ -15,11 +15,20 @@ def build_extraction_prompt(
     article: JsonDict,
     contexts: list[RetrievalCandidate],
     prompt_version: str,
-    max_article_chars: int = 2200,
-    max_context_chars: int = 450,
-    max_pattern_output_chars: int = 700,
-    max_prompt_chars: int = 11000,
+    max_article_chars: int = 0,
+    max_context_chars: int = 0,
+    max_pattern_output_chars: int = 0,
+    max_prompt_chars: int = 0,
 ) -> str:
+    if max_prompt_chars <= 0:
+        return _render_prompt(
+            article=article,
+            contexts=contexts,
+            prompt_version=prompt_version,
+            max_article_chars=max_article_chars,
+            max_context_chars=max_context_chars,
+            max_pattern_output_chars=max_pattern_output_chars,
+        )
     attempts = [
         (
             contexts,
@@ -29,17 +38,17 @@ def build_extraction_prompt(
         ),
         (
             contexts[:3],
-            min(max_article_chars, 1600),
-            min(max_context_chars, 320),
-            min(max_pattern_output_chars, 520),
+            _fallback_char_limit(max_article_chars, 1600),
+            _fallback_char_limit(max_context_chars, 320),
+            _fallback_char_limit(max_pattern_output_chars, 520),
         ),
         (
             contexts[:1],
-            min(max_article_chars, 1200),
-            min(max_context_chars, 240),
-            min(max_pattern_output_chars, 420),
+            _fallback_char_limit(max_article_chars, 1200),
+            _fallback_char_limit(max_context_chars, 240),
+            _fallback_char_limit(max_pattern_output_chars, 420),
         ),
-        ([], min(max_article_chars, 1000), 0, 0),
+        ([], _fallback_char_limit(max_article_chars, 1000), 0, 0),
     ]
     last_prompt = ""
     for (
@@ -250,18 +259,22 @@ def _matched_pattern_views(pattern_refs: list, *, max_output_chars: int) -> list
 
 
 def _trim_json(value: object, *, max_chars: int) -> str:
+    rendered = json.dumps(value, ensure_ascii=False, sort_keys=True)
     if max_chars <= 0:
-        return ""
-    return _trim(
-        json.dumps(value, ensure_ascii=False, sort_keys=True),
-        max_chars=max_chars,
-    )
+        return rendered
+    return _trim(rendered, max_chars=max_chars)
 
 
 def _trim(text: str, *, max_chars: int) -> str:
-    if max_chars <= 0:
-        return ""
     normalized = normalize_text(text)
+    if max_chars <= 0:
+        return normalized
     if len(normalized) <= max_chars:
         return normalized
     return normalized[: max_chars - 3].rstrip() + "..."
+
+
+def _fallback_char_limit(configured_limit: int, fallback_limit: int) -> int:
+    if configured_limit <= 0:
+        return fallback_limit
+    return min(configured_limit, fallback_limit)

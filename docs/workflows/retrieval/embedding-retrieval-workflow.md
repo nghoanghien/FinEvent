@@ -217,8 +217,9 @@ Output M04 được thiết kế để M06 dùng trực tiếp:
 }
 ```
 
-M06 giới hạn số context bằng `max_contexts` và trim text thêm lần nữa khi build LLM
-prompt.
+M06 giới hạn số context bằng `max_contexts`. Text chỉ bị trim thêm khi các config
+`max_article_chars`, `max_context_chars`, `max_pattern_output_chars` hoặc
+`max_prompt_chars` được đặt thành số dương; mặc định `0` là không giới hạn.
 
 ## Metrics
 

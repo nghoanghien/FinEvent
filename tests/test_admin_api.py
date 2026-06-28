@@ -247,9 +247,12 @@ def test_m04_catalog_and_command_default_to_student_listwise_rerank() -> None:
 
     assert m04["default_config"]["llm_rerank_mode"] == "student_env"
     assert m04["default_config"]["llm_rerank_top_n"] == 15
+    assert m04["default_config"]["llm_rerank_max_query_article_chars"] == 0
+    assert m04["default_config"]["llm_rerank_max_candidate_chars"] == 0
     assert fields["llm_rerank_mode"]["type"] == "select"
     assert fields["llm_rerank_top_n"]["type"] == "number"
     assert "student model" in fields["llm_rerank_mode"]["description"]
+    assert "không cắt" in fields["llm_rerank_max_query_article_chars"]["description"]
 
     steps = build_workflow_steps(
         "milestone_graph",
@@ -269,8 +272,8 @@ def test_m04_catalog_and_command_default_to_student_listwise_rerank() -> None:
 
     assert command[command.index("--llm-rerank-mode") + 1] == "student_env"
     assert command[command.index("--llm-rerank-top-n") + 1] == "15"
-    assert "--llm-rerank-max-query-article-chars" in command
-    assert "--llm-rerank-max-candidate-chars" in command
+    assert command[command.index("--llm-rerank-max-query-article-chars") + 1] == "0"
+    assert command[command.index("--llm-rerank-max-candidate-chars") + 1] == "0"
 
 
 def test_milestone_graph_rejects_missing_dependencies(

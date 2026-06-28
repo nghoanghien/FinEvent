@@ -269,7 +269,7 @@ Prompt không nhét nguyên toàn bộ bài báo gốc của từng chunk. Mỗi
 
 - title/source/url/published_at của bài gốc;
 - `article_summary_preview` từ document chunk;
-- chunk text đã cắt bởi `llm_rerank_max_candidate_chars`;
+- chunk text; chỉ bị cắt nếu `llm_rerank_max_candidate_chars` là số dương;
 - tickers/company/event hints, compact `pattern_refs` và `score_breakdown`.
 
 Cách này cho LLM đủ ngữ cảnh về dòng sự kiện và thời điểm mà không làm prompt quá dài.

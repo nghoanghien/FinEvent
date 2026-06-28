@@ -183,6 +183,42 @@ def test_listwise_llm_prompt_includes_article_and_candidate_metadata(tmp_path: P
     assert "candidate_schema" not in prompt
 
 
+def test_listwise_llm_prompt_default_has_no_text_cap() -> None:
+    query_article = {
+        "article_id": "manual_article",
+        "title": "HPG cap nhat thong tin doanh nghiep",
+        "source": "manual",
+        "text": "noi dung bai viet " * 300 + "QUERY_UNCAPPED_TAIL",
+    }
+    candidate = RetrievalCandidate(
+        rank=1,
+        chunk_id="long_context",
+        article_id="long_context_article",
+        chunk_level="paragraph",
+        title="Fixture",
+        text="noi dung chunk " * 300 + "CANDIDATE_UNCAPPED_TAIL",
+        source="fixture",
+        url="fixture://long_context",
+        published_at=None,
+        score=1.0,
+        score_breakdown={},
+        metadata={
+            "event_type_hints": ["EXPANSION"],
+            "article_summary_preview": "tom tat dai " * 100 + "SUMMARY_UNCAPPED_TAIL",
+        },
+    )
+
+    prompt = build_listwise_llm_rerank_prompt(
+        query_article=query_article,
+        queries=[],
+        candidates=[candidate],
+    )
+
+    assert "QUERY_UNCAPPED_TAIL" in prompt
+    assert "CANDIDATE_UNCAPPED_TAIL" in prompt
+    assert "SUMMARY_UNCAPPED_TAIL" in prompt
+
+
 def test_listwise_rerank_parser_accepts_object_and_array() -> None:
     parsed_object = parse_listwise_rerank_output(
         '```json\n{"ranked_candidate_ids": [2, "chunk_a"], "judgments": []}\n```'
