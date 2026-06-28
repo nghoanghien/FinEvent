@@ -17,7 +17,8 @@ from finevent.ingestion.metadata import (
     load_event_keyword_taxonomy,
 )
 from finevent.ingestion.parsers import parse_article_html
-from finevent.ingestion.text import canonical_url, normalize_text, stable_article_id, text_hash
+from finevent.ingestion.text import canonical_url, stable_article_id, text_hash
+from finevent.ingestion.vietnamese_preprocessing import preprocess_vietnamese_text
 from finevent.logging_utils import utc_now_iso
 from finevent.types import JsonDict, PathLike
 
@@ -57,7 +58,11 @@ def preprocess_extraction_input(
 def _article_from_record(record: object) -> JsonDict:
     if not isinstance(record, dict):
         raise ValueError("input_type=article requires an article object.")
-    text = normalize_text(str(record.get("text") or record.get("body_text") or ""))
+    text_result = preprocess_vietnamese_text(
+        str(record.get("text") or record.get("body_text") or "")
+    )
+    text = text_result.normalized_text
+    title_result = preprocess_vietnamese_text(str(record.get("title") or ""))
     source = str(record.get("source") or "manual")
     url = canonical_url(str(record.get("url") or record.get("source_url") or ""))
     if not url:
@@ -67,16 +72,23 @@ def _article_from_record(record: object) -> JsonDict:
         "article_id": article_id,
         "source": source,
         "url": url,
-        "title": normalize_text(str(record.get("title") or "")) or None,
+        "title": title_result.normalized_text or None,
         "published_at": record.get("published_at"),
         "text": text,
+        "preprocessing": record.get("preprocessing")
+        or {
+            "body": text_result.to_metadata(),
+            "title": title_result.to_metadata(),
+        },
         "language": str(record.get("language") or "vi"),
         "content_hash": str(record.get("content_hash") or text_hash(text)),
     }
 
 
 def _article_from_text(payload: JsonDict) -> JsonDict:
-    text = normalize_text(str(payload.get("value") or payload.get("text") or ""))
+    text_result = preprocess_vietnamese_text(str(payload.get("value") or payload.get("text") or ""))
+    title_result = preprocess_vietnamese_text(str(payload.get("title") or ""))
+    text = text_result.normalized_text
     if not text:
         raise ValueError("input_type=text requires a non-empty value.")
     source = str(payload.get("source") or "manual")
@@ -88,9 +100,13 @@ def _article_from_text(payload: JsonDict) -> JsonDict:
         "article_id": article_id,
         "source": source,
         "url": url,
-        "title": normalize_text(str(payload.get("title") or "")) or None,
+        "title": title_result.normalized_text or None,
         "published_at": payload.get("published_at") or utc_now_iso(),
         "text": text,
+        "preprocessing": {
+            "body": text_result.to_metadata(),
+            "title": title_result.to_metadata(),
+        },
         "language": "vi",
         "content_hash": text_hash(text),
     }
@@ -102,7 +118,9 @@ def _article_from_url(payload: JsonDict) -> tuple[JsonDict, list[str]]:
         raise ValueError("input_type=url requires a non-empty value.")
     html, source, warnings = _load_html_from_url(url)
     parsed = parse_article_html(html, source=source, url=url)
-    text = normalize_text(parsed.body_text)
+    text_result = preprocess_vietnamese_text(parsed.body_text)
+    title_result = preprocess_vietnamese_text(parsed.title or "")
+    text = text_result.normalized_text
     article_id = stable_article_id(source, canonical_url(url), text or url)
     warnings.extend(parsed.warnings)
     return (
@@ -110,9 +128,13 @@ def _article_from_url(payload: JsonDict) -> tuple[JsonDict, list[str]]:
             "article_id": article_id,
             "source": source,
             "url": canonical_url(url),
-            "title": parsed.title,
+            "title": title_result.normalized_text or None,
             "published_at": parsed.published_at,
             "text": text,
+            "preprocessing": {
+                "body": text_result.to_metadata(),
+                "title": title_result.to_metadata(),
+            },
             "language": "vi",
             "content_hash": text_hash(text),
         },

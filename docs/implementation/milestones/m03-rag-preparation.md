@@ -52,7 +52,7 @@ Các output trong `data/processed`, `data/retrieval`, `data/vector_store`, `repo
 | --- | --- | --- |
 | Chunking | `finevent.rag.chunking` | Tạo 3 cấp document/section/paragraph, giữ metadata ở mọi chunk |
 | Lexical retrieval | BM25 tự viết bằng Python stdlib | Baseline keyword search, không phụ thuộc package ngoài |
-| Tokenization | `finevent.rag.tokenization` | Normalize tiếng Việt không dấu, tách token phục vụ BM25/hash embedding |
+| Tokenization | `finevent.rag.tokenization` | Normalize tiếng Việt không dấu, dùng `text` tự nhiên đã chuẩn hóa để phục vụ BM25/hash embedding |
 | Offline embedding | `HashEmbeddingClient` | Embedding deterministic để test, demo offline, ablation baseline |
 | Production embedding | `CloudflareEmbeddingClient` | Gọi Cloudflare Workers AI khi có account/token |
 | Embedding cache | JSONL cache theo `embedding_model + chunk_hash` | Tránh gọi lại embedding nếu text không đổi |
@@ -94,7 +94,12 @@ Mỗi chunk có các field chính:
   "event_subtype_hints": ["NEW_FACTORY"],
   "metadata": {
     "representation": "evidence_paragraph",
-    "paragraph_index": 0
+    "paragraph_index": 0,
+    "preprocessing": {
+      "body": {
+        "version": "vi_preprocess_v1"
+      }
+    }
   }
 }
 ```
@@ -106,6 +111,8 @@ Nguyên tắc:
 - Paragraph dài mới tách tiếp theo sentence.
 - Section có overlap theo paragraph để giảm mất ngữ cảnh.
 - Mọi chunk giữ lại ticker hints, company hints, event keyword hints, source/date/title.
+- M03 không dùng VnCoreNLP/word segmentation. Chunk `text` là bản đọc tự nhiên đã
+  normalize, đồng thời là nguồn cho trace evidence, BM25 và embedding.
 
 ## Workflow triển khai
 
@@ -269,6 +276,6 @@ Test bao phủ:
 | Chunk cắt mất evidence | Dùng paragraph-aware split và paragraph overlap |
 | Embedding quá tốn chi phí | Cache theo `embedding_model + chunk_hash` |
 | Metadata thiếu | Lấy từ article metadata; thiếu thì để list rỗng, không tự bịa |
-| BM25 yếu với tiếng Việt có dấu | Tokenizer đã fold dấu; milestone sau có thể thử VnCoreNLP/underthesea |
+| BM25 yếu với tiếng Việt có dấu | Tokenizer fold dấu và dùng text đã normalize bằng VietNormalizer/rule tài chính |
 | FAISS không build | Cài `faiss-cpu` + `numpy`, pipeline sẽ tự build |
 | Cloudflare thiếu token | Dùng `hash` mode để test; chỉ dùng `cloudflare` khi có credentials |

@@ -119,6 +119,7 @@ def test_online_extraction_default_prompt_has_no_text_cap(tmp_path: Path) -> Non
 
     assert "UNCAPPED_TAIL" in student.prompt
     assert len(student.prompt) > 2200
+    assert "word_segmented_text" not in student.prompt
 
 
 def test_online_extraction_no_event_text_returns_no_event(tmp_path: Path) -> None:

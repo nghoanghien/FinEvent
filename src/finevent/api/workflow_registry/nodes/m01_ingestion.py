@@ -44,6 +44,10 @@ def build_steps(context: BuildContext) -> list[WorkflowStep]:
         "--min-text-chars",
         str(int_config(config, "min_text_chars", 300)),
     ]
+    if not bool_config(config, "vietnamese_preprocessing", True):
+        command.append("--disable-vietnamese-preprocessing")
+    if not bool_config(config, "viet_normalizer", True):
+        command.append("--disable-viet-normalizer")
     if bool_config(config, "reset_html_snapshots", False):
         command.append("--reset-html-snapshots")
     if bool_config(config, "discover_download", True):
@@ -112,6 +116,8 @@ node_spec = WorkflowNodeSpec(
         "reset_html_snapshots": False,
         "sync_postgres": True,
         "min_text_chars": 300,
+        "vietnamese_preprocessing": True,
+        "viet_normalizer": True,
     },
     expected_artifacts=(
         "data/processed/articles_clean.jsonl",
@@ -172,6 +178,24 @@ node_spec = WorkflowNodeSpec(
             ),
             min=0.0,
             step=50.0,
+        ),
+        WorkflowFieldSpec(
+            key="vietnamese_preprocessing",
+            label="Tiền xử lý tiếng Việt",
+            type="checkbox",
+            description=(
+                "Bật chuẩn hóa tiếng Việt và tài chính cho clean artifact. "
+                "Text vẫn giữ ranh giới từ tự nhiên để trích evidence và embedding."
+            ),
+        ),
+        WorkflowFieldSpec(
+            key="viet_normalizer",
+            label="VietNormalizer",
+            type="checkbox",
+            description=(
+                "Dùng VietNormalizer nếu package có sẵn; nếu chưa cài thì dùng rule "
+                "fallback cho viết tắt tài chính, số và tiền tệ."
+            ),
         ),
         WorkflowFieldSpec(
             key="discover_download",

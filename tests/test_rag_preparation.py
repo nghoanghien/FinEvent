@@ -33,6 +33,18 @@ def test_bm25_query_returns_event_related_chunk() -> None:
     assert results[0].score > 0
 
 
+def test_bm25_uses_normalized_vietnamese_text_for_financial_terms() -> None:
+    article = {
+        **_article(),
+        "title": "Công ty cổ phần A họp Đại hội đồng cổ đông",
+        "text": "Công ty cổ phần A tổ chức Đại hội đồng cổ đông thường niên.",
+    }
+    chunks = build_article_chunks(article, target_words=16, max_words=28, overlap_words=4)
+    index = Bm25Index.from_chunks(chunks)
+
+    assert index.search("đại hội đồng cổ đông", top_k=1)
+
+
 def test_embedding_cache_reuses_same_chunk_hash(tmp_path: Path) -> None:
     chunks = build_article_chunks(_article(), target_words=16, max_words=28, overlap_words=4)
     client = HashEmbeddingClient(dimension=32)

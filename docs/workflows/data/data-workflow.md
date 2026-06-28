@@ -65,6 +65,15 @@ File JSONL sau làm sạch:
   "title": "HPG khởi công dự án mới",
   "published_at": "2026-01-15T08:00:00+07:00",
   "text": "HPG khởi công dự án...",
+  "preprocessing": {
+    "body": {
+      "version": "vi_preprocess_v1",
+      "tools": {
+        "viet_normalizer": "vietnormalizer",
+        "domain_normalizer": "finevent_financial_rules"
+      }
+    }
+  },
   "tickers_hint": ["HPG"],
   "company_names_hint": ["Hòa Phát"],
   "sector_hints": ["materials_steel"],
@@ -82,6 +91,8 @@ File JSONL sau làm sạch:
 - `requests` hoặc `Scrapy` để crawl.
 - `BeautifulSoup` để parse HTML.
 - `trafilatura` hoặc rule riêng để trích text chính.
+- `VietNormalizer` nếu có sẵn để chuẩn hóa text phi chuẩn; fallback rule riêng xử lý
+  viết tắt tài chính, số và tiền tệ.
 - `pandas` để kiểm tra chất lượng dữ liệu.
 - JSONL để lưu dữ liệu tuyến tính, dễ version bằng git/lưu artifact.
 - PostgreSQL để lưu metadata có cấu trúc, labels và run trace.
@@ -106,7 +117,22 @@ File JSONL sau làm sạch:
    - Chuẩn hóa whitespace.
    - Chuẩn hóa ngày giờ về ISO 8601.
    - Chuẩn hóa encoding Unicode.
+   - Mở rộng viết tắt tài chính như `đhcđ`, `hđqt`, `cp`, `ctcp`.
+   - Đồng nhất định dạng số và tiền tệ như `1.200,5 tỷ đ` -> `1200.5 tỷ đồng`.
    - Loại bài quá ngắn hoặc không phải tiếng Việt.
+
+   Chi tiết tiền xử lý tiếng Việt:
+
+   - `text` luôn là bản đọc tự nhiên đã normalize, không dùng dấu gạch dưới và không qua
+     word segmentation. Đây là trường dùng để hiển thị, validate `evidence_span`, tính
+     `content_hash`, sync DB, BM25 và embedding.
+   - VietNormalizer là optional dependency. Khi có package, pipeline gọi ở chế độ không
+     chuyển số/ngày sang chữ đọc TTS, sau đó rule tài chính của project chuẩn hóa tiếp
+     viết tắt, số và tiền tệ để giữ tham số máy đọc được.
+   - Mỗi record có `preprocessing.body` và `preprocessing.title` để biết phiên bản
+     preprocessing, tool nào đã chạy, tool nào fallback và warning nào phát sinh.
+   - M03 và M06 dùng trực tiếp `text` đã normalize. Project không dùng VnCoreNLP để tránh
+     thay đổi ranh giới từ và làm nhiễu embedding.
 
 5. **Deduplicate**
    - Dùng `content_hash`.

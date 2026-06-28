@@ -10,10 +10,11 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from finevent.ingestion.text import text_hash
 from finevent.jsonl import read_jsonl, write_jsonl
 from finevent.logging_utils import utc_now_iso
 from finevent.rag.models import ChunkRecord, EmbeddingRecord
-from finevent.rag.tokenization import tokenize_for_retrieval
+from finevent.rag.tokenization import retrieval_text_from_parts, tokenize_for_retrieval
 from finevent.types import JsonDict, PathLike
 
 DEFAULT_HASH_EMBEDDING_MODEL = "local_hash_embedding_v1"
@@ -174,7 +175,8 @@ def embed_chunks_with_cache(
     missing_chunks: list[ChunkRecord] = []
 
     for chunk in chunks:
-        cache_key = _cache_key(client.model_name, chunk.chunk_hash)
+        embedding_text_hash = _embedding_text_hash(chunk)
+        cache_key = _cache_key(client.model_name, embedding_text_hash)
         cached = cache.get(cache_key)
         if cached:
             records.append(_record_from_cache(chunk, cached, client=client))
@@ -182,8 +184,10 @@ def embed_chunks_with_cache(
             missing_chunks.append(chunk)
 
     for batch in _batched(missing_chunks, batch_size):
-        vectors = client.embed_texts([chunk.text for chunk in batch])
+        embedding_texts = [_embedding_text(chunk) for chunk in batch]
+        vectors = client.embed_texts(embedding_texts)
         for chunk, vector in zip(batch, vectors, strict=True):
+            embedding_text_hash = text_hash(_embedding_text(chunk))
             record = EmbeddingRecord(
                 embedding_id=_embedding_id(client.model_name, chunk.chunk_id),
                 chunk_id=chunk.chunk_id,
@@ -191,14 +195,14 @@ def embed_chunks_with_cache(
                 embedding_model=client.model_name,
                 embedding_dimension=len(vector),
                 content_hash=chunk.content_hash,
-                chunk_hash=chunk.chunk_hash,
+                chunk_hash=embedding_text_hash,
                 vector=vector,
                 status="success",
                 created_at=utc_now_iso(),
                 cache_hit=False,
             )
             records.append(record)
-            cache[_cache_key(client.model_name, chunk.chunk_hash)] = record.to_dict()
+            cache[_cache_key(client.model_name, embedding_text_hash)] = record.to_dict()
 
     records.sort(key=lambda item: item.chunk_id)
     write_jsonl(output_path, (record.to_dict() for record in records))
@@ -215,6 +219,22 @@ def _load_embedding_cache(path: PathLike) -> dict[str, JsonDict]:
         if model and chunk_hash and record.get("status") == "success":
             cache[_cache_key(model, chunk_hash)] = record
     return cache
+
+
+def _embedding_text(chunk: ChunkRecord) -> str:
+    return retrieval_text_from_parts(
+        title=chunk.title,
+        text=chunk.text,
+        metadata=chunk.metadata,
+        tickers_hint=chunk.tickers_hint,
+        company_names_hint=chunk.company_names_hint,
+        event_keywords=chunk.event_keywords,
+        event_type_hints=chunk.event_type_hints,
+    )
+
+
+def _embedding_text_hash(chunk: ChunkRecord) -> str:
+    return text_hash(_embedding_text(chunk))
 
 
 def _write_embedding_cache(path: PathLike, records: Iterable[JsonDict]) -> None:

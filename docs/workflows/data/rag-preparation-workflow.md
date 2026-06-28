@@ -51,7 +51,7 @@ reports/data/data_quality_summary.md
 | --- | --- |
 | Crawl | `requests`, `BeautifulSoup`, `newspaper3k`, Playwright nếu cần |
 | Text extraction | `trafilatura` hoặc parser theo source |
-| Normalize | Python regex, Unicode normalization |
+| Normalize | Unicode normalization, VietNormalizer optional, financial fallback rules |
 | Metadata | dictionary ticker-company, rule-based extractor, optional LLM |
 | Chunking | custom Python chunker |
 | Embedding | Cloudflare endpoint, BGE-M3, E5, GTE |
@@ -121,6 +121,15 @@ Loại:
 - comment
 - footer
 - đoạn lặp lại theo site
+
+Sau khi trích text, M01 lưu một lớp text chính:
+
+- `text`: bản đọc tự nhiên đã normalize bằng Unicode/VietNormalizer/rule tài chính, dùng
+  cho evidence span, hiển thị, BM25 và embedding.
+
+M03 giữ `text` trong chunk để trace evidence và dùng chính text này cho BM25/embedding.
+Pipeline không dùng VnCoreNLP để tránh biến đổi ranh giới từ thành dạng gạch dưới và làm
+nhiễu vector retrieval.
 
 ### Bước 4: Normalize Vietnamese text
 

@@ -32,6 +32,9 @@ ingestion = [
   "sqlalchemy>=2.0",
   "trafilatura>=1.12",
 ]
+vietnamese = [
+  "vietnormalizer",
+]
 api = [
   "fastapi>=0.115",
   "pydantic>=2.0",

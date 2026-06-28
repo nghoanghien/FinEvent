@@ -291,7 +291,7 @@ không được chọn, command M06 có thêm `--disable-verification`.
 
 | Node | Config chính |
 | --- | --- |
-| `m01_ingestion` | `articles_path`, `input_html_dir`, `html_manifest_path`, `sources`, `max_articles`, `max_discovered_urls`, `min_text_chars`, `discover_download`, `reset_html_snapshots`, `sync_postgres` |
+| `m01_ingestion` | `articles_path`, `input_html_dir`, `html_manifest_path`, `sources`, `max_articles`, `max_discovered_urls`, `min_text_chars`, `vietnamese_preprocessing`, `viet_normalizer`, `discover_download`, `reset_html_snapshots`, `sync_postgres` |
 | `m02_labeling` | `max_articles`, `teacher_max_retries`, `generate_prompts`, `run_teacher`, `validate_labels`, `strict_validation`, `sync_postgres` |
 | `m03_rag` | `embedding_provider`, `embedding_model`, `embedding_dimension`, `target_words`, `max_words`, `overlap_words`, `patterns_path`, `chunk_patterns_path`, `sync_postgres` |
 | `m04_retrieval` | `embedding_provider`, `embedding_model`, `embedding_dimension`, `retrieval_config`, `max_contexts`, `llm_rerank_mode`, `llm_rerank_top_n`, `retrieval_results_path`, `retrieval_metrics_path`, `sync_postgres` |
@@ -311,6 +311,10 @@ chọn, download HTML snapshot, rồi parse thư mục HTML local.
 - `max_articles`: số bài tải tối đa khi discovery/download bật.
 - `max_discovered_urls`: số candidate URL tối đa trước khi download.
 - `min_text_chars`: số ký tự text tối thiểu sau normalize, không phải số từ.
+- `vietnamese_preprocessing`: bật pipeline chuẩn hóa tiếng Việt trước khi ghi
+  `articles_clean.jsonl`.
+- `viet_normalizer`: dùng VietNormalizer nếu package có sẵn; khi thiếu package, M01
+  dùng financial fallback rules cho viết tắt, số và tiền tệ.
 - `reset_html_snapshots`: chỉ xóa `*.html` trong `input_html_dir` và file
   `html_manifest_path` trước khi chạy M01.
 

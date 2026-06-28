@@ -44,6 +44,7 @@ def build_article_chunks(
             metadata={
                 "representation": "title_plus_body_summary",
                 "paragraph_count": len(paragraphs),
+                "preprocessing": article.get("preprocessing", {}),
             },
         )
     )
@@ -70,6 +71,7 @@ def build_article_chunks(
                 metadata={
                     "representation": "paragraph_group",
                     "paragraph_indexes": group,
+                    "preprocessing": article.get("preprocessing", {}),
                 },
             )
         )
@@ -100,6 +102,7 @@ def build_article_chunks(
                         "representation": "evidence_paragraph",
                         "paragraph_index": paragraph_index,
                         "paragraph_slice": slice_index,
+                        "preprocessing": article.get("preprocessing", {}),
                     },
                 )
             )

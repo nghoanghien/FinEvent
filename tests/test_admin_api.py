@@ -165,8 +165,12 @@ def test_m01_catalog_exposes_sources_reset_and_html_targets() -> None:
     ]
     assert m01["default_config"]["discover_download"] is True
     assert m01["default_config"]["reset_html_snapshots"] is False
+    assert m01["default_config"]["vietnamese_preprocessing"] is True
+    assert m01["default_config"]["viet_normalizer"] is True
     assert fields["sources"]["type"] == "multi-select"
     assert fields["reset_html_snapshots"]["type"] == "checkbox"
+    assert fields["vietnamese_preprocessing"]["type"] == "checkbox"
+    assert fields["viet_normalizer"]["type"] == "checkbox"
     assert fields["articles_path"]["configurable"] is False
     assert fields["input_html_dir"]["configurable"] is False
     assert fields["html_manifest_path"]["configurable"] is False
@@ -203,6 +207,8 @@ def test_m01_build_command_passes_sources_reset_and_manifest() -> None:
     assert command[command.index("--max-discovered-urls") + 1] == "11"
     assert _flag_values(command, "--source") == ["cafef", "vietstock"]
     assert "nhadautu" not in _flag_values(command, "--source")
+    assert "--disable-vietnamese-preprocessing" not in command
+    assert "--disable-viet-normalizer" not in command
 
 
 def test_m01_build_command_rejects_discover_without_sources() -> None:

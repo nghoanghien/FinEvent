@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +29,10 @@ from finevent.ingestion.parsers import parse_article_html
 from finevent.ingestion.pipeline import reset_html_snapshots, run_local_html_ingestion
 from finevent.ingestion.text import canonical_url, normalize_text, text_hash
 from finevent.ingestion.ticker_sql import company_entry_to_payload, normalize_alias
+from finevent.ingestion.vietnamese_preprocessing import (
+    VietnamesePreprocessingConfig,
+    preprocess_vietnamese_text,
+)
 from finevent.jsonl import read_jsonl
 
 
@@ -75,6 +81,54 @@ class FakeSqlConnection:
 def test_normalize_and_hash_are_stable() -> None:
     assert normalize_text("  HPG\n\n\tmo rong  ") == "HPG\n\nmo rong"
     assert text_hash("HPG mo rong") == text_hash(" hpg  mo rong ")
+
+
+def test_vietnamese_preprocessing_expands_finance_terms_and_normalizes_money() -> None:
+    result = preprocess_vietnamese_text("HPG báo cáo ĐHCĐ và HĐQT duyệt cp giá 1.200,5 tỷ đ")
+
+    assert "HPG" in result.normalized_text
+    assert "đại hội đồng cổ đông" in result.normalized_text
+    assert "hội đồng quản trị" in result.normalized_text
+    assert "cổ phiếu" in result.normalized_text
+    assert "1200.5 tỷ đồng" in result.normalized_text
+    assert result.tools["domain_normalizer"] == "finevent_financial_rules"
+
+
+def test_vietnamese_preprocessing_supports_vietnormalizer_class(monkeypatch: Any) -> None:
+    from finevent.ingestion import vietnamese_preprocessing as vi_preprocessing
+
+    class FakeVietnameseNormalizer:
+        def __init__(self, *, enable_transliteration: bool = True) -> None:
+            self.enable_transliteration = enable_transliteration
+
+        def normalize(
+            self,
+            text: str,
+            *,
+            enable_preprocessing: bool = True,
+            enable_transliteration: bool = True,
+        ) -> str:
+            assert self.enable_transliteration is False
+            assert enable_preprocessing is False
+            assert enable_transliteration is False
+            return text.replace("forum", "diễn đàn")
+
+    fake_module = types.ModuleType("vietnormalizer")
+    fake_module.__dict__["VietnameseNormalizer"] = FakeVietnameseNormalizer
+    monkeypatch.setitem(sys.modules, "vietnormalizer", fake_module)
+    vi_preprocessing._vietnormalizer_callable.cache_clear()
+
+    try:
+        result = preprocess_vietnamese_text(
+            "forum ĐHCĐ giá 1.200,5 tỷ đ",
+            config=VietnamesePreprocessingConfig(),
+        )
+    finally:
+        vi_preprocessing._vietnormalizer_callable.cache_clear()
+
+    assert "diễn đàn" in result.normalized_text
+    assert "1200.5 tỷ đồng" in result.normalized_text
+    assert result.tools["viet_normalizer"] == "vietnormalizer"
 
 
 def test_canonical_url_removes_tracking_params() -> None:
@@ -301,6 +355,7 @@ def test_run_local_html_ingestion(tmp_path: Path) -> None:
     assert clean_records[0]["sector_hints"] == ["materials_steel"]
     assert "khoi cong" in clean_records[0]["event_keywords"]
     assert "EXPANSION" in clean_records[0]["event_type_hints"]
+    assert clean_records[0]["preprocessing"]["body"]["version"] == "vi_preprocess_v1"
     assert report_path.exists()
 
 

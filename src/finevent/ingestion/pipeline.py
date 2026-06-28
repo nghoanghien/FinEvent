@@ -25,7 +25,11 @@ from finevent.ingestion.metadata import (
 from finevent.ingestion.models import CleanArticleRecord, RawArticleRecord
 from finevent.ingestion.parsers import infer_source_from_path, parse_article_html
 from finevent.ingestion.reporting import build_data_quality_summary, write_data_quality_summary
-from finevent.ingestion.text import canonical_url, normalize_text, stable_article_id, text_hash
+from finevent.ingestion.text import canonical_url, stable_article_id, text_hash
+from finevent.ingestion.vietnamese_preprocessing import (
+    VietnamesePreprocessingConfig,
+    preprocess_vietnamese_text,
+)
 from finevent.jsonl import write_jsonl
 from finevent.logging_utils import utc_now_iso
 
@@ -51,6 +55,8 @@ def run_local_html_ingestion(
     keyword_taxonomy_path: str | Path = DEFAULT_EVENT_KEYWORD_TAXONOMY_PATH,
     min_text_chars: int = 300,
     event_keywords: list[str] | None = None,
+    vietnamese_preprocessing: bool = True,
+    use_viet_normalizer: bool = True,
 ) -> IngestionResult:
     html_dir = Path(input_html_dir)
     raw_path = Path(raw_output_path)
@@ -61,6 +67,10 @@ def run_local_html_ingestion(
     entries = load_company_dictionary(dictionary_path)
     taxonomy_entries = load_event_keyword_taxonomy(keyword_taxonomy_path)
     keywords = event_keywords or DEFAULT_EVENT_KEYWORDS
+    preprocessing_config = VietnamesePreprocessingConfig(
+        enabled=vietnamese_preprocessing,
+        use_viet_normalizer=use_viet_normalizer,
+    )
 
     raw_records: list[RawArticleRecord] = []
     clean_records: list[CleanArticleRecord] = []
@@ -74,9 +84,19 @@ def run_local_html_ingestion(
         url = manifest_record.source_url if manifest_record else f"file://{html_path.resolve()}"
         raw_html_path = str(html_path)
         parsed = parse_article_html(html, source=source, url=url)
-        normalized_text = normalize_text(parsed.body_text)
+        title_preprocessing = preprocess_vietnamese_text(
+            parsed.title or "",
+            config=preprocessing_config,
+        )
+        body_preprocessing = preprocess_vietnamese_text(
+            parsed.body_text,
+            config=preprocessing_config,
+        )
+        normalized_title = title_preprocessing.normalized_text or None
+        normalized_text = body_preprocessing.normalized_text
         article_id = stable_article_id(source, url, normalized_text or html_path.stem)
         parse_warnings = list(parsed.warnings)
+        parse_warnings.extend(body_preprocessing.warnings)
         parse_status = "success"
         if len(normalized_text) < min_text_chars:
             parse_status = "too_short"
@@ -87,7 +107,7 @@ def run_local_html_ingestion(
                 article_id=article_id,
                 source=source,
                 url=canonical_url(url),
-                title=parsed.title,
+                title=normalized_title,
                 published_at=parsed.published_at,
                 author=parsed.author,
                 http_status=None,
@@ -108,7 +128,7 @@ def run_local_html_ingestion(
             continue
         seen_hashes.add(content_hash)
 
-        metadata_text = "\n".join(part for part in [parsed.title, normalized_text] if part)
+        metadata_text = "\n".join(part for part in [normalized_title, normalized_text] if part)
         tickers, company_names = extract_tickers_and_companies(metadata_text, entries)
         keyword_matches = extract_event_keyword_matches(metadata_text, taxonomy_entries)
         matched_keywords = (
@@ -122,9 +142,13 @@ def run_local_html_ingestion(
                 source=source,
                 url=canonical_url(url),
                 raw_html_path=raw_html_path,
-                title=parsed.title,
+                title=normalized_title,
                 published_at=parsed.published_at,
                 text=normalized_text,
+                preprocessing={
+                    "body": body_preprocessing.to_metadata(),
+                    "title": title_preprocessing.to_metadata(),
+                },
                 tickers_hint=tickers,
                 company_names_hint=company_names,
                 sector_hints=extract_sector_hints(tickers, entries),

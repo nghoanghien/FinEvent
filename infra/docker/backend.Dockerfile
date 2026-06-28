@@ -19,7 +19,7 @@ COPY infra ./infra
 COPY src ./src
 
 RUN python -m pip install --upgrade pip \
-    && python -m pip install -e ".[api,db,ingestion,rag,workflow,llm,evaluation]"
+    && python -m pip install -e ".[api,db,ingestion,vietnamese,rag,workflow,llm,evaluation]"
 
 COPY infra/docker/backend-entrypoint.sh /usr/local/bin/finevent-backend-entrypoint
 RUN chmod +x /usr/local/bin/finevent-backend-entrypoint

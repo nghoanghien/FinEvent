@@ -99,11 +99,14 @@ Chunk embeddings được tạo ở M03 bằng provider cấu hình:
 - `hash` cho local tests deterministic;
 - `cloudflare`, `openai_compatible` hoặc `direct_http` cho external providers.
 
-Embeddings lưu ở `data/retrieval/chunk_embeddings.jsonl` và sync vào PostgreSQL khi
-`sync_postgres=true`.
+Embeddings dùng text truy hồi tự nhiên đã normalize từ `chunk.text`, title và metadata
+hints như ticker/company/event keyword. Project không dùng VnCoreNLP hoặc bản gạch dưới
+để tránh làm nhiễu vector retrieval. Embeddings lưu ở `data/retrieval/chunk_embeddings.jsonl`
+và sync vào PostgreSQL khi `sync_postgres=true`.
 
 ## BM25 Và Metadata
 
+BM25 tokenizer cũng chạy preprocessing tiếng Việt để query và document cùng cách normalize.
 BM25 giúp bắt các trigger words như:
 
 ```text

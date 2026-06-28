@@ -46,6 +46,7 @@ class CleanArticleRecord:
     title: str | None
     published_at: str | None
     text: str
+    preprocessing: JsonDict
     tickers_hint: list[str]
     company_names_hint: list[str]
     sector_hints: list[str]

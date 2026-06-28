@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from finevent.rag.models import ChunkRecord
-from finevent.rag.tokenization import tokenize_for_retrieval
+from finevent.rag.tokenization import retrieval_text_from_parts, tokenize_for_retrieval
 from finevent.types import JsonDict, PathLike
 
 
@@ -126,12 +126,12 @@ def load_bm25_index(path: PathLike) -> Bm25Index:
 
 
 def _retrieval_text(chunk: ChunkRecord) -> str:
-    parts = [
-        chunk.title or "",
-        chunk.text,
-        " ".join(chunk.tickers_hint),
-        " ".join(chunk.company_names_hint),
-        " ".join(chunk.event_keywords),
-        " ".join(chunk.event_type_hints),
-    ]
-    return "\n".join(part for part in parts if part)
+    return retrieval_text_from_parts(
+        title=chunk.title,
+        text=chunk.text,
+        metadata=chunk.metadata,
+        tickers_hint=chunk.tickers_hint,
+        company_names_hint=chunk.company_names_hint,
+        event_keywords=chunk.event_keywords,
+        event_type_hints=chunk.event_type_hints,
+    )

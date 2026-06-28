@@ -91,6 +91,7 @@ ChromaDB và SQLite chỉ nên dùng khi cần prototype rất nhanh. Nếu đã
 | `BeautifulSoup` | Parse HTML theo rule từng source | title, date, body text |
 | `trafilatura` | Trích nội dung chính của bài báo, giảm menu/quảng cáo | clean text baseline |
 | Python regex + Unicode normalization | Chuẩn hóa whitespace, ngày tháng, ký hiệu tài chính, text tiếng Việt | `articles_clean.jsonl` |
+| VietNormalizer | Chuẩn hóa text phi chuẩn, số, tiền tệ và acronym khi package có sẵn | `text`, preprocessing metadata |
 | `hashlib` | Tạo `content_hash` để deduplicate và cache embedding | dedup report, embedding cache |
 | `pandas` | Kiểm tra chất lượng dữ liệu và thống kê source/ticker/keyword | `data_quality_summary.md` |
 

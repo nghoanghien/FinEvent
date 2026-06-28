@@ -34,6 +34,8 @@ def build_parser() -> argparse.ArgumentParser:
         default="data/dictionaries/event_keyword_taxonomy.csv",
     )
     parser.add_argument("--min-text-chars", type=int, default=300)
+    parser.add_argument("--disable-vietnamese-preprocessing", action="store_true")
+    parser.add_argument("--disable-viet-normalizer", action="store_true")
     parser.add_argument("--url-candidates-path", default=None)
     parser.add_argument("--download", action="store_true")
     parser.add_argument("--discover", action="store_true")
@@ -113,6 +115,8 @@ def main(argv: list[str] | None = None) -> None:
         dictionary_path=args.dictionary_path,
         keyword_taxonomy_path=args.keyword_taxonomy_path,
         min_text_chars=args.min_text_chars,
+        vietnamese_preprocessing=not args.disable_vietnamese_preprocessing,
+        use_viet_normalizer=not args.disable_viet_normalizer,
     )
     article_sync = None
     if args.sync_postgres:

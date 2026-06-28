@@ -78,6 +78,10 @@ contexts ngoài việc cắt theo `max_contexts`.
 Sau khi chọn record, M06 lấy tối đa `max_contexts` context đầu tiên. Pattern refs được
 dedup từ `context.metadata.pattern_refs` để đưa vào debug trace và prompt.
 
+Prompt M06 dùng `text` tự nhiên đã normalize bằng M01/M06 preprocessing. Project không
+đưa bản tách từ vào prompt để tránh làm lệch `evidence_span` và tránh tạo khác biệt giữa
+text dùng cho extraction với text dùng cho retrieval/embedding.
+
 ## Config Quan Trọng
 
 | Config | Ý nghĩa |
