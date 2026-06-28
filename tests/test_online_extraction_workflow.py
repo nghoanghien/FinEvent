@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from finevent.extraction.models import ExtractionRunConfig
+from finevent.extraction.run_sql import sync_extraction_state
 from finevent.extraction.validation import validate_or_repair_extraction_output
 from finevent.extraction.workflow import (
     ExtractionWorkflowArtifacts,
@@ -22,6 +23,43 @@ class RecordingStudentModel:
     def invoke(self, prompt: str) -> str:
         self.prompt = prompt
         return json.dumps(self.output, ensure_ascii=False)
+
+
+class ReasoningStudentResponse:
+    def __init__(self, output: dict, reasoning_content: str) -> None:
+        self.content = json.dumps(output, ensure_ascii=False)
+        self.additional_kwargs = {"reasoning_content": reasoning_content}
+
+
+class ReasoningStudentModel:
+    def __init__(self, output: dict, reasoning_content: str) -> None:
+        self.output = output
+        self.reasoning_content = reasoning_content
+
+    def invoke(self, prompt: str) -> ReasoningStudentResponse:
+        return ReasoningStudentResponse(self.output, self.reasoning_content)
+
+
+class FakeExtractionConnection:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def execute(self, statement: object, params: dict | None = None) -> None:
+        self.calls.append({"statement": statement, "params": params or {}})
+
+
+class FakeExtractionEngine:
+    def __init__(self) -> None:
+        self.connection = FakeExtractionConnection()
+
+    def begin(self) -> FakeExtractionEngine:
+        return self
+
+    def __enter__(self) -> FakeExtractionConnection:
+        return self.connection
+
+    def __exit__(self, *exc_info: object) -> None:
+        return None
 
 
 def test_online_extraction_event_text_runs_without_retrieval(tmp_path: Path) -> None:
@@ -51,6 +89,47 @@ def test_online_extraction_event_text_runs_without_retrieval(tmp_path: Path) -> 
         "extraction",
         "validation_repair",
     }
+
+
+def test_online_extraction_records_provider_reasoning_trace(tmp_path: Path) -> None:
+    output = {
+        "article_id": "manual_reasoning_input",
+        "document_label": "NO_EVENT",
+        "label_reason": "Fixture output has no reportable event.",
+        "events": [],
+        "warnings": [],
+        "model_info": {
+            "model_name": "fixture_student",
+            "prompt_version": "m06_test",
+            "run_id": "fixture_run",
+        },
+    }
+    state = run_online_extraction_workflow(
+        {
+            "input_type": "text",
+            "article_id": "manual_reasoning_input",
+            "title": "HPG cap nhat thong tin doanh nghiep",
+            "value": "HPG cap nhat thong tin giao dich chung.",
+            "source": "manual",
+        },
+        config=ExtractionRunConfig(use_retrieval=False),
+        artifacts=ExtractionWorkflowArtifacts(logs_dir=tmp_path / "runs"),
+        langchain_model=ReasoningStudentModel(output, "private local model reasoning"),
+    )
+    result = build_public_result(state)
+    fake_engine = FakeExtractionEngine()
+    sync_extraction_state(fake_engine, state)
+
+    assert state.reasoning_trace["has_provider_reasoning"] is True
+    assert state.reasoning_trace["provider_reasoning_content"] == "private local model reasoning"
+    assert state.reasoning_trace["output_reasons"]["label_reason"] == (
+        "Fixture output has no reportable event."
+    )
+    assert result["reasoning_trace"] == state.reasoning_trace
+    assert Path(result["run_dir"], "reasoning_trace.json").exists()
+    insert_params = fake_engine.connection.calls[0]["params"]
+    assert "reasoning_trace" in insert_params
+    assert "private local model reasoning" in insert_params["reasoning_trace"]
 
 
 def test_online_extraction_respects_prompt_budget_before_student_call(tmp_path: Path) -> None:

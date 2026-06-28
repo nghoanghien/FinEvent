@@ -150,6 +150,7 @@ def _get_output_from_db(run_id: str) -> dict[str, Any] | None:
         "article_id": run.get("article_id"),
         "prediction": run.get("final_output") or {},
         "draft_output": run.get("draft_output") or {},
+        "reasoning_trace": run.get("reasoning_trace") or {},
         "validation_issues": run.get("validation_issues") or [],
         "verification_report": run.get("verification_report") or {},
         "hallucination_metrics": run.get("hallucination_metrics") or {},

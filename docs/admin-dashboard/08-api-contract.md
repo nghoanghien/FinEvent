@@ -232,6 +232,7 @@ Trả structured output:
   "events": [],
   "retrieval_trace": [],
   "selected_patterns": [],
+  "reasoning_trace": {},
   "validation_issues": [],
   "verification_report": {},
   "hallucination_metrics": {}

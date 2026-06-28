@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS extraction_runs (
     context_chunk_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
     draft_output JSONB NOT NULL DEFAULT '{}'::jsonb,
     final_output JSONB NOT NULL DEFAULT '{}'::jsonb,
+    reasoning_trace JSONB NOT NULL DEFAULT '{}'::jsonb,
     validation_issues JSONB NOT NULL DEFAULT '[]'::jsonb,
     verification_report JSONB NOT NULL DEFAULT '{}'::jsonb,
     hallucination_metrics JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -80,6 +81,8 @@ CREATE INDEX IF NOT EXISTS idx_extraction_runs_created_at
     ON extraction_runs(created_at);
 CREATE INDEX IF NOT EXISTS idx_extraction_runs_final_output
     ON extraction_runs USING GIN (final_output);
+CREATE INDEX IF NOT EXISTS idx_extraction_runs_reasoning_trace
+    ON extraction_runs USING GIN (reasoning_trace);
 CREATE INDEX IF NOT EXISTS idx_extraction_runs_validation_issues
     ON extraction_runs USING GIN (validation_issues);
 CREATE INDEX IF NOT EXISTS idx_extraction_runs_verification_report

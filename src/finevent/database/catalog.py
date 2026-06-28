@@ -272,6 +272,7 @@ TABLE_COLUMNS: dict[str, tuple[str, ...]] = {
         "context_chunk_ids",
         "draft_output",
         "final_output",
+        "reasoning_trace",
         "validation_issues",
         "verification_report",
         "hallucination_metrics",

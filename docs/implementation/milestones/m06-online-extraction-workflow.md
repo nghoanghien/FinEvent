@@ -91,7 +91,7 @@ text dùng cho extraction với text dùng cho retrieval/embedding.
 | `max_contexts` | Giới hạn số M04 contexts đưa vào prompt |
 | `student_provider` | `deterministic` cho local/test hoặc `env` cho student LLM cấu hình trong môi trường |
 | `use_retrieval` | Debug switch; nếu false thì M06 chạy không có M04 contexts |
-| `sync_postgres` | Lưu extraction run metadata, outputs, traces, `retrieval_run_id` và `context_chunk_ids` |
+| `sync_postgres` | Lưu extraction run metadata, outputs, reasoning trace, traces, `retrieval_run_id` và `context_chunk_ids` |
 
 ## Source Filtering
 
@@ -117,6 +117,17 @@ Prompt dùng grounded prompting và self-verification instructions:
 - giữ private reasoning ở bên trong, chỉ expose concise reasons;
 - mỗi event cần `evidence_span` grounded trong article;
 - retrieved contexts có compact metadata và `matched_patterns`.
+
+M06 không đưa chain-of-thought thô vào `final_output`. Run state có `reasoning_trace`
+riêng để lưu:
+
+- `provider_reasoning_content` nếu local/student provider trả `reasoning_content` riêng;
+- `label_reason` và danh sách `event_reason` sau validation;
+- `reasoning_policy` để biết prompt yêu cầu private step-by-step reasoning nhưng output
+  schema chỉ expose reason ngắn.
+
+Khi `sync_postgres=true`, `reasoning_trace` được ghi vào `extraction_runs.reasoning_trace`.
+Khi ghi artifact local, trace này nằm ở `runs/extraction/{run_id}/reasoning_trace.json`.
 
 Prompt gồm các phần chính:
 

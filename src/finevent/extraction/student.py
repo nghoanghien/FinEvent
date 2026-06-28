@@ -8,6 +8,7 @@ runs when no LLM endpoint is available.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 from finevent.ingestion.text import normalize_text
@@ -17,6 +18,13 @@ from finevent.types import JsonDict
 
 class InvokableStudentModel(Protocol):
     def invoke(self, prompt: str) -> Any: ...
+
+
+@dataclass(frozen=True)
+class StudentModelResult:
+    content: str
+    reasoning_trace: JsonDict
+
 
 POSITIVE_TYPES = {
     "CONTRACT",
@@ -95,11 +103,50 @@ def run_deterministic_student_extractor(
 
 def run_langchain_student_model(model: InvokableStudentModel, prompt: str) -> str:
     """Call a LangChain model object without implementing provider adapters."""
+    return run_langchain_student_model_with_trace(model, prompt).content
+
+
+def run_langchain_student_model_with_trace(
+    model: InvokableStudentModel,
+    prompt: str,
+) -> StudentModelResult:
+    """Call a LangChain model and separate final content from provider reasoning metadata."""
     response = model.invoke(prompt)
+    reasoning_content = _response_reasoning_content(response)
     content = getattr(response, "content", response)
+    final_content = _stringify_model_content(content)
+    return StudentModelResult(
+        content=final_content,
+        reasoning_trace={
+            "source": "langchain_response",
+            "has_provider_reasoning": bool(reasoning_content),
+            "provider_reasoning_content": reasoning_content or None,
+        },
+    )
+
+
+def _stringify_model_content(content: object) -> str:
     if isinstance(content, list):
         return "\n".join(str(part) for part in content)
     return str(content)
+
+
+def _response_reasoning_content(response: object) -> str:
+    for attr_name in ("reasoning_content",):
+        value = getattr(response, attr_name, None)
+        if value:
+            return str(value).strip()
+    additional_kwargs = getattr(response, "additional_kwargs", None)
+    if isinstance(additional_kwargs, dict):
+        value = additional_kwargs.get("reasoning_content")
+        if value:
+            return str(value).strip()
+    response_metadata = getattr(response, "response_metadata", None)
+    if isinstance(response_metadata, dict):
+        value = response_metadata.get("reasoning_content")
+        if value:
+            return str(value).strip()
+    return ""
 
 
 def _first_valid_event_type(values: object) -> str | None:

@@ -14,7 +14,7 @@ from finevent.extraction.prompting import build_extraction_prompt
 from finevent.extraction.student import (
     InvokableStudentModel,
     run_deterministic_student_extractor,
-    run_langchain_student_model,
+    run_langchain_student_model_with_trace,
 )
 from finevent.extraction.validation import validate_or_repair_extraction_output
 from finevent.extraction.verification import VerificationConfig, verify_extraction_output
@@ -86,6 +86,7 @@ def build_public_result(state: ExtractionWorkflowState) -> JsonDict:
         "run_id": state.run_id,
         "retrieval_trace": state.retrieved_contexts,
         "selected_patterns": state.selected_patterns,
+        "reasoning_trace": state.reasoning_trace,
         "validation_issues": state.validation_issues,
         "verification_report": state.verification_report,
         "hallucination_metrics": state.hallucination_metrics,
@@ -214,11 +215,14 @@ def _node_extract(
     )
     if raw_model_output is not None:
         state.raw_model_output = raw_model_output
+        state.reasoning_trace = _reasoning_trace_from_raw_model_output(raw_model_output)
     elif langchain_model is not None:
-        state.raw_model_output = run_langchain_student_model(
+        model_result = run_langchain_student_model_with_trace(
             langchain_model,
             state.extraction_prompt,
         )
+        state.raw_model_output = model_result.content
+        state.reasoning_trace = model_result.reasoning_trace
     else:
         state.raw_model_output = run_deterministic_student_extractor(
             article=state.article,
@@ -226,9 +230,17 @@ def _node_extract(
             model_name=state.config.student_model,
             prompt_version=state.config.prompt_version,
         )
+        state.reasoning_trace = {
+            "source": "deterministic_student",
+            "has_provider_reasoning": False,
+            "provider_reasoning_content": None,
+        }
     return {
         "prompt_chars": len(state.extraction_prompt),
         "raw_output_type": type(state.raw_model_output).__name__,
+        "has_provider_reasoning": bool(
+            state.reasoning_trace.get("provider_reasoning_content")
+        ),
     }
 
 
@@ -246,6 +258,7 @@ def _node_validate(state: ExtractionWorkflowState) -> JsonDict:
     state.draft_output = result.output
     state.final_output = result.output
     state.validation_issues = result.issues
+    state.reasoning_trace = _with_output_reasons(state.reasoning_trace, result.output)
     if result.repaired:
         state.warnings.append("model_output_repaired")
     if result.parse_error:
@@ -319,6 +332,10 @@ def _node_log(
             json.dumps(state.verification_report, ensure_ascii=False, indent=2, sort_keys=True),
             encoding="utf-8",
         )
+    (run_dir / "reasoning_trace.json").write_text(
+        json.dumps(state.reasoning_trace, ensure_ascii=False, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
     (run_dir / "result.json").write_text(
         json.dumps(build_public_result(state), ensure_ascii=False, indent=2, sort_keys=True),
         encoding="utf-8",
@@ -327,6 +344,54 @@ def _node_log(
     return {
         "run_dir": str(run_dir),
         "trace_count": len(state.traces),
+    }
+
+
+def _reasoning_trace_from_raw_model_output(raw_output: str | JsonDict) -> JsonDict:
+    if isinstance(raw_output, dict):
+        explicit_reasoning = (
+            raw_output.get("reasoning_trace")
+            or raw_output.get("reasoning_content")
+            or raw_output.get("cot")
+        )
+        return {
+            "source": "raw_model_output",
+            "has_provider_reasoning": bool(explicit_reasoning),
+            "provider_reasoning_content": explicit_reasoning or None,
+        }
+    return {
+        "source": "raw_model_output",
+        "has_provider_reasoning": False,
+        "provider_reasoning_content": None,
+    }
+
+
+def _with_output_reasons(reasoning_trace: JsonDict, output: JsonDict) -> JsonDict:
+    events = output.get("events", [])
+    event_reasons = []
+    if isinstance(events, list):
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+            event_reasons.append(
+                {
+                    "event_id": event.get("event_id"),
+                    "event_type": event.get("event_type"),
+                    "event_reason": event.get("event_reason"),
+                    "evidence_span": event.get("evidence_span"),
+                }
+            )
+    return {
+        **reasoning_trace,
+        "reasoning_policy": {
+            "prompt_uses_private_step_by_step_reasoning": True,
+            "output_exposes_raw_chain_of_thought": False,
+            "output_exposes_concise_reasons": True,
+        },
+        "output_reasons": {
+            "label_reason": output.get("label_reason"),
+            "event_reasons": event_reasons,
+        },
     }
 
 

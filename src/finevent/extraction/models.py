@@ -64,6 +64,7 @@ class ExtractionWorkflowState:
     selected_patterns: list[JsonDict] = field(default_factory=list)
     extraction_prompt: str = ""
     raw_model_output: str | JsonDict | None = None
+    reasoning_trace: JsonDict = field(default_factory=dict)
     draft_output: JsonDict | None = None
     final_output: JsonDict | None = None
     verification_report: JsonDict | None = None
@@ -86,6 +87,7 @@ class ExtractionWorkflowState:
             "selected_patterns": self.selected_patterns,
             "extraction_prompt": self.extraction_prompt,
             "raw_model_output": self.raw_model_output,
+            "reasoning_trace": self.reasoning_trace,
             "draft_output": self.draft_output,
             "final_output": self.final_output,
             "verification_report": self.verification_report,

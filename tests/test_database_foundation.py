@@ -64,6 +64,7 @@ def test_database_catalog_has_key_relationship_tables() -> None:
     assert "pattern_id" in TABLE_COLUMNS["financial_news_chunk_patterns"]
     assert "content_json" in TABLE_COLUMNS["workflow_reports"]
     assert "run_id" in TABLE_COLUMNS["extraction_node_traces"]
+    assert "reasoning_trace" in TABLE_COLUMNS["extraction_runs"]
 
 
 def test_sqlalchemy_metadata_matches_catalog_when_db_extra_is_installed() -> None:

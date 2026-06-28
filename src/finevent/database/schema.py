@@ -383,6 +383,7 @@ extraction_runs = Table(
     Column("context_chunk_ids", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
     Column("draft_output", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
     Column("final_output", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    Column("reasoning_trace", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
     Column("validation_issues", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
     Column("verification_report", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
     Column("hallucination_metrics", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
@@ -448,6 +449,11 @@ Index("idx_retrieval_runs_created_at", retrieval_runs.c.created_at)
 Index("idx_retrieval_run_contexts_run_id", retrieval_run_contexts.c.retrieval_run_id)
 Index("idx_retrieval_run_contexts_chunk_id", retrieval_run_contexts.c.chunk_id)
 Index("idx_extraction_runs_article_id", extraction_runs.c.article_id)
+Index(
+    "idx_extraction_runs_reasoning_trace",
+    extraction_runs.c.reasoning_trace,
+    postgresql_using="gin",
+)
 Index("idx_workflow_reports_run_id", workflow_reports.c.run_id)
 Index("idx_workflow_reports_workflow_name", workflow_reports.c.workflow_name)
 Index("idx_workflow_reports_step_id", workflow_reports.c.step_id)

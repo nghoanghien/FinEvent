@@ -384,6 +384,11 @@ vào `events_gold.jsonl`; output lỗi schema/taxonomy/grounding vào
 `label_reason` và `event_reason` là field bắt buộc. Teacher prompt yêu cầu teacher
 model sinh reason ngắn, grounded theo bài, thay vì dùng boilerplate sinh sau.
 
+M06 dùng private step-by-step reasoning trong prompt, nhưng không yêu cầu model đưa
+chain-of-thought thô vào output schema. Backend lưu phần reasoning tách riêng trong
+`extraction_runs.reasoning_trace`: provider `reasoning_content` nếu có, `label_reason`,
+`event_reason` và policy cho biết raw CoT không nằm trong `final_output`.
+
 ### Ý Nghĩa Các Switch M02
 
 Các checkbox M02 chủ yếu phục vụ resume/debug:
